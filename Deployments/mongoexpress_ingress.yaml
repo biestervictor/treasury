@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: mongoexpress-ingress
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
     - host: mongoexpress.example.com
       http:
