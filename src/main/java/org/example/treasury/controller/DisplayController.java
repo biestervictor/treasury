@@ -61,6 +61,8 @@ public class DisplayController {
 
     @GetMapping("/list")
     public String getList(@RequestParam(value = "setCode", required = false) String setCode, Model model) {
+
+        displayService.saveDisplay();
         List<Display> displays;
         if (setCode != null && !setCode.isEmpty()) {
             displays = displayService.findBySetCodeIgnoreCase(setCode);

@@ -3,6 +3,8 @@ package org.example.treasury.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.Date;
+
 @Document(collection = "displays")
 public class Display {
 
@@ -11,10 +13,36 @@ public class Display {
     private String setCode;
     private String type;
     private double valueBought;
+    private String vendor;
+    private Date dateBought;
+    private String name;
 
     // Getter und Setter
+
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
     public String get_id() {
         return _id;
+    }
+
+    public String getVendor() {
+        return vendor;
+    }
+
+    public Date getDateBought() {
+        return dateBought;
+    }
+
+    public void setDateBought(Date dateBought) {
+        this.dateBought = dateBought;
+    }
+
+    public void setVendor(String vendor) {
+        this.vendor = vendor;
     }
 
     public void set_id(String _id) {

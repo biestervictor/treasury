@@ -39,6 +39,9 @@
             <th>Set Code</th>
             <th>Typ</th>
             <th>Wert</th>
+            <th>Name</th>
+            <th>Verkäufer</th>
+            <th>Kaufdatum</th>
         </tr>
         </thead>
         <tbody>
@@ -47,6 +50,9 @@
             <td th:text="${display.setCode}"></td>
             <td th:text="${display.type}"></td>
             <td th:text="${display.valueBought}"></td>
+            <td th:text="${display.name}"></td>
+            <td th:text="${display.vendor}"></td>
+            <td th:text="${#dates.format(display.dateBought, 'yyyy-MM-dd')}"></td>
         </tr>
         </tbody>
     </table>
