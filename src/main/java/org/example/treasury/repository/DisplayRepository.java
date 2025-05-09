@@ -9,9 +9,6 @@ import java.util.List;
 
 @Repository
 public interface DisplayRepository extends MongoRepository<Display, String> {
-    // Benutzerdefinierte Abfrage, um Displays nach setCode zu finden
-    List<Display> findBySetCode(String setCode);
-
     // Benutzerdefinierte Abfrage, um Displays nach type zu finden
     List<Display> findByType(String type);
 

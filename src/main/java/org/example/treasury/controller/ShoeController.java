@@ -1,28 +1,28 @@
 package org.example.treasury.controller;
-
 import org.example.treasury.model.Shoe;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.ShoeService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-
 import java.util.List;
 
 @Controller
 @RequestMapping("/api/shoe")
 public class ShoeController {
-    @Autowired
-    CsvImporter csvImporter;
-    @Autowired
-    private ShoeService shoeService;
 
+    private final CsvImporter csvImporter;
+    private final ShoeService shoeService;
+
+    public ShoeController(CsvImporter csvImporter, ShoeService shoeService) {
+        this.csvImporter = csvImporter;
+        this.shoeService = shoeService;
+    }
     // Liste von Schuhen einfügen
     @GetMapping("/insert")
     public String insertShoes(Model model) {
-       if( shoeService.getAllShoes().size()<=0) {
+       if( shoeService.getAllShoes().isEmpty()) {
            List<Shoe> shoes = csvImporter.importCsv("src/main/resources/Schuhe.csv");
            shoeService.saveAllShoes(shoes);
            model.addAttribute("shoe", shoes);

@@ -1,11 +1,8 @@
 package org.example.treasury.controller;
 import java.util.Map;
 import org.example.treasury.model.Display;
-
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.DisplayService;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -16,17 +13,18 @@ import java.util.List;
 @RequestMapping("/api/display")
 public class DisplayController {
 
-    @Autowired
-    private DisplayService displayService;
-    @Autowired
-    CsvImporter csvImporter;
+    private final DisplayService displayService;
+    private final  CsvImporter csvImporter;
 
-
+    public DisplayController( CsvImporter csvImporter, DisplayService displayService) {
+        this.csvImporter = csvImporter;
+        this.displayService = displayService;
+    }
     // Liste von Schuhen einfügen
     @GetMapping("/insert")
     public String insertDisplays(Model model) {
         List<Display> displays=displayService.getAllDisplays();
-        if( displays.size()<=0) {
+        if(displays.isEmpty()) {
             displays = csvImporter.importDisplayCsv("src/main/resources/Displays.csv");
 
             model.addAttribute("displays", displays);

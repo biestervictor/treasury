@@ -54,7 +54,6 @@ public class CsvImporter {
     }
     public List<Display> importDisplayCsv(String filePath) {
         List<Display> displays = new ArrayList<>();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String headerLine = br.readLine(); // Kopfzeile überspringen
@@ -87,19 +86,14 @@ display.setVendor(values[2]);}else {display.setVendor("Nicht dokumentiert");}
 
         return displays;
     }
-    private String convertDisplayType(String type){
-
-        if(type.equals("D")){
-            return DisplayType.DRAFT.name();
-        }else  if(type.equals("P")){
-            return DisplayType.PRERELEASE.name();
-        }else  if(type.equals("C")){
-            return DisplayType.COLLECTOR.name();
-        }else  if(type.equals("S")){
-            return DisplayType.SET.name();
-        }else  if(type.equals("F")){
-            return DisplayType.BUNDLE.name();
-        }
-        return "error";
+    private String convertDisplayType(String type) {
+        return switch (type) {
+            case "D" -> DisplayType.DRAFT.name();
+            case "P" -> DisplayType.PRERELEASE.name();
+            case "C" -> DisplayType.COLLECTOR.name();
+            case "S" -> DisplayType.SET.name();
+            case "F" -> DisplayType.BUNDLE.name();
+            default -> "error";
+        };
     }
 }

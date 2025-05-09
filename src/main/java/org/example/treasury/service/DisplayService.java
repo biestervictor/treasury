@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.stream.Collectors;
-import java.util.Date;
 import java.util.List;
 
 @Service
@@ -49,8 +48,8 @@ public class DisplayService {
 
 
     // Liste von Displas speichern
-    public List<Display> saveAllDisplays(List<Display> displays) {
-        return displayRepository.saveAll(displays);
+    public void saveAllDisplays(List<Display> displays) {
+         displayRepository.saveAll(displays);
     }
 
 
@@ -73,10 +72,10 @@ public class DisplayService {
                                             result.put("totalValue", totalValue);
                                             result.put("count", count);
                                             System.out.println("Count: " + count);
-                                            System.out.println("Set Code: " + list.get(0).getSetCode());
+                                            System.out.println("Set Code: " + list.getFirst().getSetCode());
                                             System.out.println("Average Price: " + averagePrice);
                                             result.put("averagePrice", averagePrice);
-                                            return result != null ? result : new HashMap<>();
+                                            return  result ;
                                         }
                                 )
                         )
