@@ -16,8 +16,26 @@ public class Display {
     private String vendor;
     private Date dateBought;
     private String name;
+    private Date updatedAt;
+    private double currentValue;
 
     // Getter und Setter
+
+    public Date getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Date updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public double getCurrentValue() {
+        return currentValue;
+    }
+
+    public void setCurrentValue(double currentValue) {
+        this.currentValue = currentValue;
+    }
 
     public String getName() {
         return name;

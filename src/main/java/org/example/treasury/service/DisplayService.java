@@ -4,7 +4,9 @@ import org.example.treasury.model.Display;
 import org.example.treasury.repository.DisplayRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 import java.util.Date;
 import java.util.List;
 
@@ -45,15 +47,40 @@ public class DisplayService {
         return displayRepository.findByValueBoughtBetween(minValue, maxValue);
     }
 
-    public void saveDisplay() {
-        Display display = new Display();
-        display.setSetCode("DMR");
-        display.setType("COL");
-        display.setName("Dominaria Remastered");
-        display.setValueBought(139.99);
-        display.setVendor("Games-Island");
-        display.setDateBought(new Date()); // Aktuelles Datum
 
-        displayRepository.save(display);
+    // Liste von Displas speichern
+    public List<Display> saveAllDisplays(List<Display> displays) {
+        return displayRepository.saveAll(displays);
     }
+
+
+    public Map<String, Map<String, Map<String, Object>>> getAggregatedValues() {
+        List<Display> displays = getAllDisplays(); // Holt alle Displays aus der Datenbank
+        return displays.stream()
+                .collect(Collectors.groupingBy(
+                        Display::getSetCode,
+                        Collectors.groupingBy(
+                                Display::getType,
+                                Collectors.collectingAndThen(
+                                        Collectors.toList(),
+                                        list -> {
+                                            double totalValue = list.stream().mapToDouble(Display::getValueBought).sum();
+                                            long count = list.size();
+                                            double averagePrice = count > 0 ? totalValue / count : 0;
+                                            Map<String, Object> result = new HashMap<>();
+                                            System.out.println("---------------------------");
+                                            System.out.println("Total Value: " + totalValue);
+                                            result.put("totalValue", totalValue);
+                                            result.put("count", count);
+                                            System.out.println("Count: " + count);
+                                            System.out.println("Set Code: " + list.get(0).getSetCode());
+                                            System.out.println("Average Price: " + averagePrice);
+                                            result.put("averagePrice", averagePrice);
+                                            return result != null ? result : new HashMap<>();
+                                        }
+                                )
+                        )
+                ));
+    }
+
 }

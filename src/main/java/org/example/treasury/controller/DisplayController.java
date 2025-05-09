@@ -1,7 +1,10 @@
 package org.example.treasury.controller;
-
+import java.util.Map;
 import org.example.treasury.model.Display;
+
+import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.DisplayService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -10,13 +13,39 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Controller
-@RequestMapping("/api/displays")
+@RequestMapping("/api/display")
 public class DisplayController {
 
     @Autowired
     private DisplayService displayService;
+    @Autowired
+    CsvImporter csvImporter;
 
 
+    // Liste von Schuhen einfügen
+    @GetMapping("/insert")
+    public String insertDisplays(Model model) {
+        List<Display> displays=displayService.getAllDisplays();
+        if( displays.size()<=0) {
+            displays = csvImporter.importDisplayCsv("src/main/resources/Displays.csv");
+
+            model.addAttribute("displays", displays);
+            displayService.saveAllDisplays(displays);
+        }else{
+            model.addAttribute("displays",displays);
+        }
+        return "display";
+
+    }
+    @GetMapping("/aggregated")
+    public String getAggregatedValues(Model model) {
+        Map<String,
+                Map<String,
+                        Map<String, Object>>> aggregatedValues = displayService.getAggregatedValues();
+        model.addAttribute("aggregatedValues", aggregatedValues);
+        System.out.println(aggregatedValues);
+        return "aggregated-display";
+    }
     @GetMapping
     public List<Display> getAllDisplays() {
         return displayService.getAllDisplays();
@@ -62,7 +91,7 @@ public class DisplayController {
     @GetMapping("/list")
     public String getList(@RequestParam(value = "setCode", required = false) String setCode, Model model) {
 
-        displayService.saveDisplay();
+
         List<Display> displays;
         if (setCode != null && !setCode.isEmpty()) {
             displays = displayService.findBySetCodeIgnoreCase(setCode);
@@ -71,7 +100,7 @@ public class DisplayController {
         }
         //Comment
         model.addAttribute("displays", displays);
-        return "displays";
+        return "display";
     }
 
 }

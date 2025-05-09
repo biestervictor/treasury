@@ -18,5 +18,19 @@ public class MenueController {
 
         return "index";
     }
+    @GetMapping("/shoeMenue")
+    public String getShoeMenue() {
+
+
+        return "shoeMenue";
+    }
+
+    @GetMapping("/displayMenue")
+    public String getDisplayMenue() {
+
+
+        return "displayMenue";
+    }
+
 
 }
