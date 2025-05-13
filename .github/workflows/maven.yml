@@ -7,6 +7,8 @@
 # documentation.
 
 name: Java CI with Maven
+env:
+  MY_SECRET: ${{ secrets.ACTION_GITHUB_TOKEN }}
 
 on:
   push:
@@ -21,7 +23,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
