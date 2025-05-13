@@ -26,7 +26,7 @@ jobs:
 
     # Optional: Upload dependency graph using CodeQL
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: java
     - name: Perform CodeQL Analysis
