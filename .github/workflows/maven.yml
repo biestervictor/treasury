@@ -28,7 +28,7 @@ jobs:
       - name: Build with Maven
         run: mvn -B package --file pom.xml
       - name: Verwende das Secret
-        run: echo "${{ secrets.MY_SECRET }}"
+        run: echo "${{ secrets.ACTION_GITHUB_TOKEN }}"
 
 
       - name: Initialize CodeQL
