@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="de">
 <head>
-    <title>Displays</title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Aggregierte Displays</title>
     <!-- Bootstrap CSS einbinden -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -9,8 +11,9 @@
             display: none;
         }
     </style>
+
 </head>
-<body class="bg-light">
+<body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">Displayverwaltung</a>
@@ -34,66 +37,43 @@
         </div>
     </div>
 </nav>
-<div class="container mt-5">
-    <h1 class="text-center mb-4">Display-Liste</h1>
 
-    <!-- Formular zur Filterung nach Set Code -->
-    <form action="/api/display/list" class="mb-4" method="get">
-        <div class="row">
-            <div class="col-md-8">
-                <input class="form-control" name="setCode" placeholder="Set Code eingeben" type="text">
-            </div>
-            <div class="col-md-4">
-                <button class="btn btn-primary w-100" type="submit">Filtern</button>
-            </div>
+<div class="container mt-4">
+    <div class="row text-center">
+        <div class="col">
+            <p>Gesamtausgaben:</p>
+            <span th:text="${totalExpenses} + ' €'"></span>
         </div>
-    </form>
-
-    <!-- Button zum Ein-/Ausblenden der ID-Spalte -->
-    <div class="mb-3">
-        <button class="btn btn-secondary" onclick="toggleIdColumn()">ID-Spalte ein-/ausblenden</button>
+        <div class="col">
+            <p>Aktueller Gesamtwert:</p>
+            <span th:text="${currentValue} + ' €'"></span>
+        </div>
     </div>
-
-    <!-- Tabelle zur Anzeige der Displays -->
-    <table class="table table-striped table-hover" data-sort-order="asc" id="displayTable">
-        <thead class="table-dark">
-        <tr>
-            <th class="id-column hidden">ID</th>
-            <th onclick="sortTable(1)">Set Code &#x25B2;&#x25BC;</th>
-            <th>Icon</th>
-            <th>Typ</th>
-            <th>Einkaufspreis</th>
-            <th>Name</th>
-            <th>Verkäufer</th>
-            <th>Kaufdatum</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="display : ${displays}">
-            <td class="id-column hidden" th:text="${display._id}"></td>
-            <td th:text="${display.setCode}"></td>
-            <td>
-            <img th:src="${display.iconUri}" alt="Icon" style="width: 32px; height: 32px;">
-            </td>
-            <td th:text="${display.type}"></td>
-            <td th:text="${display.valueBought}"></td>
-            <td th:text="${display.name}"></td>
-            <td th:text="${display.vendor}"></td>
-            <td th:text="${#dates.format(display.dateBought, 'yyyy-MM-dd')}"></td>
-        </tr>
-        </tbody>
-    </table>
 </div>
-<!-- Bootstrap JS und eigenes Script einbinden -->
+
+<table class="table table-striped table-hover" data-sort-order="asc" id="displayTable">
+    <thead>
+    <tr>
+        <th onclick="sortTable(0)">Set Code &#x25B2;&#x25BC;</th>
+        <th>Icon</th>
+        <th onclick="sortTable(1)">Type &#x25B2;&#x25BC;</th>
+        <th>Anzahl</th>
+        <th>Durchschnittlicher Preis</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="entry : ${aggregatedData}">
+        <td th:text="${entry.setCode}"></td>
+        <td>
+            <img th:src="${entry.iconUri}" alt="Icon" style="width: 32px; height: 32px;">
+        </td>
+        <td th:text="${entry.type}"></td>
+        <td th:text="${entry.count}"></td>
+        <td th:text="${entry.averagePrice} + ' €'"></td>
+    </tr>
+    </tbody>
+</table>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    function toggleIdColumn() {
-        const idColumns = document.querySelectorAll('.id-column');
-        idColumns.forEach(column => {
-            column.classList.toggle('hidden');
-        });
-    }
-</script>
 <script>
     function sortTable(columnIndex) {
         const table = document.getElementById("displayTable");

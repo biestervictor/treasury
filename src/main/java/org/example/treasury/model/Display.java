@@ -5,7 +5,9 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDate;
 import java.util.Date;
+
 @Getter
 @Setter
 @Document(collection = "displays")
@@ -17,8 +19,10 @@ public class Display {
     private String type;
     private double valueBought;
     private String vendor;
-    private Date dateBought;
+    private LocalDate dateBought;
     private String name;
-    private Date updatedAt;
+    private LocalDate updatedAt;
     private double currentValue;
+    private LocalDate setReleaseDate;
+    private String iconUri;
 }

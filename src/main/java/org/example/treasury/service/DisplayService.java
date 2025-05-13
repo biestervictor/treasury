@@ -4,10 +4,11 @@ import org.example.treasury.model.Display;
 import org.example.treasury.repository.DisplayRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.util.Map;
+
 import java.util.HashMap;
-import java.util.stream.Collectors;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class DisplayService {
@@ -49,7 +50,7 @@ public class DisplayService {
 
     // Liste von Displas speichern
     public void saveAllDisplays(List<Display> displays) {
-         displayRepository.saveAll(displays);
+        displayRepository.saveAll(displays);
     }
 
 
@@ -67,15 +68,11 @@ public class DisplayService {
                                             long count = list.size();
                                             double averagePrice = count > 0 ? totalValue / count : 0;
                                             Map<String, Object> result = new HashMap<>();
-                                            System.out.println("---------------------------");
-                                            System.out.println("Total Value: " + totalValue);
                                             result.put("totalValue", totalValue);
                                             result.put("count", count);
-                                            System.out.println("Count: " + count);
-                                            System.out.println("Set Code: " + list.getFirst().getSetCode());
-                                            System.out.println("Average Price: " + averagePrice);
+                                            result.put("iconUri", list.get(0).getIconUri());
                                             result.put("averagePrice", averagePrice);
-                                            return  result ;
+                                            return result;
                                         }
                                 )
                         )

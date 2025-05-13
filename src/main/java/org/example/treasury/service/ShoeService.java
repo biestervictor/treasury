@@ -15,6 +15,7 @@ public class ShoeService {
     public ShoeService(ShoeRepository shoeRepository) {
         this.shoeRepository = shoeRepository;
     }
+
     // Alle Schuhe abrufen
     public List<Shoe> getAllShoes() {
         return shoeRepository.findAll();
@@ -22,7 +23,7 @@ public class ShoeService {
 
     // Liste von Schuhen speichern
     public void saveAllShoes(List<Shoe> shoes) {
-      shoeRepository.saveAll(shoes);
+        shoeRepository.saveAll(shoes);
     }
 
 }

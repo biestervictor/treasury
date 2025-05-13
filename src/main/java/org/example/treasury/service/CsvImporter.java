@@ -2,7 +2,10 @@ package org.example.treasury.service;
 
 import org.example.treasury.model.Display;
 import org.example.treasury.model.DisplayType;
+import org.example.treasury.model.MagicSet;
 import org.example.treasury.model.Shoe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -15,7 +18,18 @@ import java.util.List;
 
 @Service
 public class CsvImporter {
+    Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final ScryFallWebservice scryFallWebservice;
+    private    List<MagicSet> magicSets = new ArrayList<>();
+    public CsvImporter(ScryFallWebservice scryFallWebservice) {
+        this.scryFallWebservice = scryFallWebservice;
+        try {
+            magicSets= scryFallWebservice.getSetList();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
+    }
     public List<Shoe> importCsv(String filePath) {
         List<Shoe> schuhe = new ArrayList<>();
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
@@ -52,6 +66,7 @@ public class CsvImporter {
 
         return schuhe;
     }
+
     public List<Display> importDisplayCsv(String filePath) {
         List<Display> displays = new ArrayList<>();
 
@@ -68,15 +83,31 @@ public class CsvImporter {
 
                 try {
                     Display display = new Display();
-                   // display.setName();
-display.setSetCode(values[0].split("-")[0]);
-display.setType(convertDisplayType(values[0].split("-")[1]));
-display.setValueBought(Double.parseDouble(values[1].replace(",",".")));
-if(values.length>2){
-display.setVendor(values[2]);}else {display.setVendor("Nicht dokumentiert");}
+                    // display.setName();
+                    display.setSetCode(values[0].split("-")[0]);
+                    display.setType(convertDisplayType(values[0].split("-")[1]));
+                    logger.info(display.getSetCode().toLowerCase());
+
+                    //TODO mistery booster existier tnicht... mapping auf MB2
+                    if(!display.getSetCode().toLowerCase().equals("mys")){
+                    MagicSet magicSet = magicSets.stream()
+                            .filter(set -> set.getCode().equalsIgnoreCase(display.getSetCode().toLowerCase()))
+                            .findFirst()
+                            .orElse(null);
+
+                    display.setName(magicSet.getName());
+                    display.setIconUri(magicSet.getIconUri());
+                    display.setSetReleaseDate(magicSet.getReleaseDate());
+                    }
+                    display.setValueBought(Double.parseDouble(values[1].replace(",", ".")));
+                    if (values.length > 2) {
+                        display.setVendor(values[2]);
+                    } else {
+                        display.setVendor("Nicht dokumentiert");
+                    }
 
                     displays.add(display);
-                } catch ( NumberFormatException e) {
+                } catch (NumberFormatException e) {
                     e.printStackTrace(); // Fehlerhafte Zeile überspringen
                 }
             }
@@ -86,6 +117,7 @@ display.setVendor(values[2]);}else {display.setVendor("Nicht dokumentiert");}
 
         return displays;
     }
+
     private String convertDisplayType(String type) {
         return switch (type) {
             case "D" -> DisplayType.DRAFT.name();

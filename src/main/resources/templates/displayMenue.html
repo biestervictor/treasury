@@ -10,7 +10,9 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">Displayverwaltung</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Navigation umschalten">
+        <button aria-controls="navbarNav" aria-expanded="false" aria-label="Navigation umschalten"
+                class="navbar-toggler"
+                data-bs-target="#navbarNav" data-bs-toggle="collapse" type="button">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
@@ -21,6 +23,8 @@
                 <li class="nav-item">
                     <a class="nav-link" th:href="@{/api/display/insert}">Displays importieren</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/api/display/aggregated}">Displays aggregiert</a></li>
                 <li class="nav-item">
                     <a class="nav-link" th:href="@{/api/menue/index}">Hauptmenü</a>
                 </li>
@@ -33,8 +37,9 @@
 <div class="container mt-5">
     <h1 class="text-center mb-4">Menü</h1>
     <div class="text-center">
-        <a href="/api/display/list" class="btn btn-primary btn-lg m-2">Zur Display-Liste</a>
-        <a href="/api/display/insert" class="btn btn-success btn-lg m-2">Zu Display importieren</a>
+        <a class="btn btn-primary btn-lg m-2" href="/api/display/list">Zur Display-Liste</a>
+        <a class="btn btn-success btn-lg m-2" href="/api/display/insert">Zu Display importieren</a>
+        <a class="btn btn-secondary btn-lg m-2" href="/api/display/aggregatedDisplays">Zu aggregierten Displays</a>
     </div>
 </div>
 

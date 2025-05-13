@@ -1,4 +1,5 @@
 package org.example.treasury.controller;
+
 import org.example.treasury.model.Shoe;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.ShoeService;
@@ -6,6 +7,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+
 import java.util.List;
 
 @Controller
@@ -19,22 +21,24 @@ public class ShoeController {
         this.csvImporter = csvImporter;
         this.shoeService = shoeService;
     }
+
     // Liste von Schuhen einfügen
     @GetMapping("/insert")
     public String insertShoes(Model model) {
-       if( shoeService.getAllShoes().isEmpty()) {
-           List<Shoe> shoes = csvImporter.importCsv("src/main/resources/Schuhe.csv");
-           shoeService.saveAllShoes(shoes);
-           model.addAttribute("shoe", shoes);
-       }else{
-           model.addAttribute("shoe",shoeService.getAllShoes());
-       }
+        if (shoeService.getAllShoes().isEmpty()) {
+            List<Shoe> shoes = csvImporter.importCsv("src/main/resources/Schuhe.csv");
+            shoeService.saveAllShoes(shoes);
+            model.addAttribute("shoe", shoes);
+        } else {
+            model.addAttribute("shoe", shoeService.getAllShoes());
+        }
         return "shoe";
 
     }
+
     @GetMapping("/list")
-    public String getList( Model model) {
-        List<Shoe> shoes=shoeService.getAllShoes();
+    public String getList(Model model) {
+        List<Shoe> shoes = shoeService.getAllShoes();
         double totalValueBought = shoes.stream().mapToDouble(Shoe::getValueBought).sum();
         double totalValueStockX = shoes.stream().mapToDouble(Shoe::getValueStockX).sum();
         double totalWinStockX = totalValueStockX - totalValueBought;
@@ -48,6 +52,7 @@ public class ShoeController {
         model.addAttribute("totalValueBought", formattedTotalValueBought);
         model.addAttribute("totalValueStockX", formattedTotalValueStockX);
         model.addAttribute("totalWinStockX", formattedTotalWinStockX);
+
         return "shoe";
     }
 

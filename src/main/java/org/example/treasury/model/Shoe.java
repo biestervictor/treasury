@@ -5,10 +5,11 @@ import lombok.Setter;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
+
 @Getter
 @Setter
 @Document(collection = "shoe")
-public  class Shoe {
+public class Shoe {
     private String name;
     private String typ;
     private String usSize;
