@@ -10,17 +10,19 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class TestConfig {
 
-    @Bean
-    public ShoeRepository shoeRepository() {
-        return Mockito.mock(ShoeRepository.class);
-    }
-    @Bean
-    public DisplayRepository displayRepository() {
-        return Mockito.mock(DisplayRepository.class);
-    }
-    @Bean
-    public PreciousMetalRepository preciousMetalRepository() {
-        return Mockito.mock(PreciousMetalRepository.class);
-    }
+  @Bean
+  public ShoeRepository shoeRepository() {
+    return Mockito.mock(ShoeRepository.class);
+  }
+
+  @Bean
+  public DisplayRepository displayRepository() {
+    return Mockito.mock(DisplayRepository.class);
+  }
+
+  @Bean
+  public PreciousMetalRepository preciousMetalRepository() {
+    return Mockito.mock(PreciousMetalRepository.class);
+  }
 
 }

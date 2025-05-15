@@ -1,29 +1,46 @@
 package org.example.treasury.service;
 
+import java.util.List;
 import org.example.treasury.model.Shoe;
 import org.example.treasury.repository.ShoeRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+/**
+ * ShoeService is a service class that provides methods to interact with the ShoeRepository.
+ */
 
 @Service
+
 public class ShoeService {
 
 
-    private final ShoeRepository shoeRepository;
+  private final ShoeRepository shoeRepository;
 
-    public ShoeService(ShoeRepository shoeRepository) {
-        this.shoeRepository = shoeRepository;
-    }
+  /**
+   * Constructor for ShoeService.
+   *
+   * @param shoeRepository the ShoeRepository instance
+   */
+  public ShoeService(ShoeRepository shoeRepository) {
+    this.shoeRepository = shoeRepository;
+  }
 
-    // Alle Schuhe abrufen
-    public List<Shoe> getAllShoes() {
-        return shoeRepository.findAll();
-    }
+  /**
+   * get all shoes.
+   *
+   * @return a list of all shoes
+   */
+  public List<Shoe> getAllShoes() {
+    return shoeRepository.findAll();
+  }
 
-    // Liste von Schuhen speichern
-    public void saveAllShoes(List<Shoe> shoes) {
-        shoeRepository.saveAll(shoes);
-    }
+  /**
+   * Save all shoes.
+   *
+   * @param shoes the list of shoes to save
+   */
+  public void saveAllShoes(List<Shoe> shoes) {
+    shoeRepository.saveAll(shoes);
+  }
 
 }
