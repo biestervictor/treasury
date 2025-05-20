@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mongoexpress.name }}-app
+
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mongoexpress.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mongoexpress.name }}
+    spec:
+      containers:
+        - name: {{ .Values.mongoexpress.name }}
+          image: "{{ .Values.mongoexpress.image.name }}:{{ .Values.mongoexpress.image.tag }}"
+          env:
+            - name: ME_CONFIG_MONGODB_SERVER
+              value: "{{ .Values.mongodb.name }}-service"
+            - name: ME_CONFIG_MONGODB_PORT
+              value: "{{ .Values.mongodb.service.port }}"
+          ports:
+            - containerPort: {{ .Values.mongoexpress.deployment.port }}

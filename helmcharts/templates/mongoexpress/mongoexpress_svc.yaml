@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mongoexpress.name }}-service
+  labels:
+    app: {{ .Chart.Name }}
+
+spec:
+  selector:
+    app: {{ .Values.mongoexpress.name }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.mongoexpress.service.port }}
+      targetPort: {{ .Values.mongoexpress.deployment.port }}
+  type: {{ .Values.mongoexpress.service.type }}
+
+  #minikube service mongo-express-service --url

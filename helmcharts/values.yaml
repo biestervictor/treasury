@@ -1,0 +1,39 @@
+## MongoDB Express configuration
+mongoexpress:
+  name: mongo-express
+  image:
+    name: mongo-express
+    tag: latest
+  deployment:
+    port: 8081
+  service:
+    port: 8081
+    type: ClusterIP
+  ingress:
+    className: traefik
+    pathType: ImplementationSpecific
+    port: 8081
+    host: mongoexpress.example.com
+## MongoDB configuration
+
+mongodb:
+  name: mongodb
+  deployment:
+    image:
+      name: mongo
+      tag: latest
+    port: 27017
+    replicaCount: 1
+    mountPath: /data/db
+    volumemounts:
+      name: mongo-storage
+      mountPath: /data/db
+  service:
+    port: 27017
+    type: LoadBalancer
+  pvc:
+    name: mongostorage
+    accessModes: ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
