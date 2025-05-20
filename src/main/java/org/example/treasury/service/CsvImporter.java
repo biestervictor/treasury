@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CsvImporter {
-  private final ScryFallWebservice scryFallWebservice;
+
   Logger logger = LoggerFactory.getLogger(this.getClass());
   private List<MagicSet> magicSets = new ArrayList<>();
 
@@ -32,7 +32,7 @@ public class CsvImporter {
    */
 
   public CsvImporter(ScryFallWebservice scryFallWebservice) {
-    this.scryFallWebservice = scryFallWebservice;
+
     try {
       magicSets = scryFallWebservice.getSetList();
     } catch (Exception e) {
@@ -49,7 +49,7 @@ public class CsvImporter {
    */
 
   public List<Shoe> importCsv(String filePath) {
-    List<Shoe> schuhe = new ArrayList<>();
+    List<Shoe> shoes = new ArrayList<>();
     SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
     try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
@@ -75,7 +75,7 @@ public class CsvImporter {
           shoe.setValueStockX(Double.parseDouble(values[6].replace("€", "").replace(",", ".")));
           shoe.setWinStockX(shoe.getValueStockX() - shoe.getValueBought());
 
-          schuhe.add(shoe);
+          shoes.add(shoe);
         } catch (ParseException | NumberFormatException e) {
           e.printStackTrace(); // Fehlerhafte Zeile überspringen
         }
@@ -84,7 +84,7 @@ public class CsvImporter {
       e.printStackTrace();
     }
 
-    return schuhe;
+    return shoes;
   }
 
   /**

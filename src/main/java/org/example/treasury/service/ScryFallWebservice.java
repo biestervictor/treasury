@@ -22,7 +22,18 @@ import org.springframework.stereotype.Service;
 @Service
 
 public class ScryFallWebservice {
+  private final MagicSetService magicSetService;
   Logger logger = LoggerFactory.getLogger(this.getClass());
+
+  /**
+   * Constructor for ScryFallWebservice.
+   *
+   * @param magicSetService the MagicSetService instance
+   */
+
+  public ScryFallWebservice(MagicSetService magicSetService) {
+    this.magicSetService = magicSetService;
+  }
 
   /**
    * getSetList fetches a list of Magic: The Gathering sets from the ScryFall API.
