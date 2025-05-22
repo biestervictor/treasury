@@ -24,7 +24,7 @@ spec:
               mountPath: {{ .Values.mongodb.statefulset.mountPath }}
   volumeClaimTemplates:
     - metadata:
-        name: mongo-storage
+        name: {{ .Values.mongodb.volumeClaimTemplates.name }}
       spec:
         accessModes: [ {{ .Values.mongodb.volumeClaimTemplates.accessModes }} ]
         resources:

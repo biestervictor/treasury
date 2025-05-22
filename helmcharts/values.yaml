@@ -26,13 +26,12 @@ mongodb:
     replicaCount: 1
     mountPath: /data/db
     volumemounts:
-      name: mongo-storage
       mountPath: /data/db
   service:
     port: 27017
     type: LoadBalancer
   volumeClaimTemplates:
-    name: mongostorage
+    name: mongo-storage
     accessModes: ReadWriteOnce
     resources:
       requests:
