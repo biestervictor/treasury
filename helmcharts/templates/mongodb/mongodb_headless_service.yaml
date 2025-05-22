@@ -1,0 +1,12 @@
+# helmcharts/templates/mongodb/mongodb_headless_service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mongodb.name }}-headless
+spec:
+  ports:
+    - port: {{ .Values.mongodb.statefulset.port }}
+      name: mongo
+  clusterIP: None
+  selector:
+    app: {{ .Values.mongodb.name }}

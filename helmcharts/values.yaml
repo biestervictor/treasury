@@ -18,12 +18,12 @@ mongoexpress:
 
 mongodb:
   name: mongodb
-  deployment:
+  statefulset:
     image:
       name: mongo
       tag: latest
     port: 27017
-    replicaCount: 2
+    replicaCount: 1
     mountPath: /data/db
     volumemounts:
       name: mongo-storage
@@ -31,7 +31,7 @@ mongodb:
   service:
     port: 27017
     type: LoadBalancer
-  pvc:
+  volumeClaimTemplates:
     name: mongostorage
     accessModes: ReadWriteOnce
     resources:

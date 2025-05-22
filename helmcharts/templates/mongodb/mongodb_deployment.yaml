@@ -1,7 +1,7 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: {{ .Values.mongodb.name }}-app
+  name: {{ .Values.mongodb.name }}-statefulset
 spec:
   replicas: {{ .Values.mongodb.deployment.replicaCount }}
   selector:
@@ -20,7 +20,11 @@ spec:
           volumeMounts:
             - mountPath: {{ .Values.mongodb.deployment.volumemounts.mountPath }}
               name: {{ .Values.mongodb.deployment.volumemounts.name }}
-      volumes:
-        - name: {{ .Values.mongodb.deployment.volumemounts.name }}
-          persistentVolumeClaim:
-            claimName: "{{ .Values.mongodb.pvc.name }}-pvc"
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-storage
+      spec:
+        accessModes: [ {{ .Values.mongodb.pvc.accessModes }} ]
+        resources:
+          requests:
+            storage: {{ .Values.mongodb.pvc.resources.requests.storage }}

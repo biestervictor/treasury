@@ -1,0 +1,32 @@
+# helmcharts/templates/mongodb/mongodb_statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.mongodb.name }}
+spec:
+  serviceName: {{ .Values.mongodb.name }}-headless
+  replicas: {{ .Values.mongodb.statefulset.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mongodb.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mongodb.name }}
+    spec:
+      containers:
+        - name: {{ .Values.mongodb.name }}
+          image: "{{ .Values.mongodb.statefulset.image.name }}:{{ .Values.mongodb.deployment.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.mongodb.statefulset.port }}
+          volumeMounts:
+            - name: {{ .Values.mongodb.volumeClaimTemplates.name }}
+              mountPath: {{ .Values.mongodb.statefulset.mountPath }}
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-storage
+      spec:
+        accessModes: [ {{ .Values.mongodb.volumeClaimTemplates.accessModes }} ]
+        resources:
+          requests:
+            storage: {{ .Values.mongodb.volumeClaimTemplates.resources.requests.storage }}
