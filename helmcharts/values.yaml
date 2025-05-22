@@ -23,7 +23,7 @@ mongodb:
       name: mongo
       tag: latest
     port: 27017
-    replicaCount: 1
+    replicaCount: 2
     mountPath: /data/db
     volumemounts:
       name: mongo-storage
