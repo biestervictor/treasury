@@ -1,6 +1,7 @@
 package org.example.treasury.job;
 
 import javax.annotation.PostConstruct;
+import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.ScryFallWebservice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 public class MagicSetJob {
 
   private final ScryFallWebservice scryFallWebservice;
+  private final MagicSetService magicSetService;
   Logger logger = LoggerFactory.getLogger(this.getClass());
 
   /**
@@ -23,8 +25,9 @@ public class MagicSetJob {
    *
    * @param scryFallWebservice the ScryFallWebservice instance
    */
-  public MagicSetJob(ScryFallWebservice scryFallWebservice) {
+  public MagicSetJob(ScryFallWebservice scryFallWebservice, MagicSetService magicSetService) {
     this.scryFallWebservice = scryFallWebservice;
+    this.magicSetService = magicSetService;
   }
 
   /**
@@ -34,7 +37,9 @@ public class MagicSetJob {
   public void executeOnStartup() {
     try {
       logger.info("Starte Job direkt nach dem Start");
-      scryFallWebservice.getSetList();
+      magicSetService.saveAllMagicSets(
+          scryFallWebservice.getSetList());
+
     } catch (Exception e) {
       logger.error("Job fehlgeschlagen", e);
     }

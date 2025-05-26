@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Displays</title>
+    <!-- Bootstrap CSS einbinden -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<!-- Hauptseite -->
+<div th:replace="navbarDisplay.html"></div>
+
+<button class="btn btn-secondary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#displayFormCollapse"
+        aria-expanded="false" aria-controls="displayFormCollapse">
+    Formular anzeigen/ausblenden
+</button>
+<div class="collapse" id="displayFormCollapse">
+    <form th:action="@{/api/display/save}" th:object="${display}" method="post" class="p-3 border rounded">
+        <div class="row">
+            <div class="col-md-6">
+                <label class="form-label">Set-Code</label>
+                <select class="form-control form-control-sm" th:field="*{setCode}" id="setCodeDropdown" required>
+                    <option th:each="set : ${magicSets}"
+                            th:if="${#strings.length(set.code) <= 3}"
+                            th:value="${set.code}"
+                            th:attr="data-name=${set.name},  data-release=${#temporals.format(set.releaseDate, 'yyyy-MM-dd')}, data-icon-uri=${set.iconUri}"
+                            th:text="${set.code}"></option>
+                </select>
+
+                <label class="form-label">Typ</label>
+                <select class="form-control form-control-sm" th:field="*{type}" required>
+                    <option th:each="tmpType : ${types}"
+                            th:value="${tmpType.name()}"
+                            th:text="${tmpType.name()}"></option>
+                </select>
+
+                <label class="form-label">Kaufwert</label>
+                <input type="number" class="form-control form-control-sm" th:field="*{valueBought}" step="1.0" required>
+
+                <label class="form-label">Verkäufer</label>
+                <input type="text" class="form-control form-control-sm" th:field="*{vendor}" required>
+
+                <label class="form-label">Kaufdatum</label>
+                <input type="date" class="form-control form-control-sm" th:field="*{dateBought}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control form-control-sm" th:field="*{name}" id="setNameField" required>
+
+                <label class="form-label">Letzte Aktualisierung</label>
+                <input type="date" class="form-control form-control-sm" th:field="*{updatedAt}" required>
+
+                <label class="form-label">Aktueller Wert</label>
+                <input type="number" class="form-control form-control-sm" th:field="*{currentValue}" step="0.01">
+
+                <label class="form-label">Set-Veröffentlichungsdatum</label>
+                <input type="date" class="form-control form-control-sm" th:field="*{setReleaseDate}"
+                       id="setReleaseDate">
+                <label class="form-label">Set Icon</label>
+                <img alt="Icon" style="width: 32px; height: 32px;" th:field="*{iconUri}" id="iconUri">
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    const dropdown = document.getElementById('setCodeDropdown');
+                    const nameField = document.getElementById('setNameField');
+                    const releaseField = document.getElementById('setReleaseDate');
+                    const iconField = document.getElementById('iconUri');
+                    dropdown.addEventListener('change', function () {
+                        const selectedOption = dropdown.options[dropdown.selectedIndex];
+                        const setName = selectedOption.getAttribute('data-name');
+                        const setReleaseDate = selectedOption.getAttribute('data-release');
+                        const iconUri = selectedOption.getAttribute('data-icon-uri');
+                        if (setName) {
+                            nameField.value = setName;
+                        }
+                        if (setReleaseDate) {
+                            releaseField.value = setReleaseDate;
+                        }
+                        if (iconUri) {
+                            iconField.src = iconUri;
+                        } else {
+                            iconField.src = ''; // Set a default or empty src if no icon URI is provided
+                        }
+                    });
+                });
+            </script>
+        </div>
+
+        <div class="text-center mt-3">
+            <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+        </div>
+    </form>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 public class CsvImporter {
 
   Logger logger = LoggerFactory.getLogger(this.getClass());
-  private List<MagicSet> magicSets = new ArrayList<>();
+  private List<MagicSet> magicSets;
 
   /**
    * Erstellt eine neue Instanz von CsvImporter mit dem angegebenen ScryFall-Webservice.
@@ -118,12 +118,15 @@ public class CsvImporter {
           //TODO mistery booster existier tnicht... mapping auf MB2
           if (!display.getSetCode().equalsIgnoreCase("mys")) {
             MagicSet magicSet = magicSets.stream()
-                .filter(set -> set.getCode().equalsIgnoreCase(display.getSetCode().toLowerCase()))
-                .findFirst().orElse(null);
+                .filter(set -> set.getCode().equalsIgnoreCase(display.getSetCode()
+                    .toLowerCase())).findFirst().orElse(null);
 
-            display.setName(magicSet.getName());
-            display.setIconUri(magicSet.getIconUri());
-            display.setSetReleaseDate(magicSet.getReleaseDate());
+            if (magicSet != null) {
+              display.setName(magicSet.getName());
+            } else {
+              display.setName("Unbekanntes Set");
+            }
+
           }
           display.setValueBought(Double.parseDouble(values[1].replace(",", ".")));
           if (values.length > 2) {

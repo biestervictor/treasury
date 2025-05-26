@@ -26,6 +26,4 @@ public class Display {
   private String name;
   private LocalDate updatedAt;
   private double currentValue;
-  private LocalDate setReleaseDate;
-  private String iconUri;
 }

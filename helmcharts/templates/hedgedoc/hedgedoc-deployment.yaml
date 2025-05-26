@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hedgedoc-db-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hedgedoc-uploads-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hedgedoc-db
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: hedgedoc-db
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hedgedoc-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hedgedoc-db
+  template:
+    metadata:
+      labels:
+        app: hedgedoc-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:13.4-alpine
+          env:
+            - name: POSTGRES_USER
+              value: hedgedoc
+            - name: POSTGRES_PASSWORD
+              value: password
+            - name: POSTGRES_DB
+              value: hedgedoc
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: hedgedoc-db-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hedgedoc
+spec:
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: hedgedoc
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hedgedoc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hedgedoc
+  template:
+    metadata:
+      labels:
+        app: hedgedoc
+    spec:
+      containers:
+        - name: hedgedoc
+          image: quay.io/hedgedoc/hedgedoc:1.10.3
+          env:
+            - name: CMD_DB_URL
+              value: postgres://hedgedoc:password@hedgedoc-db:5432/hedgedoc
+            - name: CMD_DOMAIN
+              value: localhost
+            - name: CMD_URL_ADDPORT
+              value: "true"
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: uploads
+              mountPath: /hedgedoc/public/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: hedgedoc-uploads-pvc
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hedgedoc-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  rules:
+    - host: hedgedoc.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hedgedoc
+                port:
+                  number: 3000

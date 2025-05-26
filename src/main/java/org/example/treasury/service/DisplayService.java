@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.example.treasury.model.Display;
+import org.example.treasury.model.MagicSet;
 import org.example.treasury.repository.DisplayRepository;
 import org.springframework.stereotype.Service;
 
@@ -18,13 +19,17 @@ public class DisplayService {
 
   private final DisplayRepository displayRepository;
 
+
+  List<MagicSet> magicSets;
+
   /**
    * Constructor for DisplayService.
    *
    * @param displayRepository the DisplayRepository instance
    */
-  public DisplayService(DisplayRepository displayRepository) {
+  public DisplayService(DisplayRepository displayRepository, MagicSetService magicSetService) {
     this.displayRepository = displayRepository;
+
   }
 
   /**
@@ -127,7 +132,6 @@ public class DisplayService {
                       Map<String, Object> result = new HashMap<>();
                       result.put("totalValue", totalValue);
                       result.put("count", count);
-                      result.put("iconUri", list.getFirst().getIconUri());
                       result.put("averagePrice", averagePrice);
                       return result;
                     }

@@ -1,18 +1,24 @@
 package org.example.treasury.controller;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.example.treasury.model.AggregatedDisplay;
 import org.example.treasury.model.Display;
+import org.example.treasury.model.DisplayType;
+import org.example.treasury.model.MagicSet;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.DisplayService;
+import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.ScryFallWebservice;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -31,7 +37,9 @@ public class DisplayController {
 
   private final DisplayService displayService;
   private final CsvImporter csvImporter;
-  private final ScryFallWebservice scryFallWebservice;
+
+  private final MagicSetService magicSetService;
+  private List<MagicSet> magicSets;
 
   /**
    * Constructor for DisplayController.
@@ -41,10 +49,28 @@ public class DisplayController {
    * @param scryFallWebservice scryFallWebservice
    */
   public DisplayController(CsvImporter csvImporter, DisplayService displayService,
-                           ScryFallWebservice scryFallWebservice) {
+                           MagicSetService magicSetService) {
     this.csvImporter = csvImporter;
     this.displayService = displayService;
-    this.scryFallWebservice = scryFallWebservice;
+
+    this.magicSetService = magicSetService;
+    magicSets= magicSetService.getAllMagicSets();
+  }
+
+  @GetMapping("/new")
+  public String addDisplay(Model model) throws Exception {
+    List<MagicSet> magicSets = magicSetService.getAllMagicSets();
+
+    model.addAttribute("types", Arrays.stream(DisplayType.values()).toList());
+    model.addAttribute("magicSets", magicSets);
+    model.addAttribute("display", new Display());
+    return "addDisplay";
+  }
+
+  @PostMapping("/save")
+  public String saveDisplay(@ModelAttribute Display display) {
+    displayService.saveDisplay(display);
+    return "redirect:/api/display/list";
   }
 
   /**
@@ -60,10 +86,14 @@ public class DisplayController {
       displays = csvImporter.importDisplayCsv("src/main/resources/Displays.csv");
 
       model.addAttribute("displays", displays);
+
       displayService.saveAllDisplays(displays);
     } else {
       model.addAttribute("displays", displays);
     }
+    Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
+        Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
+    model.addAttribute("setCodeToIconUri", setCodeToIconUri);
     return "display";
 
   }
@@ -86,12 +116,17 @@ public class DisplayController {
       entry.setType(type);
       entry.setCount((Long) data.get("count"));
       entry.setAveragePrice((Double) data.get("averagePrice"));
-      entry.setIconUri(data.get("iconUri") != null ? (String) data.get("iconUri") : "");
+
+      magicSets.stream()
+          .filter(magicSet -> magicSet.getCode().equals(setCode))
+          .findFirst()
+          .ifPresent(magicSet -> entry.setIconUri( magicSet.getIconUri()));
+
       aggregatedData.add(entry);
     }));
     aggregatedData.sort(Comparator.comparing(AggregatedDisplay::getSetCode));
     model.addAttribute("aggregatedData", aggregatedData);
-    scryFallWebservice.getSetList();
+
     return "aggregatedDisplays";
   }
 
@@ -203,7 +238,11 @@ public class DisplayController {
     } else {
       displays = displayService.getAllDisplays();
     }
-    //Comment
+
+    Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
+        Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
+    model.addAttribute("setCodeToIconUri", setCodeToIconUri);
+
     model.addAttribute("displays", displays);
     return "display";
   }

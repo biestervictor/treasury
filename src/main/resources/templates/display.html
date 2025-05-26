@@ -11,30 +11,9 @@
     </style>
 </head>
 <body class="bg-light">
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#">Displayverwaltung</a>
-        <button aria-controls="navbarNav" aria-expanded="false" aria-label="Navigation umschalten"
-                class="navbar-toggler"
-                data-bs-target="#navbarNav" data-bs-toggle="collapse" type="button">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/api/display/insert}">Displays importieren</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/api/display/aggregated}">Displays aggregiert</a></li>
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/api/menue/index}">Hauptmenü</a>
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
-<div class="container mt-5">
-    <h1 class="text-center mb-4">Display-Liste</h1>
+<!-- Hauptseite -->
+<div th:replace="navbarDisplay.html"></div>
+
 
     <!-- Formular zur Filterung nach Set Code -->
     <form action="/api/display/list" class="mb-4" method="get">
@@ -71,14 +50,17 @@
         <tr th:each="display : ${displays}">
             <td class="id-column hidden" th:text="${display.id}"></td>
             <td th:text="${display.setCode}"></td>
+
             <td>
-                <img alt="Icon" style="width: 32px; height: 32px;" th:src="${display.iconUri}">
+                <img alt="Icon" style="width: 32px; height: 32px;"
+                     th:src="${setCodeToIconUri[display.setCode] != null ? setCodeToIconUri[display.setCode] : ''}">
             </td>
+
             <td th:text="${display.type}"></td>
             <td th:text="${display.valueBought}"></td>
             <td th:text="${display.name}"></td>
             <td th:text="${display.vendor}"></td>
-            <td th:text="${#dates.format(display.dateBought, 'yyyy-MM-dd')}"></td>
+            <td th:text="${#temporals.format(display.dateBought, 'yyyy-MM-dd')}"></td>
         </tr>
         </tbody>
     </table>
