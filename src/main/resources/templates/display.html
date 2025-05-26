@@ -12,8 +12,8 @@
 </head>
 <body class="bg-light">
 <!-- Hauptseite -->
-<div th:replace="navbarDisplay.html"></div>
-
+<nav th:replace="navbarDisplay.html :: nav"></nav>
+<div th:replace="addDisplay.html :: addForm"></div>
 
     <!-- Formular zur Filterung nach Set Code -->
     <form action="/api/display/list" class="mb-4" method="get">
@@ -66,7 +66,7 @@
     </table>
 </div>
 <!-- Bootstrap JS und eigenes Script einbinden -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
     function toggleIdColumn() {
         const idColumns = document.querySelectorAll('.id-column');
@@ -95,5 +95,6 @@
         table.setAttribute("data-sort-order", isAscending ? "desc" : "asc");
     }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

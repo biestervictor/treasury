@@ -13,7 +13,6 @@ import org.example.treasury.model.MagicSet;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
-import org.example.treasury.service.ScryFallWebservice;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -93,6 +92,7 @@ public class DisplayController {
     Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
     model.addAttribute("setCodeToIconUri", setCodeToIconUri);
+    model.addAttribute("display", new Display());
     return "display";
 
   }
@@ -123,8 +123,12 @@ public class DisplayController {
 
       aggregatedData.add(entry);
     }));
+
+    model.addAttribute("types", Arrays.stream(DisplayType.values()).toList());
+    model.addAttribute("magicSets", magicSets);
     aggregatedData.sort(Comparator.comparing(AggregatedDisplay::getSetCode));
     model.addAttribute("aggregatedData", aggregatedData);
+    model.addAttribute("display", new Display());
 
     return "aggregatedDisplays";
   }
@@ -229,8 +233,6 @@ public class DisplayController {
   @GetMapping("/list")
   public String getList(@RequestParam(value = "setCode", required = false) String setCode,
                         Model model) {
-
-
     List<Display> displays;
     if (setCode != null && !setCode.isEmpty()) {
       displays = displayService.findBySetCodeIgnoreCase(setCode);
@@ -241,7 +243,9 @@ public class DisplayController {
     Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
     model.addAttribute("setCodeToIconUri", setCodeToIconUri);
-
+    model.addAttribute("types", Arrays.stream(DisplayType.values()).toList());
+    model.addAttribute("magicSets", magicSets);
+    model.addAttribute("display", new Display());
     model.addAttribute("displays", displays);
     return "display";
   }

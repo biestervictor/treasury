@@ -1,6 +1,7 @@
 package org.example.treasury.model;
 
 import java.time.LocalDate;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
@@ -26,4 +27,12 @@ public class Display {
   private String name;
   private LocalDate updatedAt;
   private double currentValue;
+
+  /**
+   * Default constructor initializes updatedAt and dateBought to the current date.
+   */
+  public Display() {
+    this.updatedAt=LocalDate.now();
+    this.dateBought=LocalDate.now();
+  }
 }

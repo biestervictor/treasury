@@ -14,9 +14,9 @@
 
 </head>
 <body>
-<!-- Hauptseite -->
-<div th:replace="navbarDisplay.html"></div>
 
+<nav th:replace="navbarDisplay.html :: nav"></nav>
+<div th:replace="addDisplay.html :: addForm"></div>
 
 <div class="container mt-4">
     <div class="row text-center">
