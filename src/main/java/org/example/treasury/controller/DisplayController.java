@@ -46,7 +46,6 @@ public class DisplayController {
    *
    * @param csvImporter        csvImporter
    * @param displayService     displayService
-   * @param scryFallWebservice scryFallWebservice
    */
   public DisplayController(CsvImporter csvImporter, DisplayService displayService,
                            MagicSetService magicSetService) {
