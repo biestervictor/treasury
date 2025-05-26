@@ -1,6 +1,7 @@
 package org.example.treasury;
 
 import org.example.treasury.repository.DisplayRepository;
+import org.example.treasury.repository.MagicSetRepository;
 import org.example.treasury.repository.PreciousMetalRepository;
 import org.example.treasury.repository.ShoeRepository;
 import org.mockito.Mockito;
@@ -14,6 +15,11 @@ public class TestConfig {
   public ShoeRepository shoeRepository() {
     return Mockito.mock(ShoeRepository.class);
   }
+  @Bean
+  public MagicSetRepository magicSetRepository() {
+    return Mockito.mock(MagicSetRepository.class);
+  }
+
 
   @Bean
   public DisplayRepository displayRepository() {
