@@ -1,6 +1,6 @@
 name: Java CI with Maven
 env:
-  MY_SECRET: ${{ secrets.ACTION_GITHUB_TOKEN }}
+  MY_SECRET: ${{ secrets.GITHUB_TOKEN }}
 
 on:
   push:
@@ -50,7 +50,7 @@ jobs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.ACTION_GITHUB_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build Docker image
       run: docker build -t ghcr.io/${{ github.repository }}:latest .
