@@ -1,42 +1,69 @@
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: hedgedoc-uploads-pv
+  namespace: hedgedoc
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/hedgedoc/uploads
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: hedgedoc-db-pv
+  namespace: hedgedoc
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/hedgedoc/db
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: hedgedoc-db-pvc
+  namespace: hedgedoc
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
-
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: hedgedoc-uploads-pvc
+  namespace: hedgedoc
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
-
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: hedgedoc-db
+  namespace: hedgedoc
 spec:
   ports:
     - port: 5432
   selector:
     app: hedgedoc-db
-
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hedgedoc-db
+  namespace: hedgedoc
 spec:
   replicas: 1
   selector:
@@ -64,24 +91,25 @@ spec:
         - name: db-data
           persistentVolumeClaim:
             claimName: hedgedoc-db-pvc
-
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: hedgedoc
+  name: hedgedoc-svc
+  namespace: hedgedoc
 spec:
-  ports:
-    - port: 3000
-      targetPort: 3000
   selector:
     app: hedgedoc
-
+  ports:
+    - port: 443
+      targetPort: 3000
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hedgedoc
+  namespace: hedgedoc
 spec:
   replicas: 1
   selector:
@@ -99,8 +127,14 @@ spec:
             - name: CMD_DB_URL
               value: postgres://hedgedoc:password@hedgedoc-db:5432/hedgedoc
             - name: CMD_DOMAIN
-              value: localhost
+              value: hedgedoc.kubitos.biester.vip
             - name: CMD_URL_ADDPORT
+              value: "false"
+            - name: CMD_ALLOW_ANONYMOUS
+              value: "false"
+            - name: CMD_CSP_ENABLED
+              value: "false"
+            - name: CMD_PROTOCOL_USESSL
               value: "true"
           ports:
             - containerPort: 3000
@@ -116,18 +150,24 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: hedgedoc-ingress
-  namespace: default
+  namespace: hedgedoc
   annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header Content-Security-Policy "default-src 'none'; base-uri 'self'; connect-src 'self' ws://hedgedoc.kubitos.biester.vip https://vimeo.com/api/v2/video/; font-src 'self'; manifest-src 'self' https://hedgedoc.kubitos.biester.vip http://hedgedoc.kubitos.biester.vip; frame-src 'self' https://player.vimeo.com https://www.youtube.com https://gist.github.com *; img-src * data:; script-src http://hedgedoc.kubitos.biester.vip/build/ http://hedgedoc.kubitos.biester.vip/js/ http://hedgedoc.kubitos.biester.vip/config 'unsafe-inline' 'nonce-564dd770-37db-42b6-ac4a-18cb75adaddf' 'sha256-81acLZNZISnyGYZrSuoYhpzwDTTxi7vC1YM4uNxqWaM='; style-src http://hedgedoc.kubitos.biester.vip/build/ http://hedgedoc.kubitos.biester.vip/css/ 'unsafe-inline'; object-src * *; form-action 'self'; media-src *";
 spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - hedgedoc.kubitos.biester.vip
+      secretName: my-tls-secret
   rules:
-    - host: hedgedoc.local
+    - host: hedgedoc.kubitos.biester.vip
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: hedgedoc
+                name: hedgedoc-svc
                 port:
-                  number: 3000
+                  number: 443
