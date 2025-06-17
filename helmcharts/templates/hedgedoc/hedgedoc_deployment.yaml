@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.hedgedoc.name }}-app
+  namespace: {{ .Values.hedgedoc.nameSpace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.hedgedoc.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.hedgedoc.name }}
+    spec:
+      containers:
+        - name: {{ .Values.hedgedoc.name }}
+          image: quay.io/hedgedoc/hedgedoc:1.10.3
+          env:
+            - name: CMD_DB_URL
+              value: postgres://hedgedoc:password@hedgedoc-db:5432/hedgedoc
+            - name: CMD_DOMAIN
+              value: {{ .Values.hedgedoc.ingress.host }}
+            - name: CMD_URL_ADDPORT
+              value: "false"
+            - name: CMD_ALLOW_ANONYMOUS
+              value: "false"
+            - name: CMD_CSP_ENABLED
+              value: "false"
+            - name: CMD_PROTOCOL_USESSL
+              value: "true"
+          ports:
+            - containerPort: {{ .Values.hedgedoc.deployment.port }}
+          volumeMounts:
+            - name: uploads
+              mountPath: {{ .Values.hedgedoc.mountPath }}/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: {{ .Values.hedgedoc.name }}-uploads-pvc
+---

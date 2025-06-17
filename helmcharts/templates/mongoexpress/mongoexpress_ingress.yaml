@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Values.mongoexpress.name }}-ingress
+  namespace: {{ .Values.treasury.nameSpace}}
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
@@ -9,14 +10,14 @@ spec:
   tls:
     - hosts:
         - {{ .Values.mongoexpress.ingress.host }}
-      secretName: my-tls-secret
-  ingressClassName: {{ .Values.mongoexpress.ingress.className }}
+      secretName:  {{ .Values.treasury.secrets}}
+  ingressClassName: {{ .Values.ingress.className }}
   rules:
     - host: {{ .Values.mongoexpress.ingress.host }}
       http:
         paths:
           - path: /
-            pathType: {{ .Values.mongoexpress.ingress.pathType }}
+            pathType: {{ .Values.ingress.pathType }}
             backend:
               service:
                 name: {{ .Values.mongoexpress.name }}-service

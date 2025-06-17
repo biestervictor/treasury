@@ -1,0 +1,28 @@
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.hedgedoc.name }}-ingress
+  namespace: {{ .Values.hedgedoc.nameSpace }}
+ # annotations:
+ #   nginx.ingress.kubernetes.io/configuration-snippet: |
+ #     add_header Content-Security-Policy "default-src 'none'; base-uri 'self'; connect-src 'self' ws://hedgedoc.kubitos.biester.vip https://vimeo.com/api/v2/video/; font-src 'self'; manifest-src 'self' https://hedgedoc.kubitos.biester.vip http://hedgedoc.kubitos.biester.vip; frame-src 'self' https://player.vimeo.com https://www.youtube.com https://gist.github.com *; img-src * data:; script-src http://hedgedoc.kubitos.biester.vip/build/ http://hedgedoc.kubitos.biester.vip/js/ http://hedgedoc.kubitos.biester.vip/config 'unsafe-inline' 'nonce-564dd770-37db-42b6-ac4a-18cb75adaddf' 'sha256-81acLZNZISnyGYZrSuoYhpzwDTTxi7vC1YM4uNxqWaM='; style-src http://hedgedoc.kubitos.biester.vip/build/ http://hedgedoc.kubitos.biester.vip/css/ 'unsafe-inline'; object-src * *; form-action 'self'; media-src *";
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+{{- if .Values.hedgedoc.ingress.tlsEnabled }}
+  tls:
+    - hosts:
+        - {{ .Values.hedgedoc.ingress.host }}
+      secretName: {{ .Values.treasury.secrets }}
+{{- end }}
+  rules:
+    - host: {{ .Values.hedgedoc.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.hedgedoc.name }}-svc
+                port:
+                  number: {{ .Values.hedgedoc.service.port }}

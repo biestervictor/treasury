@@ -1,0 +1,14 @@
+## MongoDB Express configuration
+mongoexpress:
+  ingress:
+    host: mongoexpress.dev.biester.vip
+
+## general
+ingress:
+  className: traefik
+
+## Hedgedoc configuration
+hedgedoc:
+  ingress:
+    host: hedgedoc.dev.biester.vip
+    tlsEnabled: false

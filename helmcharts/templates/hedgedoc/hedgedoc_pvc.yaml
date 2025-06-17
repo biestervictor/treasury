@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.hedgedoc.name }}-db-pvc
+  namespace: {{ .Values.hedgedoc.nameSpace }}
+spec:
+  accessModes:
+    - {{ .Values.volume.accessModes }}
+  resources:
+    requests:
+      storage: {{ .Values.hedgedoc.volumeClaimTemplates.resources.requests.storage }}
+  selector:
+    matchLabels:
+      type: hedgedocdb
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.hedgedoc.name }}-uploads-pvc
+  namespace: {{ .Values.hedgedoc.nameSpace }}
+spec:
+  accessModes:
+    - {{ .Values.volume.accessModes }}
+  resources:
+    requests:
+      storage:  {{ .Values.hedgedoc.volumeClaimTemplates.resources.requests.storage }}
+  selector:
+    matchLabels:
+      type: hedgedocupload

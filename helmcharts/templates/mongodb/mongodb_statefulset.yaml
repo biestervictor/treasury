@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ .Values.mongodb.name }}
+  namespace: {{ .Values.treasury.nameSpace}}
 spec:
   serviceName: {{ .Values.mongodb.name }}-headless
   replicas: {{ .Values.mongodb.statefulset.replicaCount }}
@@ -26,7 +27,7 @@ spec:
     - metadata:
         name: {{ .Values.mongodb.volumeClaimTemplates.name }}
       spec:
-        accessModes: [ {{ .Values.mongodb.volumeClaimTemplates.accessModes }} ]
+        accessModes: [ {{ .Values.volume.accessModes }} ]
         resources:
           requests:
             storage: {{ .Values.mongodb.volumeClaimTemplates.resources.requests.storage }}

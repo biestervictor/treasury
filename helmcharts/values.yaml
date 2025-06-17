@@ -10,12 +10,9 @@ mongoexpress:
     port: 8081
     type: ClusterIP
   ingress:
-    className: nginx
-    pathType: ImplementationSpecific
     port: 8081
     host: mongoexpress.kubitos.biester.vip
 ## MongoDB configuration
-
 mongodb:
   name: mongodb
   statefulset:
@@ -25,14 +22,44 @@ mongodb:
     port: 27017
     replicaCount: 1
     mountPath: /data/db
-    volumemounts:
-      mountPath: /data/db
   service:
     port: 27017
     type: LoadBalancer
   volumeClaimTemplates:
     name: mongo-storage
-    accessModes: ReadWriteOnce
+    resources:
+      requests:
+        storage: 3Gi
+
+volume:
+  accessModes: ReadWriteOnce
+  capacity:
+    storage: 10Gi
+
+ingress:
+  className: nginx
+  pathType: ImplementationSpecific
+
+## Treasury
+treasury:
+  nameSpace: treasury
+  secrets: my-tls-secret
+## Hedgedoc configuration
+hedgedoc:
+  name: hedgedoc
+  nameSpace: hedgedoc
+  mountPath: /data/hedgedoc
+  volumeClaimTemplates:
     resources:
       requests:
         storage: 1Gi
+  deployment:
+    port: 3000
+  service:
+    type: ClusterIP
+    port: 3000
+    nodePort: 30000
+    nodePortEnabled: false
+  ingress:
+    host: hedgedoc.kubitos.biester.vip
+    tlsEnabled: true

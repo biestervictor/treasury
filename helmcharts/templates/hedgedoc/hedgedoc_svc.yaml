@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.hedgedoc.name }}-svc
+  namespace: {{ .Values.hedgedoc.nameSpace }}
+spec:
+  selector:
+    app: {{ .Values.hedgedoc.name }}
+  ports:
+    - port: {{ .Values.hedgedoc.service.port }}
+      targetPort: {{ .Values.hedgedoc.deployment.port }}
+{{- if .Values.hedgedoc.service.nodePortEnabled }}
+      nodePort: {{ .Values.hedgedoc.service.nodePort }}
+{{- end }}
+  type: {{ .Values.hedgedoc.service.type }}
