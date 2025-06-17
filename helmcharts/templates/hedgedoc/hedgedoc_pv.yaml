@@ -5,7 +5,9 @@ metadata:
   labels:
     type: hedgedocupload
 spec:
-  storageClassName: local-path
+{{- if .Values.volume.storageClassNameEnabled }}
+  storageClassName: {{ .Values.volume.storageClassName }}
+{{- end }}
   capacity:
     storage: {{ .Values.volume.capacity.storage }}
   accessModes:
@@ -20,11 +22,12 @@ metadata:
   labels:
     type: hedgedocdb
 spec:
-  storageClassName: local-path
+{{- if .Values.volume.storageClassNameEnabled }}
+  storageClassName: {{ .Values.volume.storageClassName }}
+{{- end }}
   capacity:
     storage: {{ .Values.volume.capacity.storage }}
   accessModes:
     - {{ .Values.volume.accessModes }}
   hostPath:
     path: {{ .Values.hedgedoc.mountPath }}/db
----

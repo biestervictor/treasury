@@ -5,7 +5,9 @@ metadata:
   labels:
     type: mongodb
 spec:
-  storageClassName: local-path
+  {{- if .Values.volume.storageClassNameEnabled }}
+  storageClassName: {{ .Values.volume.storageClassName }}
+  {{- end }}
   capacity:
     storage: {{ .Values.volume.capacity.storage }}
   accessModes:

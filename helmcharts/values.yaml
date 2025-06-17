@@ -35,6 +35,7 @@ volume:
   accessModes: ReadWriteOnce
   capacity:
     storage: 10Gi
+  storageClassNameEnabled: false
 
 ingress:
   className: nginx

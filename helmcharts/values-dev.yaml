@@ -6,6 +6,9 @@ mongoexpress:
 ## general
 ingress:
   className: traefik
+volume:
+  storageClassName: local-path
+  storageClassNameEnabled: true
 
 ## Hedgedoc configuration
 hedgedoc:
