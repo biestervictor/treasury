@@ -111,7 +111,7 @@ public class CsvImporter {
         try {
           Display display = new Display();
           // display.setName();
-          display.setSetCode(values[0].split("-")[0]);
+          display.setSetCode(values[0].split("-")[0].toLowerCase());
           display.setType(convertDisplayType(values[0].split("-")[1]));
           logger.info(display.getSetCode().toLowerCase());
 
