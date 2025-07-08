@@ -1,8 +1,10 @@
 package org.example.treasury;
 
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -12,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ComponentScan(basePackages = {"org.example.treasury.controller", "org.example.treasury.service",
     "org.example.treasury.model", "org.example.treasury.repository", "org.example.treasury.job"})
 @EnableScheduling
+@EnableAsync
 
 public class TreasuryApplication {
 
@@ -21,6 +24,7 @@ public class TreasuryApplication {
    * @param args command line arguments
    */
   public static void main(String[] args) {
+
     SpringApplication.run(TreasuryApplication.class, args);
   }
 

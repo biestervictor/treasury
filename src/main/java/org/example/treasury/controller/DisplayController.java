@@ -5,14 +5,18 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+
 import java.util.stream.Collectors;
 import org.example.treasury.model.AggregatedDisplay;
 import org.example.treasury.model.Display;
 import org.example.treasury.model.DisplayType;
 import org.example.treasury.model.MagicSet;
+import org.example.treasury.service.DisplayPriceCollectorService;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,9 +28,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.slf4j.Logger;
 
 /**
- * Display Contorller.
+ * Display Controller.
  */
 
 @Controller
@@ -34,17 +39,21 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 public class DisplayController {
 
+ Logger logger = LoggerFactory.getLogger(this.getClass());
+
+@Autowired
+private DisplayPriceCollectorService displayPriceCollectorService;
   private final DisplayService displayService;
   private final CsvImporter csvImporter;
 
   private final MagicSetService magicSetService;
-  private List<MagicSet> magicSets;
+  private final List<MagicSet> magicSets;
 
   /**
    * Constructor for DisplayController.
    *
-   * @param csvImporter        csvImporter
-   * @param displayService     displayService
+   * @param csvImporter    csvImporter
+   * @param displayService displayService
    */
   public DisplayController(CsvImporter csvImporter, DisplayService displayService,
                            MagicSetService magicSetService) {
@@ -52,19 +61,36 @@ public class DisplayController {
     this.displayService = displayService;
 
     this.magicSetService = magicSetService;
-    magicSets= magicSetService.getAllMagicSets();
+    magicSets = magicSetService.getAllMagicSets();
   }
 
+  /**
+   * Form to add Display.
+   *
+   * @param model the model to add attributes to
+   * @return the name of the view to render
+   * @throws Exception
+   */
   @GetMapping("/new")
   public String addDisplay(Model model) throws Exception {
-    List<MagicSet> magicSets = magicSetService.getAllMagicSets();
+    try {
+      List<MagicSet> magicSets = magicSetService.getAllMagicSets();
+      model.addAttribute("magicSets", magicSets);
+    } catch (Exception e) {
+      logger.error("Hinzufügen fehlgeschlagen", e);
+    }
 
     model.addAttribute("types", Arrays.stream(DisplayType.values()).toList());
-    model.addAttribute("magicSets", magicSets);
     model.addAttribute("display", new Display());
     return "addDisplay";
   }
 
+  /**
+   * Save Display.
+   *
+   * @param display the display to save
+   * @return redirect to the display list
+   */
   @PostMapping("/save")
   public String saveDisplay(@ModelAttribute Display display) {
     displayService.saveDisplay(display);
@@ -115,11 +141,11 @@ public class DisplayController {
       entry.setType(type);
       entry.setCount((Long) data.get("count"));
       entry.setAveragePrice((Double) data.get("averagePrice"));
-
+entry.setSanitizedMarketPrice( (Double)data.get("relevantPreis"));
       magicSets.stream()
           .filter(magicSet -> magicSet.getCode().equals(setCode))
           .findFirst()
-          .ifPresent(magicSet -> entry.setIconUri( magicSet.getIconUri()));
+          .ifPresent(magicSet -> entry.setIconUri(magicSet.getIconUri()));
 
       aggregatedData.add(entry);
     }));
@@ -140,6 +166,7 @@ public class DisplayController {
    */
   @GetMapping
   public List<Display> getAllDisplays() {
+
     return displayService.getAllDisplays();
   }
 
@@ -239,6 +266,7 @@ public class DisplayController {
     } else {
       displays = displayService.getAllDisplays();
     }
+
 
     Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));

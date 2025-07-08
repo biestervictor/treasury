@@ -35,14 +35,10 @@ public class MagicSetJob {
    */
   @PostConstruct
   public void executeOnStartup() {
-    try {
-      logger.info("Starte Job direkt nach dem Start");
-      magicSetService.saveAllMagicSets(
-          scryFallWebservice.getSetList());
 
-    } catch (Exception e) {
-      logger.error("Job fehlgeschlagen", e);
-    }
+      logger.info("Starte MagicSet Job direkt nach dem Start");
+
+    processJob();
   }
 
   /**
@@ -51,9 +47,15 @@ public class MagicSetJob {
    */
   @Scheduled(cron = "0 0 0 * * *")
   public void execute() {
+
+      logger.info("Starte MagicSet Job");
+    processJob();
+
+  }
+  private void processJob() {
     try {
-      logger.info("Starte Job");
-      scryFallWebservice.getSetList();
+    magicSetService.saveAllMagicSets(
+        scryFallWebservice.getSetList());
     } catch (Exception e) {
       logger.error("Job fehlgeschlagen");
 

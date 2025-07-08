@@ -16,4 +16,5 @@ public class AggregatedDisplay {
   private long count;
   private double averagePrice;
   private String iconUri;
+  private double sanitizedMarketPrice;
 }

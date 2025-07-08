@@ -39,6 +39,7 @@
         <th onclick="sortTable(1)">Type &#x25B2;&#x25BC;</th>
         <th>Anzahl</th>
         <th>Durchschnittlicher Preis</th>
+        <th>Angebote</th>
     </tr>
     </thead>
     <tbody>
@@ -50,6 +51,7 @@
         <td th:text="${entry.type}"></td>
         <td th:text="${entry.count}"></td>
         <td th:text="${entry.averagePrice} + ' €'"></td>
+        <td th:text="${entry.sanitizedMarketPrice} + ' €'"></td>
     </tr>
     </tbody>
 </table>

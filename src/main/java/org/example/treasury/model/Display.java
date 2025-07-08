@@ -1,7 +1,8 @@
 package org.example.treasury.model;
 
+import java.util.List;
 import java.time.LocalDate;
-import lombok.Builder;
+import java.util.ArrayList;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
@@ -27,12 +28,13 @@ public class Display {
   private String name;
   private LocalDate updatedAt;
   private double currentValue;
+  private List<Angebot> angebotList = new ArrayList<>();
 
   /**
    * Default constructor initializes updatedAt and dateBought to the current date.
    */
   public Display() {
-    this.updatedAt=LocalDate.now();
-    this.dateBought=LocalDate.now();
+    this.updatedAt = LocalDate.now();
+    this.dateBought = LocalDate.now();
   }
 }

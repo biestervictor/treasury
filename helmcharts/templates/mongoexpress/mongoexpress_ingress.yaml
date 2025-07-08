@@ -5,6 +5,7 @@ metadata:
   namespace: {{ .Values.treasury.nameSpace}}
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/client-body-buffer-size: "128k"
 
 spec:
   tls:

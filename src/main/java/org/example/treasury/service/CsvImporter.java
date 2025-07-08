@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 public class CsvImporter {
 
   Logger logger = LoggerFactory.getLogger(this.getClass());
-  private List<MagicSet> magicSets;
+  private final List<MagicSet> magicSets;
 
   /**
    * Erstellt eine neue Instanz von CsvImporter mit dem angegebenen ScryFall-Webservice.
@@ -33,12 +33,14 @@ public class CsvImporter {
 
   public CsvImporter(ScryFallWebservice scryFallWebservice) {
 
+    List<MagicSet> sets;
     try {
-      magicSets = scryFallWebservice.getSetList();
+      sets = scryFallWebservice.getSetList();
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      logger.error("Import fehlgeschlagen", e);
+      sets = new ArrayList<>();
     }
-
+    this.magicSets = sets;
   }
 
   /**
@@ -55,6 +57,7 @@ public class CsvImporter {
     try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
       String headerLine = br.readLine(); // Kopfzeile überspringen
       if (headerLine == null) {
+        logger.error("Die CSV-Datei ist leer.");
         throw new IOException("Die CSV-Datei ist leer.");
       }
 
@@ -77,11 +80,11 @@ public class CsvImporter {
 
           shoes.add(shoe);
         } catch (ParseException | NumberFormatException e) {
-          e.printStackTrace(); // Fehlerhafte Zeile überspringen
+          logger.error("Die Zeile konnte nicht geparsed werden.",e);
         }
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.error("Fehler beim importieren",e);
     }
 
     return shoes;
@@ -100,6 +103,7 @@ public class CsvImporter {
     try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
       String headerLine = br.readLine(); // Kopfzeile überspringen
       if (headerLine == null) {
+        logger.error("Die CSV-Datei ist leer.");
         throw new IOException("Die CSV-Datei ist leer.");
       }
 
@@ -137,11 +141,11 @@ public class CsvImporter {
 
           displays.add(display);
         } catch (NumberFormatException e) {
-          e.printStackTrace(); // Fehlerhafte Zeile überspringen
+          logger.error("Die Zeile konnte nicht geparsed werden.",e);
         }
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.error("Fehler beim importieren",e);
     }
 
     return displays;

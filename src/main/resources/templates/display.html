@@ -44,6 +44,7 @@
             <th>Name</th>
             <th>Verkäufer</th>
             <th>Kaufdatum</th>
+            <th>Angebote</th>
         </tr>
         </thead>
         <tbody>
@@ -61,6 +62,15 @@
             <td th:text="${display.name}"></td>
             <td th:text="${display.vendor}"></td>
             <td th:text="${#temporals.format(display.dateBought, 'yyyy-MM-dd')}"></td>
+            <td>
+                <ul>
+                    <ul>
+                        <li th:each="angebot, iterStat : ${display.angebotList}"
+                            th:if="${iterStat.index} < 3"
+                            th:text="${angebot.name + ' - ' + angebot.preis + ' €'}"></li>
+                    </ul>
+                </ul>
+            </td>
         </tr>
         </tbody>
     </table>
