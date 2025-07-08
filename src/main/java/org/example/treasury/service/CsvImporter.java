@@ -22,8 +22,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class CsvImporter {
 
-  Logger logger = LoggerFactory.getLogger(this.getClass());
   private final List<MagicSet> magicSets;
+  Logger logger = LoggerFactory.getLogger(this.getClass());
 
   /**
    * Erstellt eine neue Instanz von CsvImporter mit dem angegebenen ScryFall-Webservice.
@@ -80,11 +80,11 @@ public class CsvImporter {
 
           shoes.add(shoe);
         } catch (ParseException | NumberFormatException e) {
-          logger.error("Die Zeile konnte nicht geparsed werden.",e);
+          logger.error("Die Zeile konnte nicht geparsed werden.", e);
         }
       }
     } catch (IOException e) {
-      logger.error("Fehler beim importieren",e);
+      logger.error("Fehler beim importieren", e);
     }
 
     return shoes;
@@ -141,11 +141,11 @@ public class CsvImporter {
 
           displays.add(display);
         } catch (NumberFormatException e) {
-          logger.error("Die Zeile konnte nicht geparsed werden.",e);
+          logger.error("Die Zeile konnte nicht geparsed werden.", e);
         }
       }
     } catch (IOException e) {
-      logger.error("Fehler beim importieren",e);
+      logger.error("Fehler beim importieren", e);
     }
 
     return displays;

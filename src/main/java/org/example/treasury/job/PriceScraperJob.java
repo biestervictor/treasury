@@ -7,6 +7,9 @@ import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.PostConstruct;
 import org.example.treasury.model.Display;
 import org.example.treasury.service.DisplayPriceCollectorService;
@@ -34,9 +37,10 @@ public class PriceScraperJob {
    * Constructor for MagicSetJob.
    *
    * @param displayPriceCollectorService the ScryFallWebservice instance
-   * @param displayService the displayService instance
+   * @param displayService               the displayService instance
    */
-  public PriceScraperJob(DisplayPriceCollectorService displayPriceCollectorService, DisplayService displayService, MagicSetService magicSetService) {
+  public PriceScraperJob(DisplayPriceCollectorService displayPriceCollectorService,
+                         DisplayService displayService, MagicSetService magicSetService) {
     this.displayPriceCollectorService = displayPriceCollectorService;
     this.displayService = displayService;
     this.magicSetService = magicSetService;
@@ -48,8 +52,14 @@ public class PriceScraperJob {
   //TODO Fixen
   @PostConstruct
   public void executeOnStartup() {
-    logger.info("Starte Scraper Job direkt nach dem Start");
-    processJob();
+
+
+    ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    scheduler.schedule(() -> {
+      logger.info("Starte Scraper Job 1 Minute nach Start");
+      processJob();
+      scheduler.shutdown();
+    }, 1, TimeUnit.MINUTES);
   }
 
   /**
@@ -59,37 +69,38 @@ public class PriceScraperJob {
   @Scheduled(cron = "0 0 0 * * *")
   public void execute() {
 
-      logger.info("Starte  Scraper Job");
-      processJob();
+    logger.info("Starte  Scraper Job");
+    processJob();
   }
+
   private void processJob() {
-    try (Playwright playwright = Playwright.create()){
+    try (Playwright playwright = Playwright.create()) {
 
 
+      Browser browser =
+          playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+      Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
+          .setUserAgent(
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
-
-        Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
-        Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
-            .setUserAgent(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
-
-        BrowserContext context = browser.newContext(contextOptions);
+      BrowserContext context = browser.newContext(contextOptions);
       //Release von Set Boostern
-LocalDate releaseOfDraftBoosters= magicSetService.getMagicSetByCode("znr").getFirst()
-    .getReleaseDate();
-      List<String> setCodesUsed= new ArrayList<>();
+      LocalDate releaseOfDraftBoosters = magicSetService.getMagicSetByCode("znr").getFirst()
+          .getReleaseDate();
+      List<String> setCodesUsed = new ArrayList<>();
       for (Display display : displayService.getAllDisplays()) {
-        if(!setCodesUsed.contains(display.getSetCode()+display.getType())) {
+        if (!setCodesUsed.contains(display.getSetCode() + display.getType())) {
 
-          setCodesUsed.add(display.getSetCode()+display.getType());
-          if(!display.getSetCode().equals("mys") && magicSetService.getMagicSetByCode(display.getSetCode()).getFirst().getReleaseDate().isBefore(releaseOfDraftBoosters)){
-            displayPriceCollectorService.runScraper(context,display.getSetCode(),display.getName(),"Alte Displays");
-          }else  if(!display.getSetCode().equals("mys")){
-            displayPriceCollectorService.runScraper(context,display.getSetCode(),display.getName(),display.getType());
-          }
+          setCodesUsed.add(display.getSetCode() + display.getType());
+          boolean isLegacy=  magicSetService.getMagicSetByCode(display.getSetCode()).getFirst().getReleaseDate()
+              .isBefore(releaseOfDraftBoosters);
+
+
+            displayPriceCollectorService.runScraper(context, display,isLegacy);
+
 
         }
-        //Thread.sleep(2000);
+
       }
 
     } catch (Exception e) {

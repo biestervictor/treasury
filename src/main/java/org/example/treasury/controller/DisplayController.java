@@ -5,16 +5,16 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-
 import java.util.stream.Collectors;
 import org.example.treasury.model.AggregatedDisplay;
 import org.example.treasury.model.Display;
 import org.example.treasury.model.DisplayType;
 import org.example.treasury.model.MagicSet;
-import org.example.treasury.service.DisplayPriceCollectorService;
 import org.example.treasury.service.CsvImporter;
+import org.example.treasury.service.DisplayPriceCollectorService;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.slf4j.Logger;
 
 /**
  * Display Controller.
@@ -39,15 +38,13 @@ import org.slf4j.Logger;
 
 public class DisplayController {
 
- Logger logger = LoggerFactory.getLogger(this.getClass());
-
-@Autowired
-private DisplayPriceCollectorService displayPriceCollectorService;
   private final DisplayService displayService;
   private final CsvImporter csvImporter;
-
   private final MagicSetService magicSetService;
   private final List<MagicSet> magicSets;
+  Logger logger = LoggerFactory.getLogger(this.getClass());
+  @Autowired
+  private DisplayPriceCollectorService displayPriceCollectorService;
 
   /**
    * Constructor for DisplayController.
@@ -141,7 +138,7 @@ private DisplayPriceCollectorService displayPriceCollectorService;
       entry.setType(type);
       entry.setCount((Long) data.get("count"));
       entry.setAveragePrice((Double) data.get("averagePrice"));
-entry.setSanitizedMarketPrice( (Double)data.get("relevantPreis"));
+      entry.setSanitizedMarketPrice((Double) data.get("relevantPreis"));
       magicSets.stream()
           .filter(magicSet -> magicSet.getCode().equals(setCode))
           .findFirst()

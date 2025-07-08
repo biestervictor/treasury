@@ -15,6 +15,7 @@ public class TestConfig {
   public ShoeRepository shoeRepository() {
     return Mockito.mock(ShoeRepository.class);
   }
+
   @Bean
   public MagicSetRepository magicSetRepository() {
     return Mockito.mock(MagicSetRepository.class);

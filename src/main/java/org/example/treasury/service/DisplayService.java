@@ -1,16 +1,16 @@
 package org.example.treasury.service;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.example.treasury.model.Angebot;
 import org.example.treasury.model.Display;
-import org.example.treasury.model.MagicSet;
 import org.example.treasury.repository.DisplayRepository;
 import org.springframework.stereotype.Service;
-import org.example.treasury.model.Angebot;
 
 /**
  * DisplayService is a service class that provides methods to interact with the DisplayRepository.
@@ -21,7 +21,6 @@ import org.example.treasury.model.Angebot;
 public class DisplayService {
 
   private final DisplayRepository displayRepository;
-
 
 
   /**
@@ -148,6 +147,7 @@ public class DisplayService {
             )
         ));
   }
+
   private Double getRelevantPreis(Display display) {
     String setCode = display.getSetCode();
     String type = display.getType();
@@ -162,8 +162,12 @@ public class DisplayService {
         .filter(Objects::nonNull)
         .sorted()
         .collect(Collectors.toList());
-    if (preise.isEmpty()) return null;
-    if (preise.size() == 1) return preise.get(0);
+    if (preise.isEmpty()) {
+      return null;
+    }
+    if (preise.size() == 1) {
+      return preise.get(0);
+    }
     double lowest = preise.get(0);
     double second = preise.get(1);
     if (lowest < second * 0.85) {
@@ -172,12 +176,16 @@ public class DisplayService {
       return lowest;
     }
   }
-  public void updateAngeboteBySetCodeAndType(String setCode, String type, List<Angebot> neueAngebote) {
+
+  public void updateAngeboteBySetCodeAndType(String setCode, String type,
+                                             List<Angebot> neueAngebote, String url) {
     List<Display> displays = displayRepository.findBySetCodeIgnoreCase(setCode).stream()
         .filter(display -> type.equals(display.getType()))
         .collect(Collectors.toList());
     for (Display display : displays) {
+      display.setUrl(url);
       display.setAngebotList(neueAngebote);
+      display.setUpdatedAt(LocalDate.now());
     }
     displayRepository.saveAll(displays);
   }

@@ -1,8 +1,8 @@
 package org.example.treasury.model;
 
-import java.util.List;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
@@ -28,6 +28,7 @@ public class Display {
   private String name;
   private LocalDate updatedAt;
   private double currentValue;
+  private String url;
   private List<Angebot> angebotList = new ArrayList<>();
 
   /**
