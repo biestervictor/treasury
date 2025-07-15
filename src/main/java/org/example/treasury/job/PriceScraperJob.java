@@ -6,6 +6,7 @@ import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -88,7 +89,9 @@ public class PriceScraperJob {
       LocalDate releaseOfDraftBoosters = magicSetService.getMagicSetByCode("znr").getFirst()
           .getReleaseDate();
       List<String> setCodesUsed = new ArrayList<>();
-      for (Display display : displayService.getAllDisplays()) {
+      List<Display> displays = displayService.getAllDisplays();
+      Collections.shuffle(displays);
+      for (Display display : displays) {
         if (!setCodesUsed.contains(display.getSetCode() + display.getType())) {
 
           setCodesUsed.add(display.getSetCode() + display.getType());
@@ -106,5 +109,6 @@ public class PriceScraperJob {
     } catch (Exception e) {
       logger.error("Job fehlgeschlagen", e);
     }
+    logger.info("Scraper Job ist beendet");
   }
 }

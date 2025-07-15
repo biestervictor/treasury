@@ -30,6 +30,7 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
               ":\n");
        angebote=requestOffers(context,
           display.getUrl());
+       display.setCurrentValue(display.getRelevantPreis());
 
     } catch (Exception e) {
       logger.error("❌ Fehler beim Scraping: " + e.getMessage());
