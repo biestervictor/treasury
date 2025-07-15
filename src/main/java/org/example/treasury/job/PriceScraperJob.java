@@ -59,7 +59,7 @@ public class PriceScraperJob {
       logger.info("Starte Scraper Job 1 Minute nach Start");
       processJob();
       scheduler.shutdown();
-    }, 1, TimeUnit.MINUTES);
+    }, 2, TimeUnit.MINUTES);
   }
 
   /**
@@ -96,7 +96,7 @@ public class PriceScraperJob {
               .isBefore(releaseOfDraftBoosters);
 
 
-            displayPriceCollectorService.runScraper(context, display,isLegacy);
+          displayPriceCollectorService.runScraper(context, display,isLegacy);
 
 
         }

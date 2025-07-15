@@ -10,6 +10,7 @@ import java.util.List;
 import org.example.treasury.model.Display;
 import org.example.treasury.model.DisplayType;
 import org.example.treasury.model.MagicSet;
+import org.example.treasury.model.SecretLair;
 import org.example.treasury.model.Shoe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,7 +120,7 @@ public class CsvImporter {
           display.setType(convertDisplayType(values[0].split("-")[1]));
           logger.info(display.getSetCode().toLowerCase());
 
-          //TODO mistery booster existier tnicht... mapping auf MB2
+          //TODO mistery booster existier tnicht... mapping auf MB2.. erledigt da cmb2 korrket ist?
           if (!display.getSetCode().equalsIgnoreCase("mys")) {
             MagicSet magicSet = magicSets.stream()
                 .filter(set -> set.getCode().equalsIgnoreCase(display.getSetCode()
@@ -160,5 +161,43 @@ public class CsvImporter {
       case "F" -> DisplayType.BUNDLE.name();
       default -> "error";
     };
+  }
+  public List<SecretLair> importSecretLairCsv(String filePath) {
+    List<SecretLair> secretLairs = new ArrayList<>();
+
+    try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+      String headerLine = br.readLine(); // Kopfzeile überspringen
+      if (headerLine == null) {
+        logger.error("Die CSV-Datei ist leer.");
+        throw new IOException("Die CSV-Datei ist leer.");
+      }
+//Name,Menge,Normal,Foil,Einzelpreis
+      String line;
+      while ((line = br.readLine()) != null) {
+        String[] values = line.split(",");
+        try {
+          SecretLair sl = new SecretLair();
+          sl.setName(values[0].trim());
+          if(sl.getName().isEmpty() && sl.getName().toLowerCase().contains("deck")) {
+           sl.setDeck(true);
+          }
+          int quantity = Integer.parseInt(values[1]);
+          sl.setValueBought(Double.parseDouble(values[4].replace(",", ".")));
+          if (values[3]!=null && values[3].toLowerCase().contains("x")) {
+            sl.setFoil(true);
+          }
+          for(int n = 0; n < quantity; n++) {
+            secretLairs.add(sl);
+          }
+
+        } catch (NumberFormatException e) {
+          logger.error("Die Zeile konnte nicht geparsed werden.", e);
+        }
+      }
+    } catch (IOException e) {
+      logger.error("Fehler beim importieren", e);
+    }
+
+    return secretLairs;
   }
 }

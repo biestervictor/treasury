@@ -12,6 +12,7 @@ import org.example.treasury.model.DisplayType;
 import org.example.treasury.model.MagicSet;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.DisplayPriceCollectorService;
+import org.example.treasury.service.PriceCollectorService;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
 import org.slf4j.Logger;
@@ -43,8 +44,8 @@ public class DisplayController {
   private final MagicSetService magicSetService;
   private final List<MagicSet> magicSets;
   Logger logger = LoggerFactory.getLogger(this.getClass());
-  @Autowired
-  private DisplayPriceCollectorService displayPriceCollectorService;
+
+  private final DisplayPriceCollectorService displayPriceCollectorService;
 
   /**
    * Constructor for DisplayController.
@@ -53,12 +54,14 @@ public class DisplayController {
    * @param displayService displayService
    */
   public DisplayController(CsvImporter csvImporter, DisplayService displayService,
-                           MagicSetService magicSetService) {
+                           MagicSetService magicSetService,
+                           DisplayPriceCollectorService displayPriceCollectorService) {
     this.csvImporter = csvImporter;
     this.displayService = displayService;
 
     this.magicSetService = magicSetService;
     magicSets = magicSetService.getAllMagicSets();
+    this.displayPriceCollectorService = displayPriceCollectorService;
   }
 
   /**
