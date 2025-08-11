@@ -5,6 +5,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import org.example.treasury.model.Display;
@@ -128,6 +129,11 @@ public class CsvImporter {
 
             if (magicSet != null) {
               display.setName(magicSet.getName());
+              LocalDate releaseOfDraftBoosters = magicSets.stream().filter( s -> s.getCode().equals("mkm")).findFirst().get().getReleaseDate();
+             //AB MKM gab es playbooster
+              if(display.getType().equals("DRAFT") && !magicSet.getReleaseDate().isBefore(releaseOfDraftBoosters)) {
+                display.setType(DisplayType.PLAY.name());
+              }
             } else {
               display.setName("Unbekanntes Set");
             }

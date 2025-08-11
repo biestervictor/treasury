@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.example.treasury.model.AggregatedDisplay;
 import org.example.treasury.model.Display;
@@ -268,8 +269,18 @@ public class DisplayController {
     }
 
 
+
     Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
+
+    double sumAktuellerPreis = displays.stream()
+        .map(Display::getCurrentValue)
+        .filter(Objects::nonNull)
+        .mapToDouble(Double::doubleValue)
+        .sum();
+    double sumEinkaufspreis = displays.stream().mapToDouble(Display::getValueBought).sum();
+    model.addAttribute("sumEinkaufspreis", sumEinkaufspreis);
+    model.addAttribute("sumAktuellerPreis", sumAktuellerPreis);
     model.addAttribute("setCodeToIconUri", setCodeToIconUri);
     model.addAttribute("types", Arrays.stream(DisplayType.values()).toList());
     model.addAttribute("magicSets", magicSets);
@@ -277,5 +288,9 @@ public class DisplayController {
     model.addAttribute("displays", displays);
     return "display";
   }
-
+  @PostMapping("/update")
+  public String updateDisplay(@ModelAttribute Display display) {
+    displayService.updateDisplayById(display.getId(), display);
+    return "redirect:/api/display/list";
+  }
 }

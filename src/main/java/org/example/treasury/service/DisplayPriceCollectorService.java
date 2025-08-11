@@ -22,6 +22,11 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     String type = display.getType();
     List<Angebot> angebote= new ArrayList<>();
     String url = buildUrl(setCode, setName, type, isLEgacy);
+    if(display.getLanguage().equals("EN")){
+        url = url.replace("language=1,3", "language=1");
+    }else {
+        url = url.replace("language=1,3", "language=3");
+    }
     display.setUrl(url);
     try {
 
@@ -30,6 +35,7 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
               ":\n");
        angebote=requestOffers(context,
           display.getUrl());
+       display.setAngebotList(angebote);
        display.setCurrentValue(display.getRelevantPreis());
 
     } catch (Exception e) {
@@ -37,8 +43,7 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
       logger.error(setCode + " " + type + " " + url);
 
     }finally {
-      displayService.updateAngeboteBySetCodeAndType(setCode, type, angebote,
-          url);
+      displayService.updateAngeboteBySetCodeAndType(display);
     }
   }
 
@@ -104,7 +109,19 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     } else if (setCode.equals("cmb2")) {
       url =
           "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Mystery-Booster-Convention-Edition-Booster-Box?sellerCountry=7&language=1,3";
+    }else if (setCode.equals("mb2")) {
+      url =
+          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Mystery-Booster-2-Booster-Box?sellerCountry=7&language=1,3";
+    }else if (setCode.equals("who")) {
+      url =
+          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Universes-Beyond-Doctor-Who-Collector-Booster-Box?sellerCountry=7&language=1,3";
+    }else if (setCode.equals("fdn")) {
+      url =
+          " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Foundations-Play-Booster-Box?sellerCountry=7&language=1,3";
     }
+
+
+
 
 
     return url;

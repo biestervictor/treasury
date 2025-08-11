@@ -20,15 +20,17 @@ public abstract class CardMarketModel {
   private String id;
   protected LocalDate updatedAt;
   protected double currentValue;
-  protected String url;
+  protected String url="";
   protected double valueBought;
   protected LocalDate dateBought;
   protected String name;
   protected boolean isSold;
+  protected String location="";
+  protected String language="EN";
   protected List<Angebot> angebotList = new ArrayList<>();
   public Double getRelevantPreis() {
     if (angebotList == null || angebotList.isEmpty()) {
-      return null;
+      return 0.0;
     }
     List<Double> preise = angebotList.stream()
         .map(Angebot::getPreis)
@@ -36,7 +38,7 @@ public abstract class CardMarketModel {
         .sorted()
         .collect(Collectors.toList());
     if (preise.isEmpty()) {
-      return null;
+      return 0.0;
     }
     if (preise.size() == 1) {
       return preise.get(0);

@@ -147,7 +147,18 @@ public class DisplayService {
             )
         ));
   }
-
+  public Display updateDisplayById(String id, Display updatedDisplay) {
+    Display existingDisplay = displayRepository.findById(id).orElse(null);
+    if (existingDisplay == null) {
+      return null;
+    }
+    // Beispiel: Felder aktualisieren
+    existingDisplay.setLocation(updatedDisplay.getLocation());
+    existingDisplay.setSold(updatedDisplay.isSold());
+    existingDisplay.setLanguage(updatedDisplay.getLanguage());
+    // Weitere Felder nach Bedarf ergänzen
+    return displayRepository.save(existingDisplay);
+  }
   private Double getRelevantPreis(Display display) {
     String setCode = display.getSetCode();
     String type = display.getType();
@@ -177,13 +188,18 @@ public class DisplayService {
     }
   }
 
-  public void updateAngeboteBySetCodeAndType(String setCode, String type,
-                                             List<Angebot> neueAngebote, String url) {
+  public void updateAngeboteBySetCodeAndType(Display displayNew) {
+    String setCode = displayNew.getSetCode().toLowerCase();
+    String type = displayNew.getType();
+    List<Angebot> neueAngebote = displayNew.getAngebotList();
+    String url = displayNew.getUrl();
+
     List<Display> displays = displayRepository.findBySetCodeIgnoreCase(setCode).stream()
         .filter(display -> type.equals(display.getType()))
         .collect(Collectors.toList());
     for (Display display : displays) {
       display.setUrl(url);
+      display.setCurrentValue(displayNew.getRelevantPreis());
       display.setAngebotList(neueAngebote);
       display.setUpdatedAt(LocalDate.now());
     }

@@ -2,20 +2,16 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>Displays</title>
-    <!-- Bootstrap CSS einbinden -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .hidden {
-            display: none;
-        }
+        .hidden { display: none; }
+        tr.clickable-row { cursor: pointer; }
     </style>
 </head>
 <body class="bg-light">
-<!-- Hauptseite -->
 <nav th:replace="navbarDisplay.html :: nav"></nav>
 <div th:replace="addDisplay.html :: addForm"></div>
 
-<!-- Formular zur Filterung nach Set Code -->
 <form action="/api/display/list" class="mb-4" method="get">
     <div class="row">
         <div class="col-md-8">
@@ -27,12 +23,17 @@
     </div>
 </form>
 
-<!-- Button zum Ein-/Ausblenden der ID-Spalte -->
 <div class="mb-3">
     <button class="btn btn-secondary" onclick="toggleIdColumn()">ID-Spalte ein-/ausblenden</button>
 </div>
-<span th:text="${setCodeToIconUri['2xm']}"></span>
-<!-- Tabelle zur Anzeige der Displays -->
+<!-- Direkt über der Tabelle einfügen -->
+<div class="mb-3">
+    <strong>Summe Einkaufspreise:</strong>
+    <span th:text="${sumEinkaufspreis} + ' €'"></span>
+    &nbsp; | &nbsp;
+    <strong>Summe Aktueller Preise:</strong>
+    <span th:text="${sumAktuellerPreis} + ' €'"></span>
+</div>
 <table class="table table-striped table-hover" data-sort-order="asc" id="displayTable">
     <thead class="table-dark">
     <tr>
@@ -40,42 +41,105 @@
         <th onclick="sortTable(1)">Set Code &#x25B2;&#x25BC;</th>
         <th>Icon</th>
         <th>Typ</th>
-        <th>Einkaufspreis</th>
         <th>Name</th>
+        <th>Einkaufspreis</th>
+        <th>Aktueller Wert</th>
+        <th>Lagerort</th>
+        <th>Verkauft</th>
+        <th>Sprache</th>
         <th>Verkäufer</th>
         <th>Kaufdatum</th>
+        <th>URL</th>
         <th>Angebote</th>
     </tr>
     </thead>
     <tbody>
-    <tr th:each="display : ${displays}">
+    <tr th:each="display,iter : ${displays}" class="clickable-row"
+        th:attr="data-id=${display.id},
+                 data-setcode=${display.setCode},
+                 data-type=${display.type},
+                 data-name=${display.name},
+                 data-valuebought=${display.valueBought},
+                 data-currentvalue=${display.currentValue},
+                 data-location=${display.location},
+                 data-sold=${display.sold},
+                 data-language=${display.language},
+                 data-vendor=${display.vendor},
+                 data-datebought=${#temporals.format(display.dateBought, 'yyyy-MM-dd')},
+                 data-url=${display.url}">
         <td class="id-column hidden" th:text="${display.id}"></td>
         <td th:text="${display.setCode}"></td>
-
         <td>
             <img alt="Icon" style="width: 32px; height: 32px;"
                  th:src="${setCodeToIconUri[display.setCode] != null ? setCodeToIconUri[display.setCode] : ''}">
         </td>
-
         <td th:text="${display.type}"></td>
-        <td th:text="${display.valueBought}"></td>
         <td th:text="${display.name}"></td>
+        <td th:text="${display.valueBought}"></td>
+        <td th:if="${display.currentValue != null}"
+            th:text="${display.currentValue}"
+            th:classappend="${display.currentValue > display.valueBought} ? 'text-success'">
+        </td>
+        <td th:if="${display.currentValue == null}">–</td>
+        <td th:text="${display.location}"></td>
+        <td th:text="${display.sold}"></td>
+        <td th:text="${display.language}"></td>
         <td th:text="${display.vendor}"></td>
         <td th:text="${#temporals.format(display.dateBought, 'yyyy-MM-dd')}"></td>
+        <td th:if="${display.url != null}">
+            <a th:href="${display.url}" th:text="${display.url}"></a>
+        </td>
+        <td th:if="${display.url == null}">–</td>
         <td>
             <ul>
-                <ul>
-                    <li th:each="angebot, iterStat : ${display.angebotList}"
-                        th:if="${iterStat.index} < 3"
-                        th:text="${angebot.name + ' - ' + angebot.preis + ' €'}"></li>
-                </ul>
+                <li th:each="angebot, iterStat : ${display.angebotList}"
+                    th:if="${iterStat.index} < 3"
+                    th:text="${angebot.name + ' - ' + angebot.preis + ' €'}"></li>
             </ul>
         </td>
     </tr>
     </tbody>
 </table>
+
+<!-- Modal für Bearbeitung -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="/api/display/update" method="post" id="editForm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Display bearbeiten</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="modalId" />
+                    <input type="hidden" name="setCode" id="modalSetCode" />
+                    <input type="hidden" name="type" id="modalType" />
+                    <input type="hidden" name="name" id="modalName" />
+                    <input type="hidden" name="valueBought" id="modalValueBought" />
+                    <input type="hidden" name="currentValue" id="modalCurrentValue" />
+                    <input type="hidden" name="vendor" id="modalVendor" />
+                    <input type="hidden" name="dateBought" id="modalDateBought" />
+                    <input type="hidden" name="url" id="modalUrl" />
+                    <div class="mb-3">
+                        <label for="modalLocation" class="form-label">Lagerort</label>
+                        <input type="text" class="form-control" name="location" id="modalLocation" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalSold" class="form-label">Verkauft</label>
+                        <input type="checkbox" name="sold" id="modalSold" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalLanguage" class="form-label">Sprache</label>
+                        <input type="text" class="form-control" name="language" id="modalLanguage" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Speichern</button>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
-<!-- Bootstrap JS und eigenes Script einbinden -->
 
 <script>
     function toggleIdColumn() {
@@ -84,11 +148,10 @@
             column.classList.toggle('hidden');
         });
     }
-</script>
-<script>
+
     function sortTable(columnIndex) {
         const table = document.getElementById("displayTable");
-        const rows = Array.from(table.rows).slice(1); // Überspringe den Header
+        const rows = Array.from(table.tBodies[0].rows);
         const isAscending = table.getAttribute("data-sort-order") === "asc";
         const direction = isAscending ? 1 : -1;
 
@@ -98,12 +161,29 @@
             return aText.localeCompare(bText) * direction;
         });
 
-        // Sortierte Reihenfolge anwenden
         rows.forEach(row => table.tBodies[0].appendChild(row));
-
-        // Sortierreihenfolge umkehren
         table.setAttribute("data-sort-order", isAscending ? "desc" : "asc");
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.clickable-row').forEach(function(row) {
+            row.addEventListener('click', function() {
+                document.getElementById('modalId').value = row.getAttribute('data-id');
+                document.getElementById('modalSetCode').value = row.getAttribute('data-setcode');
+                document.getElementById('modalType').value = row.getAttribute('data-type');
+                document.getElementById('modalName').value = row.getAttribute('data-name');
+                document.getElementById('modalValueBought').value = row.getAttribute('data-valuebought');
+                document.getElementById('modalCurrentValue').value = row.getAttribute('data-currentvalue');
+                document.getElementById('modalLocation').value = row.getAttribute('data-location');
+                document.getElementById('modalSold').checked = row.getAttribute('data-sold') === 'true';
+                document.getElementById('modalVendor').value = row.getAttribute('data-vendor');
+                document.getElementById('modalDateBought').value = row.getAttribute('data-datebought');
+                document.getElementById('modalUrl').value = row.getAttribute('data-url');
+                document.getElementById('modalLanguage').value = row.getAttribute('data-language');
+                new bootstrap.Modal(document.getElementById('editModal')).show();
+            });
+        });
+    });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

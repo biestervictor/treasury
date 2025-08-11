@@ -13,9 +13,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.PostConstruct;
 import org.example.treasury.model.Display;
+import org.example.treasury.model.SecretLair;
 import org.example.treasury.service.DisplayPriceCollectorService;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
+import org.example.treasury.service.SecretLairPriceCollectorService;
+import org.example.treasury.service.SecretLairService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,8 +33,10 @@ import org.springframework.stereotype.Component;
 public class PriceScraperJob {
 
   private final DisplayPriceCollectorService displayPriceCollectorService;
+  private final SecretLairPriceCollectorService secretLairPriceCollectorService;
   private final DisplayService displayService;
   private final MagicSetService magicSetService;
+  private final SecretLairService secretLairService;
   Logger logger = LoggerFactory.getLogger(this.getClass());
 
   /**
@@ -41,26 +46,31 @@ public class PriceScraperJob {
    * @param displayService               the displayService instance
    */
   public PriceScraperJob(DisplayPriceCollectorService displayPriceCollectorService,
-                         DisplayService displayService, MagicSetService magicSetService) {
+                         SecretLairPriceCollectorService secretLairPriceCollectorService,
+                         DisplayService displayService, MagicSetService magicSetService,
+                         SecretLairService secretLairService) {
     this.displayPriceCollectorService = displayPriceCollectorService;
+    this.secretLairPriceCollectorService = secretLairPriceCollectorService;
     this.displayService = displayService;
     this.magicSetService = magicSetService;
+    this.secretLairService = secretLairService;
   }
 
   /**
    * Method that runs after the bean is initialized.
    */
-  //TODO Fixen
+
   @PostConstruct
   public void executeOnStartup() {
 
 
     ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     scheduler.schedule(() -> {
-      logger.info("Starte Scraper Job 1 Minute nach Start");
-      processJob();
+      logger.info("Starte Scraper Job 200 Minute nach Start");
+      processSecretLairJob();
+      processDisplayJob();
       scheduler.shutdown();
-    }, 2, TimeUnit.MINUTES);
+    }, 200, TimeUnit.MINUTES);
   }
 
   /**
@@ -71,10 +81,34 @@ public class PriceScraperJob {
   public void execute() {
 
     logger.info("Starte  Scraper Job");
-    processJob();
+    processSecretLairJob();
+    processDisplayJob();
   }
+private void processSecretLairJob() {
+  List<SecretLair> secretLairs = secretLairService.getAllSecretLairs();
+  Collections.shuffle(secretLairs);
+  if (secretLairs.isEmpty()) {
 
-  private void processJob() {
+    secretLairService.saveAllSecretLairs(secretLairs);
+  }
+    try (Playwright playwright = Playwright.create()) {
+
+
+      Browser browser =
+          playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+      Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
+          .setUserAgent(
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+
+      BrowserContext context = browser.newContext(contextOptions);
+      secretLairPriceCollectorService.runScraper(context, secretLairs);
+      browser.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+}
+  private void processDisplayJob() {
     try (Playwright playwright = Playwright.create()) {
 
 

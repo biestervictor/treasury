@@ -42,6 +42,10 @@ public class MenueController {
   public String getDisplayMenue() {
     return "displayMenue";
   }
+  @GetMapping("/secretLairMenue")
+  public String getSecretLairMenue() {
+    return "secretLairMenue";
+  }
 
 
 }

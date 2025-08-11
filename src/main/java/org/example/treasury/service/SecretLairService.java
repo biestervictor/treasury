@@ -1,5 +1,6 @@
 package org.example.treasury.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -18,6 +19,9 @@ public class SecretLairService {
     this.secretLairRepository = secretLairRepository;
   }
 
+  public void addSecretLair(SecretLair secretLair) {
+    secretLairRepository.save(secretLair);
+  }
   /**
    * Save all secretlairs.
    *
@@ -26,7 +30,14 @@ public class SecretLairService {
   public void saveAllSecretLairs(List<SecretLair> secretLairs) {
     secretLairRepository.saveAll(secretLairs);
   }
-
+  public void updateSecretLair(String id, String location, Double currentValue, boolean isSold, LocalDate boughtDate) {
+    SecretLair sl = secretLairRepository.findById(id).orElseThrow();
+    sl.setLocation(location);
+    sl.setCurrentValue(currentValue);
+    sl.setSold(isSold);
+    sl.setDateBought(boughtDate);
+    secretLairRepository.save(sl);
+  }
   /**
    * Get all secretlair displays.
    * @return a list of all SecretLair displays
