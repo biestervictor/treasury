@@ -70,7 +70,7 @@ public class PriceScraperJob {
       processSecretLairJob();
       processDisplayJob();
       scheduler.shutdown();
-    }, 200, TimeUnit.MINUTES);
+    }, 1, TimeUnit.MINUTES);
   }
 
   /**
