@@ -7,6 +7,7 @@ import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.example.treasury.model.Display;
 import org.example.treasury.model.MagicSet;
@@ -78,6 +79,17 @@ public class SecretLairController {
        e.printStackTrace();
      }
    }
+    double sumEinkaufspreis = secretLairs.stream()
+        .mapToDouble(SecretLair::getValueBought)
+        .sum();
+    double sumAktuellerWert = secretLairs.stream()
+        .map(SecretLair::getCurrentValue)
+        .filter(Objects::nonNull)
+        .mapToDouble(Double::doubleValue)
+        .sum();
+
+    model.addAttribute("sumEinkaufspreis", sumEinkaufspreis);
+    model.addAttribute("sumAktuellerWert", sumAktuellerWert);
       model.addAttribute("secretlair", secretLairs);
     model.addAttribute("newSecretLair", new SecretLair());
 

@@ -108,8 +108,8 @@ public class SecretLairPriceCollectorService extends PriceCollectorService {
       url="https://www.cardmarket.com/de/Magic/Products/Preconstructed-Decks/Secret-Lair-Commander-Deck-20-Ways-to-Win-Deck?sellerCountry=7";
     }else if(name.toLowerCase().contains("creative")){
       url="https://www.cardmarket.com/de/Magic/Products/Preconstructed-Decks/Commander-Modern-Horizons-3-Creative-Energy-Commander-Deck-Collectors-Edition?sellerCountry=7";
-    }else if(name.toLowerCase().contains("deadeye")){
-      url=" https://www.cardmarket.com/de/Magic/Products/Singles/Secret-Lair-Drop-Series/Deadeye-Navigator?sellerCountry=7&language=1";
+    }else if(name.toLowerCase().contains("dead eye")){
+      url="https://www.cardmarket.com/de/Magic/Products/Singles/Secret-Lair-Drop-Series/Deadeye-Navigator";
     }else if(name.toLowerCase().contains("sol")){
       url=" https://www.cardmarket.com/de/Magic/Products/Singles/Secret-Lair-Drop-Series/Sol-Ring-V2?sellerCountry=7&language=1";
     }
