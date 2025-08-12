@@ -40,4 +40,9 @@ public interface DisplayRepository extends MongoRepository<Display, String> {
    */
   @Query("{ 'setCode': { $regex: ?0, $options: 'i' } }")
   List<Display> findBySetCodeIgnoreCase(String setCode);
+
+  List<Display> findBySetCodeIgnoreCaseAndTypeIgnoreCase(String setCode, String type);
+
+  List<Display> findByTypeIgnoreCase(String type);
+  List<Display> findAll();
 }

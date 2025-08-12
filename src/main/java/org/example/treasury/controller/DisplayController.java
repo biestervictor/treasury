@@ -260,15 +260,18 @@ public class DisplayController {
    */
   @GetMapping("/list")
   public String getList(@RequestParam(value = "setCode", required = false) String setCode,
+                        @RequestParam(value = "type", required = false) String type,
                         Model model) {
     List<Display> displays;
-    if (setCode != null && !setCode.isEmpty()) {
+    if (setCode != null && !setCode.isEmpty() && type != null && !type.isEmpty()) {
+      displays = displayService.findBySetCodeAndType(setCode, type);
+    } else if (setCode != null && !setCode.isEmpty()) {
       displays = displayService.findBySetCodeIgnoreCase(setCode);
+    } else if (type != null && !type.isEmpty()) {
+      displays = displayService.findByTypeIgnoreCase(type);
     } else {
       displays = displayService.getAllDisplays();
     }
-
-
 
     Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));

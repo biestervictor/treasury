@@ -32,6 +32,21 @@ public class DisplayService {
     this.displayRepository = displayRepository;
 
   }
+  public List<Display> findByTypeIgnoreCase(String type) {
+    return displayRepository.findByTypeIgnoreCase(type);
+  }
+
+  public List<Display> findBySetCodeAndType(String setCode, String type) {
+    if (setCode != null && !setCode.isEmpty() && type != null && !type.isEmpty()) {
+      return displayRepository.findBySetCodeIgnoreCaseAndTypeIgnoreCase(setCode, type);
+    } else if (setCode != null && !setCode.isEmpty()) {
+      return displayRepository.findBySetCodeIgnoreCase(setCode);
+    } else if (type != null && !type.isEmpty()) {
+      return displayRepository.findByTypeIgnoreCase(type);
+    } else {
+      return displayRepository.findAll();
+    }
+  }
 
   /**
    * Get all displays.
