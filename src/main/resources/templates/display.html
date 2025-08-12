@@ -54,12 +54,16 @@
         </th>
         <th></th>
         <th>
-            <input class="form-control form-control-sm"
-                   name="type"
-                   placeholder="Typ"
-                   th:value="${param.type}"
-                   form="tableFilterForm"
-                   onchange="document.getElementById('tableFilterForm').submit()">
+            <select class="form-select form-select-sm"
+                    name="type"
+                    form="tableFilterForm"
+                    onchange="document.getElementById('tableFilterForm').submit()">
+                <option value="">Typ wählen</option>
+                <option th:each="t : ${types}"
+                        th:value="${t}"
+                        th:text="${t}"
+                        th:selected="${param.type} == ${t}"></option>
+            </select>
         </th>
         <th></th>
         <th></th>
