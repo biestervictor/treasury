@@ -35,6 +35,7 @@
         <th>Einkaufspreis</th>
         <th>Aktueller Wert</th>
         <th>Lagerort</th>
+        <th>Zuletzt aktualisiert</th>
         <th>Verkauft</th>
         <th>Sprache</th>
         <th>Verkäufer</th>
@@ -75,6 +76,7 @@
         <th></th>
         <th></th>
         <th></th>
+        <th></th>
     </tr>
     </thead>
     <tbody>
@@ -86,6 +88,7 @@
                  data-valuebought=${display.valueBought},
                  data-currentvalue=${display.currentValue},
                  data-location=${display.location},
+                 data-updatedAt=${#temporals.format(display.updatedAt, 'yyyy-MM-dd HH:mm')},
                  data-sold=${display.sold},
                  data-language=${display.language},
                  data-vendor=${display.vendor},
@@ -106,6 +109,7 @@
         </td>
         <td th:if="${display.currentValue == null}">–</td>
         <td th:text="${display.location}"></td>
+        <td th:text="${#temporals.format(display.updatedAt, 'yyyy-MM-dd')}"></td>
         <td th:text="${display.sold}"></td>
         <td th:text="${display.language}"></td>
         <td th:text="${display.vendor}"></td>
