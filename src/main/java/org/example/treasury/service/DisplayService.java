@@ -216,7 +216,9 @@ public class DisplayService {
       display.setUrl(url);
       display.setCurrentValue(displayNew.getRelevantPreis());
       display.setAngebotList(neueAngebote);
+      if(!neueAngebote.isEmpty()){
       display.setUpdatedAt(LocalDate.now());
+      }
     }
     displayRepository.saveAll(displays);
   }
