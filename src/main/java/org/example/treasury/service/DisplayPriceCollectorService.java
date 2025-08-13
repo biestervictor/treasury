@@ -119,6 +119,11 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
       url =
           " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Foundations-Play-Booster-Box?sellerCountry=7&language=1,3";
     }
+    else if (setCode.equals("acr")) {
+      url =
+          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Universes-Beyond-Assassins-Creed-Collector-Booster-Box";
+    }
+
 
 
 
