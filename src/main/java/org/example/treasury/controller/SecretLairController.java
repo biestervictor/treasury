@@ -61,6 +61,7 @@ public class SecretLairController {
   public String insertSecretLair(Model model) {
    List<SecretLair> secretLairs = secretLairService.getAllSecretLairs();
    if (secretLairs.isEmpty()) {
+     System.out.println("secretLairs is empty");
      secretLairs = csvImporter.importSecretLairCsv("src/main/resources/SecretLair.csv");
    secretLairService.saveAllSecretLairs(secretLairs);
      try (Playwright playwright = Playwright.create()) {
