@@ -170,6 +170,7 @@ public class DisplayService {
     // Beispiel: Felder aktualisieren
     existingDisplay.setLocation(updatedDisplay.getLocation());
     existingDisplay.setSold(updatedDisplay.isSold());
+    existingDisplay.setSoldPrice(updatedDisplay.getSoldPrice());
     existingDisplay.setLanguage(updatedDisplay.getLanguage());
     // Weitere Felder nach Bedarf ergänzen
     return displayRepository.save(existingDisplay);

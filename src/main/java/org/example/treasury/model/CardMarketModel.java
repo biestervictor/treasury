@@ -25,6 +25,7 @@ public abstract class CardMarketModel {
   protected LocalDate dateBought;
   protected String name;
   protected boolean isSold;
+  protected double soldPrice;
   protected String location="";
   protected String language="EN";
   protected List<Angebot> angebotList = new ArrayList<>();
