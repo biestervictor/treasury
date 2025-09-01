@@ -70,7 +70,7 @@ public class PriceScraperJob {
       processSecretLairJob();
       processDisplayJob();
       scheduler.shutdown();
-    }, 1, TimeUnit.MINUTES);
+    }, 200, TimeUnit.MINUTES);
   }
 
   /**
@@ -124,6 +124,7 @@ private void processSecretLairJob() {
           .getReleaseDate();
       List<String> setCodesUsed = new ArrayList<>();
       List<Display> displays = displayService.getAllDisplays();
+
       Collections.shuffle(displays);
       for (Display display : displays) {
         if (!setCodesUsed.contains(display.getSetCode() + display.getType())) {
