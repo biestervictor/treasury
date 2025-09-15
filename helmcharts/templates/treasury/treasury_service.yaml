@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: treasury
+  namespace: {{ .Values.treasury.nameSpace}}
+spec:
+  selector:
+    app: treasury
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

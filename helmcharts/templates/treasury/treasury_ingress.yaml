@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: treasury
+  namespace: {{ .Values.treasury.nameSpace}}
+spec:
+  rules:
+    - host: treasury.kubitos.biester.vip
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: treasury
+                port:
+                  number: 80

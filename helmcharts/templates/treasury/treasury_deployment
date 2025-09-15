@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: treasury
+  namespace: {{ .Values.treasury.nameSpace}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: treasury
+  template:
+    metadata:
+      labels:
+        app: treasury
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: treasury
+          image: ghcr.io/biestervictor/treasury:eafd07e45302c5ccac0b50d7f967146b7f4ac07a
+          command: ["java", "-jar", "app.jar"]
+          args: ["--spring.config.name=application-kubitos"]
+          ports:
+            - containerPort: 8080
