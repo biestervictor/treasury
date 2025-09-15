@@ -49,7 +49,7 @@ public class SecretLairController {
   @PostMapping("/add")
   public String addSecretLair(@ModelAttribute SecretLair newSecretLair) {
     secretLairService.addSecretLair(newSecretLair);
-    return "redirect:/api/secretlair/insert";
+    return "redirect:/api/secretLair/insert";
   }
   /**
    * Insert displays from CSV file.
