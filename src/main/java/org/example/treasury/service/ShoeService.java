@@ -13,6 +13,12 @@ import org.springframework.stereotype.Service;
 
 public class ShoeService {
 
+public void updateValueSold(String shoeId, Double valueSold) {
+    Shoe shoe = shoeRepository.findById(shoeId)
+        .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
+    shoe.setValueSold(valueSold);
+    shoeRepository.save(shoe);
+}
 
   private final ShoeRepository shoeRepository;
 

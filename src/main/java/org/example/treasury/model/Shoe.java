@@ -3,6 +3,7 @@ package org.example.treasury.model;
 import java.util.Date;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
@@ -16,6 +17,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Document(collection = "shoe")
 
 public class Shoe {
+  @Id
+  private String id;
   private String name;
   private String typ;
   private String usSize;
@@ -24,6 +27,7 @@ public class Shoe {
   private double valueStockX;
   private double winStockX;
   private Date updatedAt;
+  private double valueSold;
 
 
 }

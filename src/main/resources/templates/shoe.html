@@ -46,8 +46,7 @@
             </div>
             <div class="col">
                 <p>Gewinn/Verlust:</p>
-                <span th:classappend="${totalWinStockX.startsWith('-')} ? 'text-danger' : 'text-success'"
-                      th:text="${totalWinStockX}"></span>
+                <span th:if="${totalWinStockX != null and totalWinStockX.startsWith('-')}"/>
             </div>
         </div>
     </div>
@@ -60,7 +59,9 @@
             <th>Kaufdatum</th>
             <th>Kaufpreis</th>
             <th>Wert laut StockX</th>
+
             <th onclick="sortTable(6)" style="cursor: pointer;">Gewinn StockX &#x25B2;&#x25BC;</th>
+            <th>Verkaufspreis</th>
         </tr>
         </thead>
         <tbody>
@@ -73,8 +74,39 @@
             <td th:text="${shoe.valueStockX} + ' €'"></td>
             <td th:classappend="${shoe.winStockX >= 0} ? 'text-success' : 'text-danger'"
                 th:text="${shoe.winStockX} + ' €'"></td>
+            <td th:if="${shoe.valueSold != null}" th:text="${shoe.valueSold} + ' €'"></td>
+            <td>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" th:attr="data-bs-target='#valueSoldModal__' + ${shoe.id}">
+                    Verkaufspreis aktualisieren
+                </button>
+                <!-- Modal für diesen Schuh -->
+                <div class="modal fade" th:id="'valueSoldModal__' + ${shoe.id}" tabindex="-1" aria-labelledby="valueSoldModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form th:action="@{/api/shoe/updateValueSold}" method="post">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="valueSoldModalLabel">Verkaufspreis aktualisieren</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <input type="hidden" name="id" th:value="${shoe.id}" />
+                                    <div class="mb-3">
+                                        <label for="valueSold" class="form-label">Verkaufspreis (€)</label>
+                                        <input type="number" step="0.01" class="form-control" name="valueSold" id="valueSold" th:value="${shoe.valueSold}" required />
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-success">Speichern</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </td>
+
         </tr>
         </tbody>
+
     </table>
 
     <script>

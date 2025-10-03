@@ -1,5 +1,6 @@
 package org.example.treasury.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 import org.example.treasury.model.Shoe;
 import org.example.treasury.service.CsvImporter;
@@ -7,7 +8,10 @@ import org.example.treasury.service.ShoeService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * ShoeController is a Spring MVC controller that handles requests related to shoes.
@@ -50,6 +54,17 @@ public class ShoeController {
     }
     return "shoe";
 
+  }
+
+
+  @PostMapping("/updateValueSold")
+  public String updateValueSold(
+      @RequestParam String id,
+      @RequestParam Double valueSold,
+      RedirectAttributes redirectAttributes) {
+    shoeService.updateValueSold(id, valueSold);
+    redirectAttributes.addFlashAttribute("message", "Verkaufspreis gespeichert!");
+    return "redirect:/api/shoe/list";
   }
 
   /**
