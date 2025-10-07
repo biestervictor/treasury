@@ -73,7 +73,7 @@ public class ScryFallWebservice {
         //Filter digitale Sets
         if ((!jsonCard.getBoolean("digital") && jsonCard.getInt("card_count") > 0)) {
           magicSets.add(MagicSet.builder().name(jsonCard.getString("name"))
-              .code(jsonCard.getString("code"))
+              .code(jsonCard.getString("code").toUpperCase())
               .uri(jsonCard.getString("uri"))
               .iconUri(jsonCard.getString("icon_svg_uri"))
               .releaseDate(LocalDate.parse(jsonCard.getString("released_at")))
