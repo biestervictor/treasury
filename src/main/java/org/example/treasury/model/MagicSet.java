@@ -27,6 +27,7 @@ public class MagicSet {
   private String name;
   private String uri;
   private String iconUri;
+  private String setType;
   private LocalDate releaseDate;
   private int cardCount;
 

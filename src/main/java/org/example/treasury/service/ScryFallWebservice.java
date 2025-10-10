@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import org.example.treasury.model.MagicSet;
+import org.example.treasury.model.SetType;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -31,7 +32,7 @@ public class ScryFallWebservice {
    * @param magicSetService the MagicSetService instance
    */
 
-  public ScryFallWebservice(MagicSetService magicSetService) {
+  public ScryFallWebservice(MagicSetService magicSetService, DisplayService displayService) {
     this.magicSetService = magicSetService;
   }
 
@@ -70,14 +71,18 @@ public class ScryFallWebservice {
       for (int i = 0; i < data.length(); i++) {
         JSONObject jsonCard = data.getJSONObject(i);
         String setCode = jsonCard.getString("code");
+        String setType=jsonCard.getString("set_type");
+
         //Filter digitale Sets
-        if ((!jsonCard.getBoolean("digital") && jsonCard.getInt("card_count") > 0)) {
+        if (SetType.containsValue(setType)
+            && !jsonCard.getBoolean("digital")
+            && jsonCard.getInt("card_count") > 0) {
           magicSets.add(MagicSet.builder().name(jsonCard.getString("name"))
               .code(jsonCard.getString("code").toUpperCase())
               .uri(jsonCard.getString("uri"))
               .iconUri(jsonCard.getString("icon_svg_uri"))
               .releaseDate(LocalDate.parse(jsonCard.getString("released_at")))
-              .cardCount(jsonCard.getInt("card_count")).build());
+              .cardCount(jsonCard.getInt("card_count")).setType(setType).build());
 
 
         }
