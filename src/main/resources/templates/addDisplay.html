@@ -32,6 +32,8 @@
 
                     <label class="form-label">Kaufdatum</label>
                     <input class="form-control form-control-sm" required th:field="*{dateBought}" type="date">
+                    <label class="form-label">Lagerort</label>
+                    <input class="form-control form-control-sm" required th:field="*{location}" type="text">
                 </div>
 
                 <div class="col-md-6">
@@ -44,6 +46,8 @@
 
                     <label class="form-label">Aktueller Wert</label>
                     <input class="form-control form-control-sm" th:field="*{currentValue}" type="number">
+                    <label class="form-label">Sprache</label>
+                    <input class="form-control form-control-sm" required th:field="*{language}" type="text">
                     <label class="form-label">Set-Veröffentlichungsdatum</label>
                     <br>
                     <span class="text-info" id="setReleaseDateInfo"></span>
