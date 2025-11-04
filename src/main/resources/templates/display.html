@@ -106,10 +106,10 @@
         <td th:text="${display.type}"></td>
         <td th:text="${display.name}"></td>
         <td th:text="${display.valueBought}"></td>
-        <td th:if="${display.currentValue != null}"
-            th:text="${display.currentValue}"
-            th:classappend="${display.currentValue > display.valueBought} ? 'text-success'">
-        </td>
+ <td th:if="${display.currentValue != null}"
+                th:text="${display.currentValue}"
+                th:classappend="${display.currentValue > display.valueBought * 1.5} ? 'text-primary' : (${display.currentValue > display.valueBought} ? 'text-success' : '')">
+            </td>
         <td th:if="${display.currentValue == null}">–</td>
         <td th:text="${display.location}"></td>
         <td th:text="${#temporals.format(display.updatedAt, 'yyyy-MM-dd')}"></td>

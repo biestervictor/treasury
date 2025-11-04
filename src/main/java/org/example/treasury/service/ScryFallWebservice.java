@@ -73,8 +73,8 @@ public class ScryFallWebservice {
         String setCode = jsonCard.getString("code");
         String setType=jsonCard.getString("set_type");
 
-        //Filter digitale Sets
-        if (SetType.containsValue(setType)
+        //Filter digitale Sets und füge bestehende Commander Sets vom Type "Commander" hinzu. Diese werden nicht
+        if (setCode.equals("who")|| SetType.containsValue(setType)
             && !jsonCard.getBoolean("digital")
             && jsonCard.getInt("card_count") > 0) {
           magicSets.add(MagicSet.builder().name(jsonCard.getString("name"))
