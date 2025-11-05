@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Magic Sets Übersicht</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body>
+<nav th:replace="navbarDisplay.html :: nav"></nav>
+<div class="container">
+    <h1 class="mb-4">Magic Sets</h1>
+    <form method="get" th:action="@{/api/sets/filter}" class="row g-3 mb-4">
+
+        <div class="col-auto">
+            <label for="setType" class="col-form-label">SetType filtern:</label>
+        </div>
+        <div class="col-auto">
+            <div class="mb-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="addSetType('core')">core</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="addSetType('funny')">funny</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="addSetType('draft_innovation')">draft_innovation</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addSetType('masters')">masters</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addSetType('expansion')">expansion</button>
+            </div>
+
+        </div>
+        <script>
+            function addSetType(type) {
+                const input = document.getElementById('setType');
+                let values = input.value ? input.value.split(',').map(v => v.trim()) : [];
+                if (!values.includes(type)) {
+                    values.push(type);
+                    input.value = values.filter(v => v).join(',');
+                }
+            }
+        </script>
+        <br>
+        <div class="col-auto">
+
+            <input type="text" id="setType" name="setType" th:value="${setType}" class="form-control">
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-secondary" onclick="clearSetType()">Filter zurücksetzen</button>
+        </div>
+        <script>
+            function clearSetType() {
+                document.getElementById('setType').value = '';
+            }
+        </script>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Filtern</button>
+        </div>
+    </form>
+    <table class="table table-striped table-bordered">
+        <thead class="table-dark">
+        <tr>
+            <th>Name</th>
+            <th>SetType</th>
+            <th>ReleaseDate</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="set : ${sets}">
+            <td th:text="${set.name}">Name</td>
+            <td th:text="${set.setType}">SetType</td>
+            <td th:text="${set.releaseDate}">ReleaseDate</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
