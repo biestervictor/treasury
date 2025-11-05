@@ -67,8 +67,9 @@ public class PriceScraperJob {
     ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     scheduler.schedule(() -> {
       logger.info("Starte Scraper Job 200 Minute nach Start");
-      processSecretLairJob();
       processDisplayJob();
+      processSecretLairJob();
+
       scheduler.shutdown();
     }, 200, TimeUnit.MINUTES);
   }
@@ -94,15 +95,8 @@ private void processSecretLairJob() {
     try (Playwright playwright = Playwright.create()) {
 
 
-      Browser browser =
-          playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
-      Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
-          .setUserAgent(
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+      secretLairPriceCollectorService.runScraper(playwright, secretLairs);
 
-      BrowserContext context = browser.newContext(contextOptions);
-      secretLairPriceCollectorService.runScraper(context, secretLairs);
-      browser.close();
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -112,21 +106,16 @@ private void processSecretLairJob() {
     try (Playwright playwright = Playwright.create()) {
 
 
-      Browser browser =
-          playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
-      Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
-          .setUserAgent(
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
-      BrowserContext context = browser.newContext(contextOptions);
       //Release von Set Boostern
-      LocalDate releaseOfDraftBoosters = magicSetService.getMagicSetByCode("znr").getFirst()
+      LocalDate releaseOfDraftBoosters = magicSetService.getMagicSetByCode("ZNR").getFirst()
           .getReleaseDate();
       List<String> setCodesUsed = new ArrayList<>();
       List<Display> displays = displayService.getAllDisplays();
 
       Collections.shuffle(displays);
       for (Display display : displays) {
+
         if (!setCodesUsed.contains(display.getSetCode() + display.getType())) {
 
           setCodesUsed.add(display.getSetCode() + display.getType());
@@ -134,7 +123,7 @@ private void processSecretLairJob() {
               .isBefore(releaseOfDraftBoosters);
 
 
-          displayPriceCollectorService.runScraper(context, display,isLegacy);
+          displayPriceCollectorService.runScraper(playwright, display,isLegacy);
 
 
         }

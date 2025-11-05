@@ -1,6 +1,9 @@
 package org.example.treasury.service;
 
+import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.BrowserType;
+import com.microsoft.playwright.Playwright;
 import java.util.ArrayList;
 import java.util.List;
 import org.example.treasury.model.Angebot;
@@ -15,8 +18,14 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     this.displayService = displayService;
   }
 
-  public void runScraper(BrowserContext context, Display display, boolean isLEgacy) {
+  public void runScraper(Playwright playwright, Display display, boolean isLEgacy) {
+    Browser browser =
+        playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+    Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
+        .setUserAgent(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
+    BrowserContext context = browser.newContext(contextOptions);
     String setCode = display.getSetCode();
     String setName = display.getName();
     String type = display.getType();
@@ -44,6 +53,7 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
 
     }finally {
       displayService.updateAngeboteBySetCodeAndType(display);
+      browser.close();
     }
   }
 

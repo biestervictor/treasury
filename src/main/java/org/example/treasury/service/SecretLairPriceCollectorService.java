@@ -1,6 +1,9 @@
 package org.example.treasury.service;
 
+import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.BrowserType;
+import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.List;
 import org.example.treasury.model.SecretLair;
@@ -15,8 +18,14 @@ public class SecretLairPriceCollectorService extends PriceCollectorService {
 
   }
 
-  public void runScraper(BrowserContext context, List<SecretLair> secretLairList) {
+  public void runScraper(Playwright playwright, List<SecretLair> secretLairList) {
+    Browser browser =
+        playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+    Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
+        .setUserAgent(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
+    BrowserContext context = browser.newContext(contextOptions);
     for (SecretLair secretLair : secretLairList) {
       try {
         logger.info("🛒 Günstigste Angebote pro Verkäufer von " + secretLair.getName());
@@ -35,6 +44,7 @@ public class SecretLairPriceCollectorService extends PriceCollectorService {
 
       }finally {
         secretLairService.updateSecretLair(secretLair);
+        browser.close();
       }
     }
 

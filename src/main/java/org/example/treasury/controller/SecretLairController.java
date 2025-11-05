@@ -67,15 +67,9 @@ public class SecretLairController {
      try (Playwright playwright = Playwright.create()) {
 
 
-       Browser browser =
-           playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
-       Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
-           .setUserAgent(
-               "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
-       BrowserContext context = browser.newContext(contextOptions);
-     secretLairPriceCollectorService.runScraper(context, secretLairs);
-       browser.close();
+     secretLairPriceCollectorService.runScraper(playwright, secretLairs);
+
      } catch (Exception e) {
        e.printStackTrace();
      }
