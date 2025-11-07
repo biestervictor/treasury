@@ -31,5 +31,19 @@ public class MagicSet {
   private LocalDate releaseDate;
   private int cardCount;
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    MagicSet magicSet = (MagicSet) o;
+    return code != null && code.equals(magicSet.getCode());
+  }
+
+  @Override
+  public int hashCode() {
+    return code != null ? code.hashCode() : 0;
+  }
+
+
 
 }

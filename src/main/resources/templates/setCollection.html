@@ -59,7 +59,8 @@
         </tr>
         </thead>
         <tbody>
-        <tr th:each="set : ${sets}">
+        <tr th:each="set : ${allSets}"
+             th:classappend="${missingSets != null and #lists.contains(missingSets, set)} ? '' : 'table-success'">
             <td th:text="${set.name}">Name</td>
             <td th:text="${set.setType}">SetType</td>
             <td th:text="${set.releaseDate}">ReleaseDate</td>

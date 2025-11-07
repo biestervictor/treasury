@@ -3,6 +3,7 @@ package org.example.treasury.controller;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.example.treasury.model.Display;
 import org.example.treasury.model.MagicSet;
 import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.SetCollectionService;
@@ -27,16 +28,23 @@ private final SetCollectionService setCollectionService;
   @GetMapping("/list")
   public String getSets(Model model) {
     // Beispiel: Sets aus Service holen und nach Typ filtern
-    List<MagicSet> allSets = setCollectionService.getMissingSets();
-        //magicSetService.getAllMagicSets();
-   model.addAttribute("sets", allSets);
+    List<MagicSet> missingSets = setCollectionService.getMissingSets();
+    List<MagicSet> allSets = magicSetService.getAllMagicSets();
+   model.addAttribute("missingSets", missingSets);
+    model.addAttribute("allSets", allSets);
     return "setCollection";
   }
   @GetMapping("/filter")
   public String filter(@RequestParam(required = false) String setType, Model model) {
-    List<MagicSet> allSets = setCollectionService.getMissingSets(Arrays.stream(setType.split(",")).toList());
-    model.addAttribute("sets", allSets);
+    List<MagicSet> missingSets = setCollectionService.getMissingSets(Arrays.stream(setType.split(",")).toList());
+    List<MagicSet> allSets = magicSetService.getAllMagicSets().stream().filter(set ->
+        !set.getName().equalsIgnoreCase("Time Spiral Timeshifted") &&
+        !set.getName().equalsIgnoreCase("The Big Score") &&
+        !Arrays.stream(setType.split(",")).toList().stream().anyMatch(filter -> set.getSetType().equalsIgnoreCase(filter))).toList();
+
+    model.addAttribute("missingSets", missingSets);
     model.addAttribute("setType", setType);
+    model.addAttribute("allSets", allSets);
     return "setCollection";
   }
 
