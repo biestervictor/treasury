@@ -1,7 +1,7 @@
 ## MongoDB Express configuration
 mongoexpress:
   ingress:
-    host: mongoexpress.dev.biester.vip
+    host: mongoexpress-dev.biester.vip
 
 ## general
 ingress:
@@ -12,6 +12,14 @@ volume:
 
 ## Hedgedoc configuration
 hedgedoc:
+  nodeSelector:
   ingress:
-    host: hedgedoc.dev.biester.vip
+    host: hedgedoc-dev.biester.vip
     tlsEnabled: false
+
+    ## Hedgedoc configuration
+treasury:
+  nodeSelector:
+  ingress:
+    host: treasury-dev.biester.vip
+    tlsEnabled: true

@@ -13,6 +13,11 @@ spec:
       labels:
         app: {{ .Values.hedgedoc.name }}
     spec:
+{{- $ns := .Values.hedgedoc.nodeSelector | default dict }}
+{{- if $ns }}
+      nodeSelector:
+{{ toYaml $ns | indent 8 }}
+{{- end }}
       containers:
         - name: {{ .Values.hedgedoc.name }}
           image: quay.io/hedgedoc/hedgedoc:1.10.3
@@ -38,4 +43,3 @@ spec:
         - name: uploads
           persistentVolumeClaim:
             claimName: {{ .Values.hedgedoc.name }}-uploads-pvc
----

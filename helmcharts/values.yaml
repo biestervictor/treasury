@@ -11,7 +11,7 @@ mongoexpress:
     type: ClusterIP
   ingress:
     port: 8081
-    host: mongoexpress.kubitos.biester.vip
+    host: mongoexpress-kubitos.biester.vip
 ## MongoDB configuration
 mongodb:
   name: mongodb
@@ -42,11 +42,17 @@ ingress:
   pathType: ImplementationSpecific
 
 ## Treasury
+imagePullSecret: ChangeIt
 treasury:
   nameSpace: treasury
   secrets: my-tls-secret
+  ingress:
+    host: treasury-kubitos.biester.vip
+    tlsEnabled: true
 ## Hedgedoc configuration
 hedgedoc:
+  nodeSelector:
+    storage: master
   name: hedgedoc
   nameSpace: hedgedoc
   mountPath: /data/hedgedoc
@@ -62,5 +68,5 @@ hedgedoc:
     nodePort: 30000
     nodePortEnabled: false
   ingress:
-    host: hedgedoc.kubitos.biester.vip
+    host: hedgedoc-kubitos.biester.vip
     tlsEnabled: true

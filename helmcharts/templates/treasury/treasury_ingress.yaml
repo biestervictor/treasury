@@ -4,8 +4,15 @@ metadata:
   name: treasury
   namespace: {{ .Values.treasury.nameSpace}}
 spec:
+  ingressClassName: {{ .Values.ingress.className }}
+{{- if .Values.treasury.ingress.tlsEnabled }}
+  tls:
+    - hosts:
+        - {{ .Values.treasury.ingress.host }}
+      secretName: {{ .Values.treasury.secrets }}
+{{- end }}
   rules:
-    - host: treasury.kubitos.biester.vip
+    - host: {{ .Values.treasury.ingress.host }}
       http:
         paths:
           - path: /
