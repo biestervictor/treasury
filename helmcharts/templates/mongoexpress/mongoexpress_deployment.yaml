@@ -17,9 +17,31 @@ spec:
         - name: {{ .Values.mongoexpress.name }}
           image: "{{ .Values.mongoexpress.image.name }}:{{ .Values.mongoexpress.image.tag }}"
           env:
-            - name: ME_CONFIG_MONGODB_SERVER
-              value: "{{ .Values.mongodb.name }}-service"
-            - name: ME_CONFIG_MONGODB_PORT
-              value: "{{ .Values.mongodb.service.port }}"
+            - name: ME_CONFIG_SITE_SESSIONSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mongoexpress.secret.name }}
+                  key: siteSessionSecret
+            - name: ME_CONFIG_SITE_COOKIESECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mongoexpress.secret.name }}
+                  key: siteCookieSecret
+            - name: ME_CONFIG_BASICAUTH
+              value: "true"
+            - name: ME_CONFIG_BASICAUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mongoexpress.secret.name }}
+                  key: basicAuthUsername
+            - name: ME_CONFIG_BASICAUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mongoexpress.secret.name }}
+                  key: basicAuthPassword
+            - name: ME_CONFIG_OPTIONS_DOCUMENT_LIMIT
+              value: "100"
+            - name: ME_CONFIG_MONGODB_URL
+              value: "mongodb://{{ .Values.mongodb.name }}-service.{{ .Values.treasury.nameSpace }}.svc.cluster.local:{{ .Values.mongodb.service.port }}"
           ports:
             - containerPort: {{ .Values.mongoexpress.deployment.port }}

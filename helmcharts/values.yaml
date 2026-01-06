@@ -2,7 +2,7 @@
 mongoexpress:
   name: mongo-express
   image:
-    name: mongo-express
+    name: vicbie/mongo-express-fixed
     tag: latest
   deployment:
     port: 8081
@@ -12,6 +12,9 @@ mongoexpress:
   ingress:
     port: 8081
     host: mongoexpress-kubitos.biester.vip
+  secret:
+    name: mongo-express-secret
+
 ## MongoDB configuration
 mongodb:
   name: mongodb
@@ -30,6 +33,8 @@ mongodb:
     resources:
       requests:
         storage: 3Gi
+
+  # appPassword kann später z.B. aus Secret kommen
 
 volume:
   accessModes: ReadWriteOnce
