@@ -46,6 +46,13 @@ ingress:
   className: nginx
   pathType: ImplementationSpecific
 
+secretstore:
+  name: azure-kv
+  tenantId: "71b67176-40e1-4d4e-80fe-9251918425b2"
+  vaultUrl: "https://treasurykeyvault.vault.azure.net/"
+servicePrincipal:
+  name: azure-sp
+
 ## Treasury
 imagePullSecret: ChangeIt
 treasury:

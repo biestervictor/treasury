@@ -1,18 +1,18 @@
 apiVersion: external-secrets.io/v1
 kind: ClusterSecretStore
 metadata:
-  name: azure-kv
+  name: {{ .Values.secretstore.name }}
   namespace: external-secrets
 spec:
   provider:
     azurekv:
-      vaultUrl: "https://treasurykeyvault.vault.azure.net/"
+      vaultUrl: {{ .Values.secretstore.vaultUrl}}
       authType: ServicePrincipal
-      tenantId: "71b67176-40e1-4d4e-80fe-9251918425b2"
+      tenantId: {{ .Values.secretstore.tenantId}}
       authSecretRef:
         clientId:
-          name: azure-sp-secret
+          name: {{ .Values.servicePrincipal.name}}-secret
           key: ClientID
         clientSecret:
-          name: azure-sp-secret
+          name: {{ .Values.servicePrincipal.name}}-secret
           key: ClientSecret

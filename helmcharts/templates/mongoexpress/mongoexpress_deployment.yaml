@@ -20,24 +20,24 @@ spec:
             - name: ME_CONFIG_SITE_SESSIONSECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.mongoexpress.secret.name }}
+                  name: {{ .Values.mongoexpress.name }}-secret
                   key: siteSessionSecret
             - name: ME_CONFIG_SITE_COOKIESECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.mongoexpress.secret.name }}
+                  name: {{ .Values.mongoexpress.name }}-secret
                   key: siteCookieSecret
             - name: ME_CONFIG_BASICAUTH
               value: "true"
             - name: ME_CONFIG_BASICAUTH_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.mongoexpress.secret.name }}
+                  name: {{ .Values.mongoexpress.name }}-secret
                   key: basicAuthUsername
             - name: ME_CONFIG_BASICAUTH_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.mongoexpress.secret.name }}
+                  name: {{ .Values.mongoexpress.name }}-secret
                   key: basicAuthPassword
             - name: ME_CONFIG_OPTIONS_DOCUMENT_LIMIT
               value: "100"
