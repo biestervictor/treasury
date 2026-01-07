@@ -6,8 +6,10 @@ import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Playwright;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.example.treasury.model.Angebot;
 import org.example.treasury.model.Display;
+import org.example.treasury.model.MagicSet;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,6 +31,7 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     String setCode = display.getSetCode();
     String setName = display.getName();
     String type = display.getType();
+
     List<Angebot> angebote= new ArrayList<>();
     String url = buildUrl(setCode, setName, type, isLEgacy);
     if(display.getLanguage().equals("EN")){
@@ -86,58 +89,33 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     return fixUrls(setCode, type, url);
   }
 
+  private static final Map<String, String> SETCODE_URL_MAP = Map.ofEntries(
+      Map.entry("2XM", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Double-Masters-2022-Draft-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("FIF", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-FINAL-FANTASY-Play-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("M21", " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Core-2021-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("THB", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Theros-Beyond-Death-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("MAT", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/March-of-the-Machine-The-Aftermath-Epilogue-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("DGM", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Dragon-s-Maze-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("M20", " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Core-2020-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("UNF", " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Unfinity-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("CMB2", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Mystery-Booster-Convention-Edition-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("MB2", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Mystery-Booster-2-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("WHO", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Universes-Beyond-Doctor-Who-Collector-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("FDN", " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Foundations-Play-Booster-Box?sellerCountry=7&language=1,3"),
+      Map.entry("SPM", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Marvels-Spider-Man-Collector-Booster-Box"),
+      Map.entry("TLA", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Avatar-The-Last-Airbender-Collector-Booster-Box"),
+      Map.entry("TMT", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Teenage-Mutant-Ninja-Turtles-Collector-Booster-Box")
+  );
+
   private String fixUrls(String setCode, String types, String url) {
-
-    if (setCode.equals("2XM")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Double-Masters-2022-Draft-Booster-Box?sellerCountry=7&language=1,3";
-    } else if (setCode.equals("FIF")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-FINAL-FANTASY-Play-Booster-Box?sellerCountry=7&language=1,3";
-    } else if (setCode.equals("M21")) {
-      url =
-          " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Core-2021-Booster-Box?sellerCountry=7&language=1,3";
-    } else if (setCode.equals("BRO") && types.equals("PRERELEASE")) {
-      url =
-          " https://www.cardmarket.com/de/Magic/Products/Tournament-Packs/The-Brothers-War-Prerelease-Pack-Urzas-Iron-Alliance?sellerCountry=7&language=1,3";
-    } else if (setCode.equals("THB")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Theros-Beyond-Death-Booster-Box?sellerCountry=7&language=1,3";
-    } else if (setCode.equals("MAT")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/March-of-the-Machine-The-Aftermath-Epilogue-Booster-Box?sellerCountry=7&language=1,3";
-
-    } else if (setCode.equals("DGM")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Dragon-s-Maze-Booster-Box?sellerCountry=7&language=1,3";
-    } else if (setCode.equals("M20")) {
-      url =
-          " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Core-2020-Booster-Box?sellerCountry=7&language=1,3";
-    } else if (setCode.equals("UNF")) {
-      url =
-          " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Unfinity-Booster-Box?sellerCountry=7&language=1,3";
-    } else if (setCode.equals("CMB2")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Mystery-Booster-Convention-Edition-Booster-Box?sellerCountry=7&language=1,3";
-    }else if (setCode.equals("MB2")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Mystery-Booster-2-Booster-Box?sellerCountry=7&language=1,3";
-    }else if (setCode.equals("WHO")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Universes-Beyond-Doctor-Who-Collector-Booster-Box?sellerCountry=7&language=1,3";
-    }else if (setCode.equals("FDN")) {
-      url =
-          " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Foundations-Play-Booster-Box?sellerCountry=7&language=1,3";
+    // Spezialfall: BRO + PRERELEASE
+    if (setCode.equals("BRO") && types.equals("PRERELEASE")) {
+      return " https://www.cardmarket.com/de/Magic/Products/Tournament-Packs/The-Brothers-War-Prerelease-Pack-Urzas-Iron-Alliance?sellerCountry=7&language=1,3";
     }
-    else if (setCode.equals("ACR")) {
-      url =
-          "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Universes-Beyond-Assassins-Creed-Collector-Booster-Box";
+    // Standardfälle aus Map
+    if (SETCODE_URL_MAP.containsKey(setCode)) {
+      return SETCODE_URL_MAP.get(setCode);
     }
-
-
-
-
-
 
     return url;
   }
