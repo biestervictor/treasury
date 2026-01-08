@@ -10,3 +10,4 @@
 /dataSources.local.xml
 /target/
 /helmcharts/secret.yaml
+/.idea/
