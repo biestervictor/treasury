@@ -261,6 +261,7 @@ public class DisplayController {
   @GetMapping("/list")
   public String getList(@RequestParam(value = "setCode", required = false) String setCode,
                         @RequestParam(value = "type", required = false) String type,
+                        @RequestParam(value = "soldOnly", required = false, defaultValue = "false") String soldOnly,
                         Model model) {
     List<Display> displays;
     if (setCode != null && !setCode.isEmpty() && type != null && !type.isEmpty()) {
@@ -271,6 +272,12 @@ public class DisplayController {
       displays = displayService.findByTypeIgnoreCase(type);
     } else {
       displays = displayService.getAllDisplays();
+    }
+
+    boolean filterSoldOnly = "true".equalsIgnoreCase(soldOnly);
+    model.addAttribute("soldOnly", filterSoldOnly);
+    if (filterSoldOnly) {
+      displays = displays.stream().filter(Display::isSold).toList();
     }
 
     Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
@@ -307,3 +314,4 @@ public class DisplayController {
     return "redirect:/api/display/list";
   }
 }
+
