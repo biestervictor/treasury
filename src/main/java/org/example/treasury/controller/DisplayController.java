@@ -277,11 +277,21 @@ public class DisplayController {
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
 
     double sumAktuellerPreis = displays.stream()
-        .map(Display::getCurrentValue)
-        .filter(Objects::nonNull)
-        .mapToDouble(Double::doubleValue)
+        .filter(d -> !d.isSold())
+        .mapToDouble(Display::getCurrentValue)
         .sum();
-    double sumEinkaufspreis = displays.stream().mapToDouble(Display::getValueBought).sum();
+    double sumEinkaufspreis = displays.stream()
+        .filter(d -> !d.isSold())
+        .mapToDouble(Display::getValueBought)
+        .sum();
+
+    // Gewinn pro verkauftem Display (Summe)
+    double sumGewinn = displays.stream()
+        .filter(Display::isSold)
+        .mapToDouble(d -> d.getSoldPrice() - d.getValueBought())
+        .sum();
+    model.addAttribute("sumGewinn", sumGewinn);
+
     model.addAttribute("sumEinkaufspreis", sumEinkaufspreis);
     model.addAttribute("sumAktuellerPreis", sumAktuellerPreis);
     model.addAttribute("setCodeToIconUri", setCodeToIconUri);

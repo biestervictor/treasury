@@ -21,6 +21,9 @@
     &nbsp; | &nbsp;
     <strong>Summe Aktueller Preise:</strong>
     <span th:text="${sumAktuellerPreis} + ' €'"></span>
+    &nbsp; | &nbsp;
+    <strong>Gewinn bei Verkäufen:</strong>
+    <span th:text="${sumGewinn} + ' €'"></span>
 </div>
 
 <form id="tableFilterForm" action="/api/display/list" method="get"></form>
