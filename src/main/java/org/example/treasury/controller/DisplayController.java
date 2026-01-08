@@ -262,6 +262,7 @@ public class DisplayController {
   public String getList(@RequestParam(value = "setCode", required = false) String setCode,
                         @RequestParam(value = "type", required = false) String type,
                         @RequestParam(value = "soldOnly", required = false, defaultValue = "false") String soldOnly,
+                        @RequestParam(value = "highProfitOnly", required = false, defaultValue = "false") String highProfitOnly,
                         Model model) {
     List<Display> displays;
     if (setCode != null && !setCode.isEmpty() && type != null && !type.isEmpty()) {
@@ -273,16 +274,6 @@ public class DisplayController {
     } else {
       displays = displayService.getAllDisplays();
     }
-
-    boolean filterSoldOnly = "true".equalsIgnoreCase(soldOnly);
-    model.addAttribute("soldOnly", filterSoldOnly);
-    if (filterSoldOnly) {
-      displays = displays.stream().filter(Display::isSold).toList();
-    }
-
-    Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
-        Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
-
     double sumAktuellerPreis = displays.stream()
         .filter(d -> !d.isSold())
         .mapToDouble(Display::getCurrentValue)
@@ -297,6 +288,26 @@ public class DisplayController {
         .filter(Display::isSold)
         .mapToDouble(d -> d.getSoldPrice() - d.getValueBought())
         .sum();
+    //boolean filterSoldOnly = "true".equalsIgnoreCase(soldOnly);
+    model.addAttribute("soldOnly", soldOnly);
+
+    boolean filterHighProfitOnly = "true".equalsIgnoreCase(highProfitOnly);
+    model.addAttribute("highProfitOnly", filterHighProfitOnly);
+
+
+      displays = displays.stream().filter(d -> d.isSold()==Boolean.parseBoolean(soldOnly)).toList();
+
+
+    if (filterHighProfitOnly) {
+      displays = displays.stream()
+          .filter(d -> d.getCurrentValue() > d.getValueBought() * 1.5)
+          .toList();
+    }
+
+    Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
+        Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
+
+
     model.addAttribute("sumGewinn", sumGewinn);
 
     model.addAttribute("sumEinkaufspreis", sumEinkaufspreis);
