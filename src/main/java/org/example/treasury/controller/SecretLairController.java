@@ -58,7 +58,9 @@ public class SecretLairController {
    * @return response
    */
   @GetMapping("/insert")
-  public String insertSecretLair(Model model) {
+  public String insertSecretLair(@RequestParam(value = "soldOnly", required = false, defaultValue = "false") String soldOnly,
+                                @RequestParam(value = "highProfitOnly", required = false, defaultValue = "false") String highProfitOnly,
+                                Model model) {
    List<SecretLair> secretLairs = secretLairService.getAllSecretLairs();
    if (secretLairs.isEmpty()) {
      System.out.println("secretLairs is empty");
@@ -74,18 +76,42 @@ public class SecretLairController {
        e.printStackTrace();
      }
    }
+
+
+    boolean filterHighProfitOnly = "true".equalsIgnoreCase(highProfitOnly);
+    model.addAttribute("soldOnly", soldOnly);
+    model.addAttribute("highProfitOnly", filterHighProfitOnly);
+
+    // Filter anwenden
+
+      secretLairs = secretLairs.stream().filter(sl -> sl.isSold()== Boolean.parseBoolean(soldOnly)).toList();
+
+    if (filterHighProfitOnly) {
+      secretLairs = secretLairs.stream()
+          .filter(sl -> sl.getCurrentValue() > sl.getValueBought() * 1.5)
+          .toList();
+    }
+
+    // Summen: nur nicht verkaufte berücksichtigen
     double sumEinkaufspreis = secretLairs.stream()
+        .filter(sl -> !sl.isSold())
         .mapToDouble(SecretLair::getValueBought)
         .sum();
     double sumAktuellerWert = secretLairs.stream()
-        .map(SecretLair::getCurrentValue)
-        .filter(Objects::nonNull)
-        .mapToDouble(Double::doubleValue)
+        .filter(sl -> !sl.isSold())
+        .mapToDouble(SecretLair::getCurrentValue)
+        .sum();
+
+    // Gewinn auf verkauften
+    double sumGewinn = secretLairs.stream()
+        .filter(SecretLair::isSold)
+        .mapToDouble(sl -> sl.getSoldPrice() - sl.getValueBought())
         .sum();
 
     model.addAttribute("sumEinkaufspreis", sumEinkaufspreis);
     model.addAttribute("sumAktuellerWert", sumAktuellerWert);
-      model.addAttribute("secretlair", secretLairs);
+    model.addAttribute("sumGewinn", sumGewinn);
+    model.addAttribute("secretlair", secretLairs);
     model.addAttribute("newSecretLair", new SecretLair());
 
     return "secretlair";
