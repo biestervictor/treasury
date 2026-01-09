@@ -17,10 +17,9 @@ hedgedoc:
     host: hedgedoc-dev.biester.vip
     tlsEnabled: true
 
-    ## Hedgedoc configuration
 treasury:
   nodeSelector:
   ingress:
     host: treasury-dev.biester.vip
     tlsEnabled: true
-  imagePullSecretDecodingStrategy: Base64
+

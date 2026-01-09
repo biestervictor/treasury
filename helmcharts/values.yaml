@@ -64,6 +64,7 @@ treasury:
   ingress:
     host: treasury-kubitos.biester.vip
     tlsEnabled: true
+  imagePullSecretDecodingStrategy: Base64
 ## Hedgedoc configuration
 hedgedoc:
   nodeSelector:
