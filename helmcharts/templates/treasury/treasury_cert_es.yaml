@@ -1,0 +1,24 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: treasury-cert-external-secret
+  namespace: {{ .Values.treasury.nameSpace }}
+spec:
+  refreshInterval: 24h
+  secretStoreRef:
+    name: {{ .Values.secretstore.name }}
+    kind: ClusterSecretStore
+  target:
+    name: {{ .Values.treasury.secrets }}
+    creationPolicy: Owner
+    template:
+      type: kubernetes.io/tls
+  data:
+    - secretKey: tls.crt
+      remoteRef:
+        key: {{ .Values.treasury.tls.certKey | default "tls-crt" | quote }}
+    - secretKey: tls.key
+      remoteRef:
+        key: {{ .Values.treasury.tls.keyKey | default "tls-key" | quote }}
+
+

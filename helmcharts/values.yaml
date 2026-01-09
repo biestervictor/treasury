@@ -58,6 +58,9 @@ imagePullSecret: ChangeIt
 treasury:
   nameSpace: treasury
   secrets: my-tls-secret
+  tls:
+    certKey: tls-crt
+    keyKey: tls-key
   ingress:
     host: treasury-kubitos.biester.vip
     tlsEnabled: true
