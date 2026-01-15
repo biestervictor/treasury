@@ -86,7 +86,7 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
       default -> base + namePart + "-Booster-Box?" + query;
     };
 
-    return fixUrls(setCode, type, url)+query;
+    return fixUrls(setCode, type, url,query);
   }
 
   // alte Signatur beibehalten (falls irgendwo noch genutzt)
@@ -126,14 +126,14 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
       Map.entry("TMT", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Teenage-Mutant-Ninja-Turtles-Collector-Booster-Box?")
   );
 
-  private String fixUrls(String setCode, String types, String url) {
+  private String fixUrls(String setCode, String types, String url, String query) {
     // Spezialfall: BRO + PRERELEASE
     if (setCode.equals("BRO") && types.equals("PRERELEASE")) {
-      return " https://www.cardmarket.com/de/Magic/Products/Tournament-Packs/The-Brothers-War-Prerelease-Pack-Urzas-Iron-Alliance?sellerCountry=7&language=1,3";
+      return " https://www.cardmarket.com/de/Magic/Products/Tournament-Packs/The-Brothers-War-Prerelease-Pack-Urzas-Iron-Alliance?" + query;
     }
     // Standardfälle aus Map
     if (SETCODE_URL_MAP.containsKey(setCode)) {
-      return SETCODE_URL_MAP.get(setCode);
+      return SETCODE_URL_MAP.get(setCode)+query;
     }
 
     return url;
