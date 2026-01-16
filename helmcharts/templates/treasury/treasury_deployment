@@ -17,7 +17,7 @@ spec:
         - name: regcred
       containers:
         - name: treasury
-          image: ghcr.io/biestervictor/treasury:bb6c7a4ae1e9b4fadd2e74aaa6be0ad4943adc87
+          image: ghcr.io/biestervictor/treasury:ecd222f3e449e77486c5d4b90bb0b97529217033
           command: ["java", "-jar", "app.jar"]
           args: ["--spring.profiles.active=kubitos"]
           ports:

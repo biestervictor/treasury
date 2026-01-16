@@ -1,6 +1,5 @@
 package org.example.treasury.controller;
 
-import java.math.BigDecimal;
 import java.util.List;
 import org.example.treasury.model.Shoe;
 import org.example.treasury.service.CsvImporter;
@@ -76,20 +75,28 @@ public class ShoeController {
   @GetMapping("/list")
   public String getList(Model model) {
     List<Shoe> shoes = shoeService.getAllShoes();
+
     double totalValueBought = shoes.stream().mapToDouble(Shoe::getValueBought).sum();
     double totalValueStockX = shoes.stream().mapToDouble(Shoe::getValueStockX).sum();
-    double totalWinStockX = totalValueStockX - totalValueBought;
+
+    // Gewinn nur aus tatsächlichen Verkäufen (valueSold != 0)
+    double totalWinSold = shoes.stream()
+        .filter(s -> s.getValueSold() != 0)
+        .mapToDouble(s -> s.getValueSold() - s.getValueBought())
+        .sum();
 
     // Werte formatieren
     String formattedTotalValueBought = String.format("%.2f €", totalValueBought);
     String formattedTotalValueStockX = String.format("%.2f €", totalValueStockX);
-    String formattedTotalWinStockX =
-        String.format("%.2f € (%.2f%%)", totalWinStockX, (totalWinStockX / totalValueBought) * 100);
+    String formattedTotalWinSold = String.format("%.2f €", totalWinSold);
 
     model.addAttribute("shoe", shoes);
     model.addAttribute("totalValueBought", formattedTotalValueBought);
     model.addAttribute("totalValueStockX", formattedTotalValueStockX);
-    model.addAttribute("totalWinStockX", formattedTotalWinStockX);
+
+    // Gewinn/Verlust bei Verkäufen
+    model.addAttribute("totalWinSold", formattedTotalWinSold);
+    model.addAttribute("totalWinSoldValue", totalWinSold);
 
     return "shoe";
   }

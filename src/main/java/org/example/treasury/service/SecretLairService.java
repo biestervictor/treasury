@@ -30,11 +30,12 @@ public class SecretLairService {
   public void saveAllSecretLairs(List<SecretLair> secretLairs) {
     secretLairRepository.saveAll(secretLairs);
   }
-  public void updateSecretLair(String id, String location, Double currentValue, boolean isSold, LocalDate boughtDate) {
+  public void updateSecretLair(String id, String location, Double currentValue, boolean isSold, Double soldPrice, LocalDate boughtDate) {
     SecretLair sl = secretLairRepository.findById(id).orElseThrow();
     sl.setLocation(location);
     sl.setCurrentValue(currentValue);
     sl.setSold(isSold);
+    sl.setSoldPrice(soldPrice != null ? soldPrice : 0.0);
     sl.setDateBought(boughtDate);
     secretLairRepository.save(sl);
   }

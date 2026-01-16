@@ -1,20 +1,10 @@
 package org.example.treasury.controller;
 
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import org.example.treasury.model.Display;
-import org.example.treasury.model.MagicSet;
 import org.example.treasury.model.SecretLair;
 import org.example.treasury.service.CsvImporter;
-import org.example.treasury.service.DisplayService;
-import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.SecretLairPriceCollectorService;
 import org.example.treasury.service.SecretLairService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -122,9 +112,10 @@ public class SecretLairController {
                                  @RequestParam String location,
                                  @RequestParam Double currentValue,
                                  @RequestParam(required = false, defaultValue = "false") boolean isSold,
+                                 @RequestParam(required = false, defaultValue = "0") Double soldPrice,
                                  @RequestParam("dateBought") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                                  LocalDate dateBought) {
-    secretLairService.updateSecretLair(id, location, currentValue, isSold, dateBought);
+    secretLairService.updateSecretLair(id, location, currentValue, isSold, soldPrice, dateBought);
     return "redirect:/api/secretlair/insert";
   }
 }
