@@ -71,7 +71,9 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     String namePart = setName.replace(" ", "-").replace("'", "").replace(":", "");
     String lang = toCardmarketLanguageParam(language);
     String query = "sellerCountry=7&language=" + lang;
-
+    if (isLegacy) {
+      type = "legacy";
+    }
     String url = switch (type) {
       case "COLLECTOR" -> base + namePart + "-Collector-Booster-Box?" + query;
       case "SET" -> base + namePart + "-Set-Booster-Box?" + query;
@@ -89,10 +91,6 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     return fixUrls(setCode, type, url,query);
   }
 
-  // alte Signatur beibehalten (falls irgendwo noch genutzt)
-  private String buildUrl(String setCode, String setName, String type, boolean isLegacy) {
-    return buildUrl(setCode, setName, type, isLegacy, null);
-  }
 
   private static String toCardmarketLanguageParam(String language) {
     // 1 = Englisch, 3 = Deutsch; Fallback: beide

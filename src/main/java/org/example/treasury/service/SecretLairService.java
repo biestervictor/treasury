@@ -2,10 +2,6 @@ package org.example.treasury.service;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import org.example.treasury.model.Angebot;
-import org.example.treasury.model.Display;
 import org.example.treasury.model.SecretLair;
 import org.example.treasury.repository.SecretLairRepository;
 import org.springframework.stereotype.Service;
