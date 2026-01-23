@@ -7,16 +7,32 @@ import com.microsoft.playwright.Playwright;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.example.treasury.dto.MailRequest;
 import org.example.treasury.model.Angebot;
 import org.example.treasury.model.Display;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DisplayPriceCollectorService extends PriceCollectorService {
+  public static final String VICTORBIESTER = "Victorbiester";
   private final DisplayService displayService;
+  private final Optional<MailService> mailService;
 
-  public DisplayPriceCollectorService(DisplayService displayService) {
+  @Value("${treasury.jobs.sell.notifyOnStartupSchedule:true}")
+  private boolean notifyOnStartupSchedule;
+
+  @Value("${treasury.jobs.sell.notifyOnStartupResult:true}")
+  private boolean notifyOnStartupResult;
+
+  @Value("${treasury.mail.startup.to:}")
+  private String startupMailTo;
+  public DisplayPriceCollectorService(DisplayService displayService,
+                                      Optional<MailService> mailService
+  ) {
     this.displayService = displayService;
+    this.mailService = mailService;
   }
 
   public void runScraper(Playwright playwright, Display display, boolean isLEgacy) {
@@ -37,13 +53,25 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     display.setUrl(url);
     try {
 
-      logger.info(
+      logger.debug(
           "🛒 Günstigste Angebote pro Verkäufer von " + setCode + "/" + setName + "/" + type +
               ":\n");
        angebote=requestOffers(context,
           display.getUrl());
        display.setAngebotList(angebote);
        display.setCurrentValue(display.getRelevantPreis());
+
+       if (display.isSelling() && !display.getAngebotList().isEmpty()) {
+         String cheapestSeller = display.getAngebotList().getFirst().getName();
+         if (!VICTORBIESTER.equals(cheapestSeller)) {
+           logger.info("🔴 Verkauf aktiv, aber der günstigste Anbieter ist nicht " + VICTORBIESTER);
+           if (notifyOnStartupSchedule) {
+             sendStartupMail("🔴 Du wurdest unterboten", "Display "+display.getLanguage()+"//"+display.getSetCode()+"//"+display.getType()+"\nDer günstigste Anbieter ist aktuell: "+cheapestSeller+" mit "+display.getAngebotList().getFirst().getPreis()+"€\n\nURL: "+display.getUrl());
+           }
+
+         }
+         logger.info("Verkauf aktiv, aber der günstigster Anbieter");
+       }
 
     } catch (Exception e) {
       logger.error("❌ Fehler beim Scraping: " + e.getMessage());
@@ -54,7 +82,21 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
       browser.close();
     }
   }
+  private void sendStartupMail(String subject, String text) {
+    if (startupMailTo == null || startupMailTo.isBlank()) {
+      logger.debug("SellJob: treasury.mail.startup.to ist leer – keine Mail.");
+      return;
+    }
 
+    mailService.ifPresent(service -> {
+      try {
+        service.send(new MailRequest(List.of(startupMailTo), subject, text));
+      } catch (Exception e) {
+        // Mail darf den Job nicht kaputt machen
+        logger.warn("SellJob: konnte Mail nicht senden", e);
+      }
+    });
+  }
   /**
    * Baut die Cardmarket-URL. Package-private, damit Unit-Tests ohne Playwright möglich sind.
    */
@@ -137,3 +179,4 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
     return url;
   }
 }
+

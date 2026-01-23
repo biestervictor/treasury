@@ -28,6 +28,7 @@ public abstract class CardMarketModel {
   protected double soldPrice;
   protected String location="";
   protected String language="EN";
+  protected boolean isSelling=false;
   protected List<Angebot> angebotList = new ArrayList<>();
   public Double getRelevantPreis() {
     if (angebotList == null || angebotList.isEmpty()) {
