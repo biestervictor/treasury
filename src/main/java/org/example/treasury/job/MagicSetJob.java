@@ -1,24 +1,28 @@
 package org.example.treasury.job;
 
-import javax.annotation.PostConstruct;
 import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.ScryFallWebservice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
  * MagicSetJob is a class that contains a scheduled job to fetch data from the ScryFall web service.
  */
-
 @Component
-
 public class MagicSetJob {
 
   private final ScryFallWebservice scryFallWebservice;
   private final MagicSetService magicSetService;
-  Logger logger = LoggerFactory.getLogger(this.getClass());
+
+  @Value("${treasury.jobs.magicset.runOnStartup:true}")
+  private boolean runOnStartup;
+
+  private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
   /**
    * Constructor for MagicSetJob.
@@ -31,13 +35,16 @@ public class MagicSetJob {
   }
 
   /**
-   * Method that runs after the bean is initialized.
+   * Runs once after the application is fully started.
    */
-  @PostConstruct
+  @EventListener(ApplicationReadyEvent.class)
   public void executeOnStartup() {
+    if (!runOnStartup) {
+      logger.info("MagicSetJob: runOnStartup deaktiviert (treasury.jobs.magicset.runOnStartup=false)");
+      return;
+    }
 
-    logger.info("Starte MagicSet Job direkt nach dem Start");
-
+    logger.info("Starte MagicSet Job nach ApplicationReadyEvent");
     processJob();
   }
 
@@ -47,19 +54,15 @@ public class MagicSetJob {
    */
   @Scheduled(cron = "0 0 0 * * *")
   public void execute() {
-
-    logger.info("Starte MagicSet Job");
+    logger.info("Starte MagicSet Job (Scheduled)");
     processJob();
-
   }
 
   private void processJob() {
     try {
-      magicSetService.saveAllMagicSets(
-          scryFallWebservice.getSetList());
+      magicSetService.saveAllMagicSets(scryFallWebservice.getSetList());
     } catch (Exception e) {
-      logger.error("Job fehlgeschlagen");
-
+      logger.error("MagicSetJob fehlgeschlagen", e);
     }
   }
 }

@@ -99,27 +99,23 @@ public class PriceScraperJob {
     processSecretLairJob();
     processDisplayJob();
   }
-private void processSecretLairJob() {
-  List<SecretLair> secretLairs = secretLairService.getAllSecretLairs();
-  Collections.shuffle(secretLairs);
-  if (secretLairs.isEmpty()) {
 
-    secretLairService.saveAllSecretLairs(secretLairs);
-  }
+  private void processSecretLairJob() {
+    List<SecretLair> secretLairs = secretLairService.getAllSecretLairs();
+    Collections.shuffle(secretLairs);
+    if (secretLairs.isEmpty()) {
+      secretLairService.saveAllSecretLairs(secretLairs);
+    }
     try (Playwright playwright = Playwright.create()) {
-
-
       secretLairPriceCollectorService.runScraper(playwright, secretLairs);
-
     } catch (Exception e) {
-      e.printStackTrace();
+      logger.error("PriceScraperJob: SecretLair Scraper fehlgeschlagen", e);
     }
 
-}
+  }
+
   private void processDisplayJob() {
     try (Playwright playwright = Playwright.create()) {
-
-
 
       //Release von Set Boostern
       LocalDate releaseOfDraftBoosters = magicSetService.getMagicSetByCode("ZNR").getFirst()
@@ -133,11 +129,11 @@ private void processSecretLairJob() {
         if (!setCodesUsed.contains(display.getSetCode() + display.getType()+display.getLanguage())) {
 
           setCodesUsed.add(display.getSetCode() + display.getType());
-          boolean isLegacy=  magicSetService.getMagicSetByCode(display.getSetCode()).getFirst().getReleaseDate()
+          boolean isLegacy = magicSetService.getMagicSetByCode(display.getSetCode()).getFirst().getReleaseDate()
               .isBefore(releaseOfDraftBoosters);
 
 
-          displayPriceCollectorService.runScraper(playwright, display,isLegacy);
+          displayPriceCollectorService.runScraper(playwright, display, isLegacy);
 
 
         }
