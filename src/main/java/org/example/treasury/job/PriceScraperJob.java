@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.PostConstruct;
 import org.example.treasury.model.Display;
 import org.example.treasury.model.SecretLair;
 import org.example.treasury.service.DisplayPriceCollectorService;
@@ -19,6 +18,9 @@ import org.example.treasury.service.SecretLairPriceCollectorService;
 import org.example.treasury.service.SecretLairService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -35,6 +37,14 @@ public class PriceScraperJob {
   private final DisplayService displayService;
   private final MagicSetService magicSetService;
   private final SecretLairService secretLairService;
+
+  @Value("${treasury.jobs.pricescraper.runOnStartup:true}")
+  private boolean runOnStartup;
+
+  /** Startup delay in minutes (default: 200). */
+  @Value("${treasury.jobs.pricescraper.startupDelayMinutes:200}")
+  private long startupDelayMinutes;
+
   Logger logger = LoggerFactory.getLogger(this.getClass());
 
   /**
@@ -55,21 +65,27 @@ public class PriceScraperJob {
   }
 
   /**
-   * Method that runs after the bean is initialized.
+   * Runs once after the application is fully started (optional).
    */
-
-  @PostConstruct
+  @EventListener(ApplicationReadyEvent.class)
   public void executeOnStartup() {
+    if (!runOnStartup) {
+      logger.info("PriceScraperJob: runOnStartup deaktiviert (treasury.jobs.pricescraper.runOnStartup=false)");
+      return;
+    }
 
+    long delay = Math.max(0, startupDelayMinutes);
+    logger.info("PriceScraperJob: starte einmalig nach Startup mit Delay={}min", delay);
 
     ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     scheduler.schedule(() -> {
-      logger.info("Starte Scraper Job 200 Minute nach Start");
-      processDisplayJob();
-      processSecretLairJob();
-
-      scheduler.shutdown();
-    }, 200, TimeUnit.MINUTES);
+      try {
+        processDisplayJob();
+        processSecretLairJob();
+      } finally {
+        scheduler.shutdown();
+      }
+    }, delay, TimeUnit.MINUTES);
   }
 
   /**
@@ -114,7 +130,7 @@ private void processSecretLairJob() {
       Collections.shuffle(displays);
       for (Display display : displays) {
 
-        if (!setCodesUsed.contains(display.getSetCode() + display.getType())) {
+        if (!setCodesUsed.contains(display.getSetCode() + display.getType()+display.getLanguage())) {
 
           setCodesUsed.add(display.getSetCode() + display.getType());
           boolean isLegacy=  magicSetService.getMagicSetByCode(display.getSetCode()).getFirst().getReleaseDate()
