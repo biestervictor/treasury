@@ -120,6 +120,7 @@
                  data-location=${display.location},
                  data-updatedAt=${#temporals.format(display.updatedAt, 'yyyy-MM-dd HH:mm')},
                  data-sold=${display.sold},
+                 data-selling=${display.selling},
                  data-soldprice=${display.soldPrice},
                  data-language=${display.language},
                  data-vendor=${display.vendor},
@@ -189,6 +190,10 @@
                         <input type="checkbox" name="sold" id="modalSold" />
                     </div>
                     <div class="mb-3">
+                        <label for="modalSelling" class="form-label">Verkaufen</label>
+                        <input type="checkbox" name="selling" id="modalSelling" />
+                    </div>
+                    <div class="mb-3">
                         <label for="modalSoldPrice" class="form-label">Verkaufspreis</label>
                         <input type="number" class="form-control" name="soldPrice" id="modalSoldPrice" step="0.01" min="0" />
                     </div>
@@ -240,6 +245,7 @@
                 document.getElementById('modalCurrentValue').value = row.getAttribute('data-currentvalue');
                 document.getElementById('modalLocation').value = row.getAttribute('data-location');
                 document.getElementById('modalSold').checked = row.getAttribute('data-sold') === 'true';
+                document.getElementById('modalSelling').checked = row.getAttribute('data-selling') === 'true';
                 document.getElementById('modalSoldPrice').value = row.getAttribute('data-soldprice') || '';
                 document.getElementById('modalVendor').value = row.getAttribute('data-vendor');
                 document.getElementById('modalDateBought').value = row.getAttribute('data-datebought');
