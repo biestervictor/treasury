@@ -16,6 +16,7 @@ import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.SecretLairPriceCollectorService;
 import org.example.treasury.service.SecretLairService;
+import org.example.treasury.service.JobSettingsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +38,7 @@ public class PriceScraperJob {
   private final DisplayService displayService;
   private final MagicSetService magicSetService;
   private final SecretLairService secretLairService;
+  private final JobSettingsService jobSettingsService;
 
   @Value("${treasury.jobs.pricescraper.runOnStartup:true}")
   private boolean runOnStartup;
@@ -56,12 +58,14 @@ public class PriceScraperJob {
   public PriceScraperJob(DisplayPriceCollectorService displayPriceCollectorService,
                          SecretLairPriceCollectorService secretLairPriceCollectorService,
                          DisplayService displayService, MagicSetService magicSetService,
-                         SecretLairService secretLairService) {
+                         SecretLairService secretLairService,
+                         JobSettingsService jobSettingsService) {
     this.displayPriceCollectorService = displayPriceCollectorService;
     this.secretLairPriceCollectorService = secretLairPriceCollectorService;
     this.displayService = displayService;
     this.magicSetService = magicSetService;
     this.secretLairService = secretLairService;
+    this.jobSettingsService = jobSettingsService;
   }
 
   /**
@@ -69,6 +73,10 @@ public class PriceScraperJob {
    */
   @EventListener(ApplicationReadyEvent.class)
   public void executeOnStartup() {
+    if (!jobSettingsService.get().isPriceScraperEnabled()) {
+      logger.info("PriceScraperJob: deaktiviert via Settings (treasury.jobs.priceScraperEnabled=false)");
+      return;
+    }
     if (!runOnStartup) {
       logger.info("PriceScraperJob: runOnStartup deaktiviert (treasury.jobs.pricescraper.runOnStartup=false)");
       return;
@@ -95,6 +103,10 @@ public class PriceScraperJob {
    */
   @Scheduled(cron = "0 0 0 * * *")
   public void execute() {
+    if (!jobSettingsService.get().isPriceScraperEnabled()) {
+      logger.info("PriceScraperJob: deaktiviert via Settings (treasury.jobs.priceScraperEnabled=false)");
+      return;
+    }
 
     logger.info("Starte  Scraper Job");
     processSecretLairJob();

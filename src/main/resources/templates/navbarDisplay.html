@@ -21,6 +21,13 @@
                 <li class="nav-item">
                     <a class="nav-link" th:href="@{/api/menue/index}">Hauptmenü</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/api/settings}">
+                        Settings
+                        <span class="badge bg-success" th:if="${jobsAllEnabled}">Jobs: ON</span>
+                        <span class="badge bg-danger" th:if="${jobsAnyDisabled}">Jobs: OFF</span>
+                    </a>
+                </li>
             </ul>
         </div>
     </div>

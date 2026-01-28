@@ -1,5 +1,6 @@
 package org.example.treasury.job;
 
+import org.example.treasury.service.JobSettingsService;
 import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.ScryFallWebservice;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ public class MagicSetJob {
 
   private final ScryFallWebservice scryFallWebservice;
   private final MagicSetService magicSetService;
+  private final JobSettingsService jobSettingsService;
 
   @Value("${treasury.jobs.magicset.runOnStartup:true}")
   private boolean runOnStartup;
@@ -29,9 +31,11 @@ public class MagicSetJob {
    *
    * @param scryFallWebservice the ScryFallWebservice instance
    */
-  public MagicSetJob(ScryFallWebservice scryFallWebservice, MagicSetService magicSetService) {
+  public MagicSetJob(ScryFallWebservice scryFallWebservice, MagicSetService magicSetService,
+      JobSettingsService jobSettingsService) {
     this.scryFallWebservice = scryFallWebservice;
     this.magicSetService = magicSetService;
+    this.jobSettingsService = jobSettingsService;
   }
 
   /**
@@ -41,6 +45,10 @@ public class MagicSetJob {
   public void executeOnStartup() {
     if (!runOnStartup) {
       logger.info("MagicSetJob: runOnStartup deaktiviert (treasury.jobs.magicset.runOnStartup=false)");
+      return;
+    }
+    if (!jobSettingsService.get().isMagicSetEnabled()) {
+      logger.info("MagicSetJob: deaktiviert via Settings (treasury.jobs.magicSetEnabled=false)");
       return;
     }
 
@@ -54,6 +62,10 @@ public class MagicSetJob {
    */
   @Scheduled(cron = "0 0 0 * * *")
   public void execute() {
+    if (!jobSettingsService.get().isMagicSetEnabled()) {
+      logger.info("MagicSetJob: deaktiviert via Settings (treasury.jobs.magicSetEnabled=false)");
+      return;
+    }
     logger.info("Starte MagicSet Job (Scheduled)");
     processJob();
   }

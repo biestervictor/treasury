@@ -5,20 +5,18 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.example.treasury.dto.MailRequest;
 import org.example.treasury.model.CardMarketModel;
 import org.example.treasury.model.Display;
 import org.example.treasury.model.SecretLair;
 import org.example.treasury.service.DisplayPriceCollectorService;
 import org.example.treasury.service.DisplayService;
+import org.example.treasury.service.JobSettingsService;
 import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.SecretLairPriceCollectorService;
 import org.example.treasury.service.SecretLairService;
-import org.example.treasury.service.MailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +32,8 @@ public class SellJob {
   private final DisplayService displayService;
   private final MagicSetService magicSetService;
   private final SecretLairService secretLairService;
+
+  private final JobSettingsService jobSettingsService;
 
 
 
@@ -52,13 +52,15 @@ public class SellJob {
   public SellJob(DisplayPriceCollectorService displayPriceCollectorService,
                  SecretLairPriceCollectorService secretLairPriceCollectorService,
                  DisplayService displayService, MagicSetService magicSetService,
-                 SecretLairService secretLairService
+                 SecretLairService secretLairService,
+                 JobSettingsService jobSettingsService
                  ) {
     this.displayPriceCollectorService = displayPriceCollectorService;
     this.secretLairPriceCollectorService = secretLairPriceCollectorService;
     this.displayService = displayService;
     this.magicSetService = magicSetService;
     this.secretLairService = secretLairService;
+    this.jobSettingsService = jobSettingsService;
   }
 
   /**
@@ -68,6 +70,10 @@ public class SellJob {
   public void executeOnStartup() {
     if (!runOnStartup) {
       logger.info("SellJob: runOnStartup deaktiviert (treasury.jobs.sell.runOnStartup=false)");
+      return;
+    }
+    if (!jobSettingsService.get().isSellEnabled()) {
+      logger.info("SellJob: deaktiviert via Settings (treasury.jobs.sellEnabled=false)");
       return;
     }
 
@@ -101,6 +107,10 @@ public class SellJob {
    */
   @Scheduled(cron = "0 0 0 * * *")
   public void execute() {
+    if (!jobSettingsService.get().isSellEnabled()) {
+      logger.info("SellJob: deaktiviert via Settings (treasury.jobs.sellEnabled=false)");
+      return;
+    }
     logger.info("SellJob: Starte Scheduled Run");
     processSecretLairJob();
     processDisplayJob();
