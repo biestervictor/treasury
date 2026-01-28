@@ -58,7 +58,7 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
               ":\n");
        angebote=requestOffers(context,
           display.getUrl());
-       display.setAngebotList(angebote);
+
        display.setCurrentValue(display.getRelevantPreis());
 
        if (display.isSelling() && !display.getAngebotList().isEmpty()) {
@@ -72,12 +72,13 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
          }
          logger.info("Verkauf aktiv, aber der günstigster Anbieter");
        }
-
+      logger.info("✅ Scraping erfolgreich: " + display.getName() + " " + display.getUrl());
     } catch (Exception e) {
       logger.error("❌ Fehler beim Scraping: " + e.getMessage());
       logger.error(setCode + " " + type + " " + url);
 
     }finally {
+      display.setAngebotList(angebote);
       displayService.updateAngeboteBySetCodeAndType(display);
       browser.close();
     }

@@ -182,21 +182,21 @@ public class DisplayService {
     // Filtere alle Displays mit gleichem setCode und type
     List<Display> gleicheDisplays = getAllDisplays().stream()
         .filter(d -> setCode.equals(d.getSetCode()) && type.equals(d.getType()))
-        .collect(Collectors.toList());
+        .toList();
     // Sammle alle Angebote dieser Displays
     List<Double> preise = gleicheDisplays.stream()
         .flatMap(d -> d.getAngebotList() != null ? d.getAngebotList().stream() : Stream.empty())
         .map(Angebot::getPreis)
         .filter(Objects::nonNull)
         .sorted()
-        .collect(Collectors.toList());
+        .toList();
     if (preise.isEmpty()) {
       return null;
     }
     if (preise.size() == 1) {
-      return preise.get(0);
+      return preise.getFirst();
     }
-    double lowest = preise.get(0);
+    double lowest = preise.getFirst();
     double second = preise.get(1);
     if (lowest < second * 0.85) {
       return second;
@@ -213,12 +213,13 @@ public class DisplayService {
 
     List<Display> displays = displayRepository.findBySetCodeIgnoreCase(setCode).stream()
         .filter(display -> type.equals(display.getType()))
-        .collect(Collectors.toList());
+        .toList();
     for (Display display : displays) {
       display.setUrl(url);
       display.setCurrentValue(displayNew.getRelevantPreis());
-      display.setAngebotList(neueAngebote);
+
       if(!neueAngebote.isEmpty()){
+        display.setAngebotList(neueAngebote);
       display.setUpdatedAt(LocalDate.now());
       }
     }
