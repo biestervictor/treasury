@@ -18,7 +18,12 @@ import org.springframework.boot.test.context.SpringBootTest;
     "treasury.mail.enabled=true",
     "treasury.mail.from=no-reply@biester.vip",
     "spring.mail.host=localhost",
-    "spring.mail.port=3025"
+    "spring.mail.port=3025",
+    "spring.mail.username=",
+    "spring.mail.password=",
+    "spring.mail.properties.mail.smtp.auth=false",
+    "spring.mail.properties.mail.smtp.starttls.enable=false",
+    "spring.mail.properties.mail.smtp.starttls.required=false"
 })
 class MailServiceTest {
 
