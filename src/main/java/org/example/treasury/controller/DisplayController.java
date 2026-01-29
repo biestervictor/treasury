@@ -46,7 +46,7 @@ public class DisplayController {
   private final List<MagicSet> magicSets;
   Logger logger = LoggerFactory.getLogger(this.getClass());
 
-  private final DisplayPriceCollectorService displayPriceCollectorService;
+
 
   /**
    * Constructor for DisplayController.
@@ -62,7 +62,6 @@ public class DisplayController {
 
     this.magicSetService = magicSetService;
     magicSets = magicSetService.getAllMagicSets();
-    this.displayPriceCollectorService = displayPriceCollectorService;
   }
 
   /**
@@ -262,6 +261,7 @@ public class DisplayController {
   public String getList(@RequestParam(value = "setCode", required = false) String setCode,
                         @RequestParam(value = "type", required = false) String type,
                         @RequestParam(value = "soldOnly", required = false, defaultValue = "false") String soldOnly,
+                        @RequestParam(value = "isSelling", required = false, defaultValue = "false") String isSelling,
                         @RequestParam(value = "highProfitOnly", required = false, defaultValue = "false") String highProfitOnly,
                         Model model) {
     List<Display> displays;
@@ -288,16 +288,18 @@ public class DisplayController {
         .filter(Display::isSold)
         .mapToDouble(d -> d.getSoldPrice() - d.getValueBought())
         .sum();
-    //boolean filterSoldOnly = "true".equalsIgnoreCase(soldOnly);
-    model.addAttribute("soldOnly", soldOnly);
-
-    boolean filterHighProfitOnly = "true".equalsIgnoreCase(highProfitOnly);
-    model.addAttribute("highProfitOnly", filterHighProfitOnly);
 
 
+
+
+
+//Filtern
       displays = displays.stream().filter(d -> d.isSold()==Boolean.parseBoolean(soldOnly)).toList();
-
-
+      if("true".equalsIgnoreCase(isSelling)) {
+        displays = displays.stream().filter(d -> d.isSelling() == Boolean.parseBoolean(isSelling))
+            .toList();
+      }
+    boolean filterHighProfitOnly = "true".equalsIgnoreCase(highProfitOnly);
     if (filterHighProfitOnly) {
       displays = displays.stream()
           .filter(d -> d.getCurrentValue() > d.getValueBought() * 1.5)
@@ -307,9 +309,10 @@ public class DisplayController {
     Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
 
-
+    model.addAttribute("highProfitOnly", filterHighProfitOnly);
+    model.addAttribute("soldOnly", soldOnly);
+    model.addAttribute("isSelling", isSelling);
     model.addAttribute("sumGewinn", sumGewinn);
-
     model.addAttribute("sumEinkaufspreis", sumEinkaufspreis);
     model.addAttribute("sumAktuellerPreis", sumAktuellerPreis);
     model.addAttribute("setCodeToIconUri", setCodeToIconUri);

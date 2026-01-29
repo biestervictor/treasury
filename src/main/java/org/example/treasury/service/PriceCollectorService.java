@@ -8,8 +8,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -53,48 +51,6 @@ public abstract class PriceCollectorService {
   private static final AtomicLong nextAllowedRequestAtMillis = new AtomicLong(0);
 
   // ------------------------------------
-  // Per-URL Cache + Cooldown (neu)
-  // ------------------------------------
-
-  @Value("${treasury.scraper.cache.enabled:true}")
-  private boolean cacheEnabled;
-
-  /** TTL für cached Angebote pro URL (Sekunden). */
-  @Value("${treasury.scraper.cache.ttlSeconds:900}")
-  private long cacheTtlSeconds;
-
-  /** Wenn true: bei Fehlern ggf. stale Cache zurückgeben. */
-  @Value("${treasury.scraper.cache.serveStaleOnError:true}")
-  private boolean serveStaleOnError;
-
-  /** Max Alter (Sekunden) für stale Cache (nur wenn serveStaleOnError=true). */
-  @Value("${treasury.scraper.cache.maxStaleSeconds:3600}")
-  private long maxStaleSeconds;
-
-  private final ConcurrentHashMap<String, CacheEntry> offerCache = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, CompletableFuture<List<Angebot>>> inFlight = new ConcurrentHashMap<>();
-
-  private static final class CacheEntry {
-    private final List<Angebot> value;
-    private final long fetchedAtMillis;
-    private final long expiresAtMillis;
-
-    private CacheEntry(List<Angebot> value, long fetchedAtMillis, long expiresAtMillis) {
-      this.value = value;
-      this.fetchedAtMillis = fetchedAtMillis;
-      this.expiresAtMillis = expiresAtMillis;
-    }
-
-    private boolean isFresh(long nowMillis) {
-      return nowMillis <= expiresAtMillis;
-    }
-
-    private boolean isUsableStale(long nowMillis, long maxStaleMillis) {
-      return nowMillis - fetchedAtMillis <= maxStaleMillis;
-    }
-  }
-
-  // ------------------------------------
   // Backoff/Cooldown bei Rate-Limit (neu)
   // ------------------------------------
 
@@ -115,59 +71,10 @@ public abstract class PriceCollectorService {
   private static final AtomicInteger consecutiveRateLimitHits = new AtomicInteger(0);
 
   protected List<Angebot> requestOffers(BrowserContext context, String url) {
-
-    long now = clock.millis();
-
-    CacheEntry cached = offerCache.get(url);
-    if (cacheEnabled && cached != null && cached.isFresh(now)) {
-      logger.debug("Scraper cache HIT for {}", url);
-      return cached.value;
-    }
-
-    if (!cacheEnabled) {
-      return fetchOffersWithControls(context, url, cached);
-    }
-
-    // Single-flight pro URL
-    CompletableFuture<List<Angebot>> created = new CompletableFuture<>();
-    CompletableFuture<List<Angebot>> existing = inFlight.putIfAbsent(url, created);
-    CompletableFuture<List<Angebot>> future = existing == null ? created : existing;
-
-    if (existing != null) {
-      logger.debug("Scraper cache WAIT (in-flight) for {}", url);
-      try {
-        return future.join();
-      } catch (Exception e) {
-        // Wenn der in-flight Request scheitert, versuchen wir stale cache.
-        if (serveStaleOnError && cached != null) {
-          long maxStaleMillis = Math.max(0, maxStaleSeconds) * 1000L;
-          if (cached.isUsableStale(clock.millis(), maxStaleMillis)) {
-            logger.warn("Scraper in-flight failed for {} – serving STALE cache (age={}ms)", url,
-                (clock.millis() - cached.fetchedAtMillis));
-            return cached.value;
-          }
-        }
-        throw e;
-      }
-    }
-
-    // Owner: fetch + cache put
-    try {
-      List<Angebot> fetched = fetchOffersWithControls(context, url, cached);
-      long fetchedAt = clock.millis();
-      long ttlMillis = Math.max(0, cacheTtlSeconds) * 1000L;
-      offerCache.put(url, new CacheEntry(fetched, fetchedAt, fetchedAt + ttlMillis));
-      future.complete(fetched);
-      return fetched;
-    } catch (Exception e) {
-      future.completeExceptionally(e);
-      throw e;
-    } finally {
-      inFlight.remove(url);
-    }
+    return fetchOffersWithControls(context, url);
   }
 
-  private List<Angebot> fetchOffersWithControls(BrowserContext context, String url, CacheEntry cached) {
+  private List<Angebot> fetchOffersWithControls(BrowserContext context, String url) {
     // Erst: globaler Cooldown (Backoff)
     applyGlobalCooldownIfNeeded();
 
@@ -190,15 +97,6 @@ public abstract class PriceCollectorService {
         onRateLimitHit(url);
       }
 
-      // Bei Fehlern optional stale cache zurückgeben
-      if (serveStaleOnError && cached != null) {
-        long maxStaleMillis = Math.max(0, maxStaleSeconds) * 1000L;
-        if (cached.isUsableStale(clock.millis(), maxStaleMillis)) {
-          logger.warn("Scraper fetch failed for {} – serving STALE cache (age={}ms)", url,
-              (clock.millis() - cached.fetchedAtMillis));
-          return cached.value;
-        }
-      }
 
       throw e;
     }
@@ -295,11 +193,17 @@ public abstract class PriceCollectorService {
     if (msg == null) {
       return false;
     }
+
+    return isErrorMessage(msg.toLowerCase());
+  }
+
+  private static boolean isErrorMessage(String msg) {
     String lower = msg.toLowerCase();
     return lower.contains("error 1015")
         || lower.contains("rate limit")
         || lower.contains("too many requests")
-        || lower.contains("being rate limited");
+        || lower.contains("being rate limited")
+        || lower.contains("timeout");
   }
 
   private void sleepQuietly(long millis) {
@@ -326,10 +230,8 @@ public abstract class PriceCollectorService {
       } catch (Exception ignored) {
         // ignore
       }
-      String lowerContent = content.toLowerCase();
-      if (lowerContent.contains("error 1015")
-          || lowerContent.contains("being rate limited")
-          || lowerContent.contains("too many requests")) {
+
+      if (isErrorMessage(content)) {
         throw new RateLimitedException("Error 1015: You are being rate limited");
       }
 

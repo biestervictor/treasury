@@ -7,6 +7,7 @@ import org.example.treasury.model.SecretLair;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.SecretLairPriceCollectorService;
 import org.example.treasury.service.SecretLairService;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
@@ -48,40 +49,10 @@ public class SecretLairController {
    * @return response
    */
   @GetMapping("/insert")
-  public String insertSecretLair(@RequestParam(value = "soldOnly", required = false, defaultValue = "false") String soldOnly,
+  public String insertSecretLair(@RequestParam(value = "soldOnly", required = false, defaultValue = "false") String soldOnly,@RequestParam(value = "isSelling", required = false, defaultValue = "false") String isSelling,
                                 @RequestParam(value = "highProfitOnly", required = false, defaultValue = "false") String highProfitOnly,
                                 Model model) {
-   List<SecretLair> secretLairs = secretLairService.getAllSecretLairs();
-   if (secretLairs.isEmpty()) {
-     System.out.println("secretLairs is empty");
-     secretLairs = csvImporter.importSecretLairCsv("src/main/resources/SecretLair.csv");
-   secretLairService.saveAllSecretLairs(secretLairs);
-     try (Playwright playwright = Playwright.create()) {
-
-
-
-     secretLairPriceCollectorService.runScraper(playwright, secretLairs);
-
-     } catch (Exception e) {
-       e.printStackTrace();
-     }
-   }
-
-
-    boolean filterHighProfitOnly = "true".equalsIgnoreCase(highProfitOnly);
-    model.addAttribute("soldOnly", soldOnly);
-    model.addAttribute("highProfitOnly", filterHighProfitOnly);
-
-    // Filter anwenden
-
-      secretLairs = secretLairs.stream().filter(sl -> sl.isSold()== Boolean.parseBoolean(soldOnly)).toList();
-
-    if (filterHighProfitOnly) {
-      secretLairs = secretLairs.stream()
-          .filter(sl -> sl.getCurrentValue() > sl.getValueBought() * 1.5)
-          .toList();
-    }
-
+   List<SecretLair> secretLairs =getSecretLairs(secretLairService.getAllSecretLairs());
     // Summen: nur nicht verkaufte berücksichtigen
     double sumEinkaufspreis = secretLairs.stream()
         .filter(sl -> !sl.isSold())
@@ -98,6 +69,24 @@ public class SecretLairController {
         .mapToDouble(sl -> sl.getSoldPrice() - sl.getValueBought())
         .sum();
 
+
+
+
+    // Filter anwenden
+      secretLairs = secretLairs.stream().filter(sl -> sl.isSold()== Boolean.parseBoolean(soldOnly)).toList();
+    secretLairs = secretLairs.stream().filter(sl -> sl.isSelling()== Boolean.parseBoolean(isSelling)).toList();
+
+    boolean filterHighProfitOnly = "true".equalsIgnoreCase(highProfitOnly);
+    if (filterHighProfitOnly) {
+      secretLairs = secretLairs.stream()
+          .filter(sl -> sl.getCurrentValue() > sl.getValueBought() * 1.5)
+          .toList();
+    }
+
+
+    model.addAttribute("soldOnly", soldOnly);
+    model.addAttribute("highProfitOnly", filterHighProfitOnly);
+    model.addAttribute("isSelling", isSelling);
     model.addAttribute("sumEinkaufspreis", sumEinkaufspreis);
     model.addAttribute("sumAktuellerWert", sumAktuellerWert);
     model.addAttribute("sumGewinn", sumGewinn);
@@ -107,15 +96,36 @@ public class SecretLairController {
     return "secretlair";
 
   }
+
+  private @Nullable List<SecretLair> getSecretLairs(List<SecretLair> secretLairs) {
+
+    if (secretLairs.isEmpty()) {
+      System.out.println("secretLairs is empty");
+      secretLairs = csvImporter.importSecretLairCsv("src/main/resources/SecretLair.csv");
+    secretLairService.saveAllSecretLairs(secretLairs);
+      try (Playwright playwright = Playwright.create()) {
+
+
+
+      secretLairPriceCollectorService.runScraper(playwright, secretLairs);
+
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+    return secretLairs;
+  }
+
   @PostMapping("/update")
   public String updateSecretLair(@RequestParam String id,
                                  @RequestParam String location,
                                  @RequestParam Double currentValue,
                                  @RequestParam(required = false, defaultValue = "false") boolean isSold,
+                                 @RequestParam(required = false, defaultValue = "false") boolean selling,
                                  @RequestParam(required = false, defaultValue = "0") Double soldPrice,
                                  @RequestParam("dateBought") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                                  LocalDate dateBought) {
-    secretLairService.updateSecretLair(id, location, currentValue, isSold, soldPrice, dateBought);
+    secretLairService.updateSecretLair(id, location, currentValue, isSold, selling, soldPrice, dateBought);
     return "redirect:/api/secretlair/insert";
   }
 }
