@@ -216,9 +216,10 @@ public class DisplayService {
         .toList();
     for (Display display : displays) {
       display.setUrl(url);
-      display.setCurrentValue(displayNew.getRelevantPreis());
+
 
       if(!neueAngebote.isEmpty()){
+        display.setCurrentValue(displayNew.getRelevantPreis());
         display.setAngebotList(neueAngebote);
       display.setUpdatedAt(LocalDate.now());
       }
