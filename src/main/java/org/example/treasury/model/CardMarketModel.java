@@ -53,4 +53,6 @@ public abstract class CardMarketModel {
       return lowest;
     }
   }
+
+
 }
