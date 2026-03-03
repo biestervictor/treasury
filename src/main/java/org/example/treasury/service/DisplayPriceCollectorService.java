@@ -61,7 +61,7 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
 
        display.setCurrentValue(display.getRelevantPreis());
 
-       if (display.isSelling() && !display.getAngebotList().isEmpty()) {
+       if (display.isSelling() && !display.getAngebotList().isEmpty() && !display.isSold()) {
          String cheapestSeller = display.getAngebotList().getFirst().getName();
          if (!VICTORBIESTER.equals(cheapestSeller)) {
            logger.info("🔴 Verkauf aktiv, aber der günstigste Anbieter ist nicht " + VICTORBIESTER);
