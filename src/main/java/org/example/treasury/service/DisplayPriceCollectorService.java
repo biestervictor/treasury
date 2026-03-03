@@ -164,7 +164,9 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
       Map.entry("FDN", " https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Foundations-Play-Booster-Box?"),
       Map.entry("SPM", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Marvels-Spider-Man-Collector-Booster-Box?"),
       Map.entry("TLA", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Avatar-The-Last-Airbender-Collector-Booster-Box?"),
-      Map.entry("TMT", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Teenage-Mutant-Ninja-Turtles-Collector-Booster-Box?")
+      Map.entry("TMT", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Magic-The-Gathering-Teenage-Mutant-Ninja-Turtles-Collector-Booster-Box?"),
+      Map.entry("ACR", "https://www.cardmarket.com/de/Magic/Products/Booster-Boxes/Universes-Beyond-Assassins-Creed-Collector-Booster-Box?")
+
   );
 
   private String fixUrls(String setCode, String types, String url, String query) {
