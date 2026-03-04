@@ -1,0 +1,20 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ .Values.treasury.name }}-external-secret
+  namespace: {{ .Values.treasury.nameSpace }}
+spec:
+  refreshInterval: 24h
+  secretStoreRef:
+    name: {{ .Values.secretstore.name }}
+    kind: ClusterSecretStore
+  target:
+    name: {{ .Values.treasury.name }}-secret
+  data:
+    - secretKey: mailJetApiSecret
+      remoteRef:
+        key: mailJetApiSecret
+    - secretKey: mailJetApiKey
+      remoteRef:
+        key: mailJetApiKey
+

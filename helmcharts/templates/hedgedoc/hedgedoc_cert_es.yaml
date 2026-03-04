@@ -9,7 +9,7 @@ spec:
     name: {{ .Values.secretstore.name }}
     kind: ClusterSecretStore
   target:
-    name: {{ .Values.treasury.secrets }}
+    name: {{ .Values.hedgedoc.secrets }}
     creationPolicy: Owner
     template:
       type: kubernetes.io/tls

@@ -17,8 +17,19 @@ spec:
         - name: regcred
       containers:
         - name: treasury
-          image: ghcr.io/biestervictor/treasury:e0933110b6b650ea3b3ccc700a38b99ffdcd1466
+          image: ghcr.io/biestervictor/treasury:cc07bad819db57ab3d5ed2d48fa4e9b68621f6fc
           command: ["java", "-jar", "app.jar"]
           args: ["--spring.profiles.active=kubitos"]
+          env:
+            - name: MAILJET_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.treasury.name }}-secret
+                  key: mailJetApiKey
+            - name: MAILJET_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.treasury.name }}-secret
+                  key: mailJetApiSecret
           ports:
             - containerPort: 8080
