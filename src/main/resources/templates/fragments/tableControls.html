@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="toggles(showIdToggle, showMetaToggle)" class="mb-3">
+    <button th:if="${showIdToggle}"
+            type="button"
+            class="btn btn-secondary"
+            onclick="toggleIdColumn()">ID-Spalte ein-/ausblenden</button>
+    <button th:if="${showMetaToggle}"
+            type="button"
+            class="btn btn-secondary"
+            onclick="toggleMetaColumns()">Meta-Spalten ein-/ausblenden</button>
+</div>
+
+<div th:fragment="summary3(label1, value1, label2, value2, label3, value3)" class="mb-3">
+    <strong th:text="${label1}">Summe 1:</strong>
+    <span th:text="${value1}"></span>
+    &nbsp; | &nbsp;
+    <strong th:text="${label2}">Summe 2:</strong>
+    <span th:text="${value2}"></span>
+    &nbsp; | &nbsp;
+    <strong th:text="${label3}">Summe 3:</strong>
+    <span th:text="${value3}"></span>
+</div>
+
+</body>
+</html>
+

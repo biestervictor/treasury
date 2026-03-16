@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<form th:fragment="triStateFlags(actionUrl, soldOnly, isSelling, highProfitOnly)"
+      id="tableFilterForm"
+      th:action="${actionUrl}"
+      method="get">
+    <input type="hidden" id="soldOnly" name="soldOnly" th:value="${soldOnly} ? 'true' : 'false'" />
+    <input type="hidden" id="isSelling" name="isSelling" th:value="${isSelling} ? 'true' : 'false'" />
+    <input type="hidden" id="highProfitOnly" name="highProfitOnly" th:value="${highProfitOnly} ? 'true' : 'false'" />
+</form>
+
+</body>
+</html>
+

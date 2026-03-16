@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<th:block th:fragment="toggleScripts">
+    <script>
+        function toggleIdColumn() {
+            const idColumns = document.querySelectorAll('.id-column');
+            idColumns.forEach(column => column.classList.toggle('hidden'));
+        }
+
+        function toggleMetaColumns() {
+            const metaColumns = document.querySelectorAll('.meta-column');
+            metaColumns.forEach(column => column.classList.toggle('hidden'));
+        }
+    </script>
+</th:block>
+
+</body>
+</html>
+
