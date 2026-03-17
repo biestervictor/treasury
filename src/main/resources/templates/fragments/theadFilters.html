@@ -17,25 +17,83 @@
         <th colspan="16">
             <div class="d-flex flex-wrap align-items-center gap-3">
                 <div style="min-width: 10rem;">
-                    <input class="form-control form-control-sm"
-                           name="setCode"
-                           placeholder="Set Code"
-                           th:value="${param.setCode}"
-                           form="tableFilterForm"
-                           onchange="document.getElementById('tableFilterForm').submit()">
+                    <select class="form-select form-select-sm"
+                            id="setCodeFilterSelect"
+                            form="tableFilterForm"
+                            onchange="document.getElementById('filterSetCode').value = this.value; document.getElementById('tableFilterForm').submit()">
+                        <option value="">Set wählen</option>
+                        <option th:each="set : ${magicSets}"
+                                th:if="${#strings.length(set.code) <= 3}"
+                                th:value="${set.code}"
+                                th:text="${set.code}"
+                                th:selected="${param.setCode} == ${set.code}"></option>
+                    </select>
+                </div>
+
+                <!-- setCode wird ausschließlich über dieses Hidden-Feld gesendet (damit nie doppelt) -->
+                <input type="hidden"
+                       id="filterSetCode"
+                       name="setCode"
+                       form="tableFilterForm"
+                       th:value="${(param.setCode != null and !#lists.isEmpty(param.setCode)) ? param.setCode[0] : ''}" />
+
+                <!-- Aktiver Set-Filter als Badge (klickbar zum Entfernen) -->
+                <div th:if="${param.setCode != null and !#lists.isEmpty(param.setCode) and !#strings.isEmpty(param.setCode[0])}" class="d-flex align-items-center">
+                    <button type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            title="Set-Filter entfernen"
+                            onclick="(function(){
+                              const form=document.getElementById('tableFilterForm');
+                              if(!form) return;
+                              // Entfernen: Dropdown + hidden Wert leeren
+                              const select=document.getElementById('setCodeFilterSelect');
+                              if(select) select.selectedIndex=0;
+                              const hidden=document.getElementById('filterSetCode');
+                              if(hidden) hidden.value='';
+                              form.submit();
+                            })()">
+                        <span th:text="${param.setCode[0]}">SET</span>
+                        <span aria-hidden="true">&nbsp;×</span>
+                    </button>
                 </div>
 
                 <div style="min-width: 12rem;">
                     <select class="form-select form-select-sm"
-                            name="type"
+                            id="typeFilterSelect"
                             form="tableFilterForm"
-                            onchange="document.getElementById('tableFilterForm').submit()">
+                            onchange="document.getElementById('filterType').value = this.value; document.getElementById('tableFilterForm').submit()">
                         <option value="">Typ wählen</option>
                         <option th:each="t : ${types}"
                                 th:value="${t}"
                                 th:text="${t}"
                                 th:selected="${param.type} == ${t}"></option>
                     </select>
+                </div>
+
+                <!-- type wird ausschließlich über dieses Hidden-Feld gesendet (damit nie doppelt) -->
+                <input type="hidden"
+                       id="filterType"
+                       name="type"
+                       form="tableFilterForm"
+                       th:value="${(param.type != null and !#lists.isEmpty(param.type)) ? param.type[0] : ''}" />
+
+                <!-- Aktiver Typ-Filter als Badge (klickbar zum Entfernen) -->
+                <div th:if="${param.type != null and !#lists.isEmpty(param.type) and !#strings.isEmpty(param.type[0])}" class="d-flex align-items-center">
+                    <button type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            title="Typ-Filter entfernen"
+                            onclick="(function(){
+                              const form=document.getElementById('tableFilterForm');
+                              if(!form) return;
+                              const select=document.getElementById('typeFilterSelect');
+                              if(select) select.selectedIndex=0;
+                              const hidden=document.getElementById('filterType');
+                              if(hidden) hidden.value='';
+                              form.submit();
+                            })()">
+                        <span th:text="${param.type[0]}">TYPE</span>
+                        <span aria-hidden="true">&nbsp;×</span>
+                    </button>
                 </div>
 
                 <div class="form-check mb-0">
