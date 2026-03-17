@@ -66,12 +66,24 @@
         thead tr.thead-dark-row th {
             background-color: var(--bs-dark, #212529);
             color: var(--bs-light, #f8f9fa);
+            white-space: nowrap;
         }
 
         /* Damit die Header-Zeile nicht kleiner wirkt als die Filter-Zeile */
         thead tr.thead-dark-row th {
             font-size: 1.05rem;
             font-weight: 600;
+        }
+
+        /* Display: Header-Text etwas kleiner, damit die Tabelle ruhiger wirkt */
+        #displayTable thead tr.thead-dark-row th {
+            font-size: 0.95rem;
+        }
+
+        /* Wenn Meta-Spalten eingeblendet werden, sollen Header nicht umbrechen */
+        #displayTable thead tr.thead-dark-row th,
+        #secretLairTable thead tr.thead-dark-row th {
+            white-space: nowrap;
         }
 
 
