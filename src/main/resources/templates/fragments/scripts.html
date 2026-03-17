@@ -13,6 +13,32 @@
             const metaColumns = document.querySelectorAll('.meta-column');
             metaColumns.forEach(column => column.classList.toggle('hidden'));
         }
+
+        /**
+         * Wenn "Verkauft" gefiltert wird, soll die Verkaufspreis-Spalte sichtbar sein.
+         * Wir steuern diese Spalte separat über die Klasse "soldprice-column", damit
+         * sie nicht zwingend an "Meta-Spalten einblenden" gekoppelt ist.
+         */
+        function syncSoldPriceColumnVisibility() {
+            const soldOnlyInput = document.getElementById('soldOnly');
+            if (!soldOnlyInput) {
+                return;
+            }
+
+            const soldOnlyEnabled = soldOnlyInput.value === 'true';
+            const soldPriceColumns = document.querySelectorAll('.soldprice-column');
+            soldPriceColumns.forEach(col => {
+                if (soldOnlyEnabled) {
+                    col.classList.remove('hidden');
+                } else {
+                    col.classList.add('hidden');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            syncSoldPriceColumnVisibility();
+        });
     </script>
 </th:block>
 

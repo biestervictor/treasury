@@ -8,7 +8,7 @@
 
 <!-- Display-Headerzeile -->
 <th:block th:fragment="displayHeaderRow">
-    <tr>
+    <tr class="thead-dark-row">
         <th class="id-column hidden">ID</th>
         <th onclick="sortTable(1)">Set Code &#x25B2;&#x25BC;</th>
         <th>Icon</th>
@@ -19,7 +19,7 @@
         <th>Lagerort</th>
         <th class="text-nowrap th-w-date">Zuletzt aktualisiert</th>
         <th class="meta-column hidden">Verkauft</th>
-        <th class="meta-column hidden">Verkaufspreis</th>
+        <th class="hidden soldprice-column text-end">Verkaufspreis</th>
         <th>Sprache</th>
         <th class="meta-column hidden">Verkäufer</th>
         <th class="meta-column hidden">Kaufdatum</th>
@@ -30,9 +30,9 @@
 
 <!-- SecretLair-Headerzeile -->
 <th:block th:fragment="secretLairHeaderRow">
-    <tr>
+    <tr class="thead-dark-row">
         <th class="id-column hidden">ID</th>
-        <th>Deck</th>
+        <th  class="meta-column hidden"> Deck</th>
         <th class="text-end">Einkaufspreis</th>
         <th class="meta-column hidden">Kaufdatum</th>
         <th>Name</th>
@@ -42,6 +42,7 @@
         <th class="meta-column hidden">URL</th>
         <th>Foil</th>
         <th class="meta-column hidden">Verkauft</th>
+        <th class="hidden soldprice-column text-end">Verkaufspreis</th>
         <th class="meta-column hidden">Verkaufen</th>
         <th class="meta-column hidden text-end th-w-profit">Gewinn</th>
         <th>Angebote</th>

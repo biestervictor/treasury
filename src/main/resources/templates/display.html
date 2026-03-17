@@ -10,7 +10,7 @@
 
 <div th:replace="fragments/tableFilters :: triStateFlags('/api/display/list', ${soldOnly}, ${isSelling}, ${highProfitOnly})"></div>
 <table class="table table-striped table-hover" data-sort-order="asc" id="displayTable">
-    <thead class="table-dark">
+    <thead>
     <th:block th:replace="fragments/theadHeaders :: displayHeaderRow"></th:block>
     <th:block th:replace="fragments/theadFilters :: displayFilterRow(${types}, ${soldOnly}, ${isSelling}, ${highProfitOnly})"></th:block>
     </thead>
@@ -54,7 +54,7 @@
             style="width: 10.5rem; font-variant-numeric: tabular-nums;"
             th:text="${#temporals.format(display.updatedAt, 'yyyy-MM-dd')}"></td>
         <td class="meta-column hidden" th:text="${display.sold}"></td>
-        <td class="meta-column hidden" th:text="${display.soldPrice}"></td>
+        <td class="hidden soldprice-column text-end text-muted" style="font-variant-numeric: tabular-nums;" th:text="${display.soldPrice}"></td>
         <td th:text="${display.language}"></td>
         <td class="meta-column hidden" th:text="${display.vendor}"></td>
         <td class="meta-column hidden" th:text="${#temporals.format(display.dateBought, 'yyyy-MM-dd')}"></td>

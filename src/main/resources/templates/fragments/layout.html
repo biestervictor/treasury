@@ -22,13 +22,16 @@
 
         /* Kompakte Filter-Zeile unter dem Tabellenkopf */
         thead tr.filter-row th {
-            padding-top: 0.15rem;
-            padding-bottom: 0.15rem;
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
             vertical-align: middle;
             font-weight: normal;
             white-space: normal;
             font-size: 0.85rem;
-            line-height: 1.1;
+            line-height: 1.2;
+            background-color: #f8f9fa; /* unabhängig von table-dark */
+            color: #212529;
+            border-bottom: 1px solid rgba(0,0,0,.125);
         }
 
         /* Header-Zeile darf nicht klein wirken (Filterzeile ist bewusst kompakt) */
@@ -44,6 +47,7 @@
             padding-top: 0.15rem;
             padding-bottom: 0.15rem;
             line-height: 1.1;
+            min-height: 2rem;
         }
 
         /* Filter-Controls innerhalb der Zelle zentrieren */
@@ -58,16 +62,18 @@
             margin-top: 0;
         }
 
+        /* Header: nur die erste Headerzeile soll dunkel sein (unabhängig von Filterzeile) */
+        thead tr.thead-dark-row th {
+            background-color: var(--bs-dark, #212529);
+            color: var(--bs-light, #f8f9fa);
+        }
+
         /* Damit die Header-Zeile nicht kleiner wirkt als die Filter-Zeile */
-        thead.table-dark tr:not(.filter-row) th {
+        thead tr.thead-dark-row th {
             font-size: 1.05rem;
             font-weight: 600;
         }
 
-        thead.table-dark tr.filter-row th {
-            font-size: 0.85rem;
-            font-weight: 400;
-        }
 
         /* Angebote-Listen kompakt halten (sonst macht diese Spalte die Tabelle optisch sehr breit) */
         table td ul {

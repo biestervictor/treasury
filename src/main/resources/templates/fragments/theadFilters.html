@@ -10,81 +10,65 @@
 <!-- Display-Filterzeile -->
 <th:block th:fragment="displayFilterRow(types, soldOnly, isSelling, highProfitOnly)">
     <tr class="filter-row">
-        <th class="id-column hidden"></th>
-        <th>
-            <input class="form-control form-control-sm"
-                   name="setCode"
-                   placeholder="Set Code"
-                   th:value="${param.setCode}"
-                   form="tableFilterForm"
-                   onchange="document.getElementById('tableFilterForm').submit()">
-        </th>
-        <th></th>
-        <th>
-            <select class="form-select form-select-sm"
-                    name="type"
-                    form="tableFilterForm"
-                    onchange="document.getElementById('tableFilterForm').submit()">
-                <option value="">Typ wählen</option>
-                <option th:each="t : ${types}"
-                        th:value="${t}"
-                        th:text="${t}"
-                        th:selected="${param.type} == ${t}"></option>
-            </select>
-        </th>
-        <th>
-            <div class="form-check">
-                <input class="form-check-input"
-                       type="checkbox"
-                       id="soldFilter"
-                       form="tableFilterForm"
-                       th:checked="${soldOnly}"
-                       onchange="document.getElementById('soldOnly').value = this.checked ? 'true' : 'false'; document.getElementById('tableFilterForm').submit();">
-                <label class="form-check-label" for="soldFilter">Verkauft</label>
+        <!--
+          Display: Filterzeile bewusst unabhängig vom Spaltenlayout.
+          Das verhindert Layout-Sprünge, wenn Spalten dynamisch ein-/ausgeblendet werden (z.B. Verkaufspreis bei soldOnly=true).
+        -->
+        <th colspan="16">
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <div style="min-width: 10rem;">
+                    <input class="form-control form-control-sm"
+                           name="setCode"
+                           placeholder="Set Code"
+                           th:value="${param.setCode}"
+                           form="tableFilterForm"
+                           onchange="document.getElementById('tableFilterForm').submit()">
+                </div>
+
+                <div style="min-width: 12rem;">
+                    <select class="form-select form-select-sm"
+                            name="type"
+                            form="tableFilterForm"
+                            onchange="document.getElementById('tableFilterForm').submit()">
+                        <option value="">Typ wählen</option>
+                        <option th:each="t : ${types}"
+                                th:value="${t}"
+                                th:text="${t}"
+                                th:selected="${param.type} == ${t}"></option>
+                    </select>
+                </div>
+
+                <div class="form-check mb-0">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="soldFilter"
+                           form="tableFilterForm"
+                           th:checked="${soldOnly}"
+                           onchange="document.getElementById('soldOnly').value = this.checked ? 'true' : 'false'; document.getElementById('tableFilterForm').submit();">
+                    <label class="form-check-label" for="soldFilter">Verkauft</label>
+                </div>
+
+                <div class="form-check mb-0">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="sellingFilter"
+                           form="tableFilterForm"
+                           th:checked="${isSelling}"
+                           onchange="document.getElementById('isSelling').value = this.checked ? 'true' : 'false'; document.getElementById('tableFilterForm').submit();">
+                    <label class="form-check-label" for="sellingFilter">Verkaufen</label>
+                </div>
+
+                <div class="form-check mb-0">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="highProfitFilter"
+                           form="tableFilterForm"
+                           th:checked="${highProfitOnly}"
+                           onchange="document.getElementById('highProfitOnly').value = this.checked ? 'true' : 'false'; document.getElementById('tableFilterForm').submit();">
+                    <label class="form-check-label" for="highProfitFilter">&gt; 1.5x</label>
+                </div>
             </div>
         </th>
-        <th>
-            <div class="form-check">
-                <input class="form-check-input"
-                       type="checkbox"
-                       id="sellingFilter"
-                       form="tableFilterForm"
-                       th:checked="${isSelling}"
-                       onchange="document.getElementById('isSelling').value = this.checked ? 'true' : 'false'; document.getElementById('tableFilterForm').submit();">
-                <label class="form-check-label" for="sellingFilter">Verkaufen</label>
-            </div>
-        </th>
-        <th>
-            <div class="form-check">
-                <input class="form-check-input"
-                       type="checkbox"
-                       id="highProfitFilter"
-                       form="tableFilterForm"
-                       th:checked="${highProfitOnly}"
-                       onchange="document.getElementById('highProfitOnly').value = this.checked ? 'true' : 'false'; document.getElementById('tableFilterForm').submit();">
-                <label class="form-check-label" for="highProfitFilter">&gt; 1.5x</label>
-            </div>
-        </th>
-
-        <!-- Lagerort -->
-        <th></th>
-        <!-- Zuletzt aktualisiert (gleiche Breite wie Header) -->
-        <th class="text-nowrap th-w-date"></th>
-
-        <!-- Meta-Spalten (hidden) -->
-        <th class="meta-column hidden"></th>
-        <th class="meta-column hidden"></th>
-
-        <!-- Sprache -->
-        <th></th>
-
-        <!-- Meta-Spalten (hidden) -->
-        <th class="meta-column hidden"></th>
-        <th class="meta-column hidden"></th>
-        <th class="meta-column hidden"></th>
-
-        <!-- Angebote -->
-        <th></th>
     </tr>
 </th:block>
 
