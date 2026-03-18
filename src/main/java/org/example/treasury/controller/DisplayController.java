@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import org.example.treasury.model.AggregatedDisplay;
 import org.example.treasury.model.Display;
@@ -13,12 +12,10 @@ import org.example.treasury.model.DisplayType;
 import org.example.treasury.model.MagicSet;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.DisplayPriceCollectorService;
-import org.example.treasury.service.PriceCollectorService;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -155,6 +152,11 @@ public class DisplayController {
     aggregatedData.sort(Comparator.comparing(AggregatedDisplay::getSetCode));
     model.addAttribute("aggregatedData", aggregatedData);
     model.addAttribute("display", new Display());
+
+    // Summen für die Anzeige (nur nicht verkaufte Displays)
+    DisplayService.AggregatedTotals totals = displayService.getAggregatedTotals();
+    model.addAttribute("totalExpenses", totals.totalExpenses());
+    model.addAttribute("currentValue", totals.currentValue());
 
     return "aggregatedDisplays";
   }

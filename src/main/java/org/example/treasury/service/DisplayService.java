@@ -133,7 +133,10 @@ public class DisplayService {
    * @return a map containing aggregated values of displays
    */
   public Map<String, Map<String, Map<String, Object>>> getAggregatedValues() {
-    List<Display> displays = getAllDisplays(); // Holt alle Displays aus der Datenbank
+    // Aggregation darf KEINE verkauften Displays berücksichtigen
+    List<Display> displays = getAllDisplays().stream()
+        .filter(d -> !d.isSold())
+        .toList();
     return displays.stream()
         .collect(Collectors.groupingBy(
             Display::getSetCode,
@@ -162,6 +165,28 @@ public class DisplayService {
             )
         ));
   }
+
+  /**
+   * Summen für die Aggregated-Übersicht (nur NICHT verkaufte Displays).
+   */
+  public AggregatedTotals getAggregatedTotals() {
+    List<Display> displays = getAllDisplays().stream()
+        .filter(d -> !d.isSold())
+        .toList();
+
+    double totalExpenses = displays.stream()
+        .mapToDouble(Display::getValueBought)
+        .sum();
+
+    double currentValue = displays.stream()
+        .mapToDouble(Display::getCurrentValue)
+        .sum();
+
+    return new AggregatedTotals(totalExpenses, currentValue);
+  }
+
+  public record AggregatedTotals(double totalExpenses, double currentValue) {
+  }
   public Display updateDisplayById(String id, Display updatedDisplay) {
     Display existingDisplay = displayRepository.findById(id).orElse(null);
     if (existingDisplay == null) {
@@ -180,7 +205,9 @@ public class DisplayService {
     String setCode = display.getSetCode();
     String type = display.getType();
     // Filtere alle Displays mit gleichem setCode und type
+    // Relevanter Preis soll ebenfalls KEINE verkauften Displays einschließen
     List<Display> gleicheDisplays = getAllDisplays().stream()
+        .filter(d -> !d.isSold())
         .filter(d -> setCode.equals(d.getSetCode()) && type.equals(d.getType()))
         .toList();
     // Sammle alle Angebote dieser Displays
