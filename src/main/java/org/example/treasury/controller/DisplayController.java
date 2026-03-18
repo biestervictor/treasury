@@ -265,12 +265,30 @@ public class DisplayController {
                         @RequestParam(value = "highProfitOnly", required = false, defaultValue = "false") String highProfitOnly,
                         Model model) {
     List<Display> displays;
-    if (setCode != null && !setCode.isEmpty() && type != null && !type.isEmpty()) {
-      displays = displayService.findBySetCodeAndType(setCode, type);
-    } else if (setCode != null && !setCode.isEmpty()) {
-      displays = displayService.findBySetCodeIgnoreCase(setCode);
-    } else if (type != null && !type.isEmpty()) {
-      displays = displayService.findByTypeIgnoreCase(type);
+    // Multi-Select Support: setCode/type können kommasepariert kommen (z.B. "INR,SPM")
+    List<String> setCodes = setCode == null ? List.of() : Arrays.stream(setCode.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .toList();
+    List<String> types = type == null ? List.of() : Arrays.stream(type.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .toList();
+
+    if (!setCodes.isEmpty() && !types.isEmpty()) {
+      // OR-Filter: Display passt, wenn setCode in setCodes UND type in types
+      displays = displayService.getAllDisplays().stream()
+          .filter(d -> setCodes.stream().anyMatch(sc -> sc.equalsIgnoreCase(d.getSetCode())))
+          .filter(d -> types.stream().anyMatch(t -> t.equalsIgnoreCase(d.getType())))
+          .toList();
+    } else if (!setCodes.isEmpty()) {
+      displays = displayService.getAllDisplays().stream()
+          .filter(d -> setCodes.stream().anyMatch(sc -> sc.equalsIgnoreCase(d.getSetCode())))
+          .toList();
+    } else if (!types.isEmpty()) {
+      displays = displayService.getAllDisplays().stream()
+          .filter(d -> types.stream().anyMatch(t -> t.equalsIgnoreCase(d.getType())))
+          .toList();
     } else {
       displays = displayService.getAllDisplays();
     }

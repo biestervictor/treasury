@@ -17,16 +17,31 @@
         <th colspan="16">
             <div class="d-flex flex-wrap align-items-center gap-3">
                 <div style="min-width: 10rem;">
+                    <!--
+                      Safari: <select multiple size="1"> verhält sich nicht wie ein Dropdown und ist oft nicht bedienbar.
+                      Daher: Single-Select als Picker; Auswahl wird zur Hidden-Liste hinzugefügt.
+                    -->
                     <select class="form-select form-select-sm"
                             id="setCodeFilterSelect"
                             form="tableFilterForm"
-                            onchange="document.getElementById('filterSetCode').value = this.value; document.getElementById('tableFilterForm').submit()">
-                        <option value="">Set wählen</option>
+                            onchange="(function(sel){
+                              const value = sel.value;
+                              if(!value){ return; }
+                              const hidden = document.getElementById('filterSetCode');
+                              const current = (hidden && hidden.value)
+                                ? hidden.value.split(',').map(v=>v.trim()).filter(v=>v)
+                                : [];
+                              if(!current.includes(value)) current.push(value);
+                              if(hidden) hidden.value = current.join(',');
+                              // Reset, damit man direkt weitere Werte hinzufügen kann
+                              sel.value = '';
+                              document.getElementById('tableFilterForm').submit();
+                            })(this)">
+                        <option value="">Set…</option>
                         <option th:each="set : ${magicSets}"
                                 th:if="${#strings.length(set.code) <= 3}"
                                 th:value="${set.code}"
-                                th:text="${set.code}"
-                                th:selected="${param.setCode} == ${set.code}"></option>
+                                th:text="${set.code}"></option>
                     </select>
                 </div>
 
@@ -35,24 +50,33 @@
                        id="filterSetCode"
                        name="setCode"
                        form="tableFilterForm"
-                       th:value="${(param.setCode != null and !#lists.isEmpty(param.setCode)) ? param.setCode[0] : ''}" />
+                       th:value="${(param.setCode != null and !#lists.isEmpty(param.setCode)) ? #strings.arrayJoin(param.setCode, ',') : ''}" />
 
-                <!-- Aktiver Set-Filter als Badge (klickbar zum Entfernen) -->
-                <div th:if="${param.setCode != null and !#lists.isEmpty(param.setCode) and !#strings.isEmpty(param.setCode[0])}" class="d-flex align-items-center">
-                    <button type="button"
+                <!-- Aktive Set-Filter als Boxen (jeweils einzeln entfernbar)
+                     Wichtig: param.setCode kann (je nach Request) entweder mehrfach vorkommen ODER als CSV-String kommen.
+                     Wir rendern daher IMMER aus dem Hidden-Feld (CSV) heraus, damit entfernen zuverlässig funktioniert.
+                -->
+                <div th:if="${!#strings.isEmpty((param.setCode != null and !#lists.isEmpty(param.setCode)) ? #strings.arrayJoin(param.setCode, ',') : '')}"
+                     class="d-flex flex-wrap align-items-center gap-2">
+                    <button th:each="sc : ${#strings.arraySplit(#strings.arrayJoin(param.setCode, ','), ',')}"
+                            th:if="${!#strings.isEmpty(sc)}"
+                            type="button"
                             class="btn btn-outline-secondary btn-sm"
-                            title="Set-Filter entfernen"
-                            onclick="(function(){
-                              const form=document.getElementById('tableFilterForm');
-                              if(!form) return;
-                              // Entfernen: Dropdown + hidden Wert leeren
-                              const select=document.getElementById('setCodeFilterSelect');
-                              if(select) select.selectedIndex=0;
-                              const hidden=document.getElementById('filterSetCode');
-                              if(hidden) hidden.value='';
-                              form.submit();
-                            })()">
-                        <span th:text="${param.setCode[0]}">SET</span>
+                            th:title="'Set entfernen: ' + ${sc}"
+                            th:attr="data-value=${sc}"
+                            onclick="(function(btn){
+                              const value = btn.getAttribute('data-value');
+                              const hidden = document.getElementById('filterSetCode');
+                              const current = (hidden && hidden.value)
+                                ? hidden.value.split(',').map(v=>v.trim()).filter(v=>v)
+                                : [];
+                              const next = current.filter(v => v !== value);
+                              if(hidden) hidden.value = next.join(',');
+                              const select = document.getElementById('setCodeFilterSelect');
+                               if(select){ select.value = ''; }
+                              document.getElementById('tableFilterForm').submit();
+                            })(this)">
+                        <span th:text="${sc}">SET</span>
                         <span aria-hidden="true">&nbsp;×</span>
                     </button>
                 </div>
@@ -61,12 +85,22 @@
                     <select class="form-select form-select-sm"
                             id="typeFilterSelect"
                             form="tableFilterForm"
-                            onchange="document.getElementById('filterType').value = this.value; document.getElementById('tableFilterForm').submit()">
-                        <option value="">Typ wählen</option>
+                            onchange="(function(sel){
+                              const value = sel.value;
+                              if(!value){ return; }
+                              const hidden = document.getElementById('filterType');
+                              const current = (hidden && hidden.value)
+                                ? hidden.value.split(',').map(v=>v.trim()).filter(v=>v)
+                                : [];
+                              if(!current.includes(value)) current.push(value);
+                              if(hidden) hidden.value = current.join(',');
+                              sel.value = '';
+                              document.getElementById('tableFilterForm').submit();
+                            })(this)">
+                        <option value="">Typ…</option>
                         <option th:each="t : ${types}"
                                 th:value="${t}"
-                                th:text="${t}"
-                                th:selected="${param.type} == ${t}"></option>
+                                th:text="${t}"></option>
                     </select>
                 </div>
 
@@ -75,23 +109,32 @@
                        id="filterType"
                        name="type"
                        form="tableFilterForm"
-                       th:value="${(param.type != null and !#lists.isEmpty(param.type)) ? param.type[0] : ''}" />
+                       th:value="${(param.type != null and !#lists.isEmpty(param.type)) ? #strings.arrayJoin(param.type, ',') : ''}" />
 
-                <!-- Aktiver Typ-Filter als Badge (klickbar zum Entfernen) -->
-                <div th:if="${param.type != null and !#lists.isEmpty(param.type) and !#strings.isEmpty(param.type[0])}" class="d-flex align-items-center">
-                    <button type="button"
+                <!-- Aktive Typ-Filter als Boxen (jeweils einzeln entfernbar)
+                     Analog zu setCode: aus dem (ggf. CSV) Request ableiten, damit das Entfernen zuverlässig funktioniert.
+                -->
+                <div th:if="${!#strings.isEmpty((param.type != null and !#lists.isEmpty(param.type)) ? #strings.arrayJoin(param.type, ',') : '')}"
+                     class="d-flex flex-wrap align-items-center gap-2">
+                    <button th:each="ty : ${#strings.arraySplit(#strings.arrayJoin(param.type, ','), ',')}"
+                            th:if="${!#strings.isEmpty(ty)}"
+                            type="button"
                             class="btn btn-outline-secondary btn-sm"
-                            title="Typ-Filter entfernen"
-                            onclick="(function(){
-                              const form=document.getElementById('tableFilterForm');
-                              if(!form) return;
-                              const select=document.getElementById('typeFilterSelect');
-                              if(select) select.selectedIndex=0;
-                              const hidden=document.getElementById('filterType');
-                              if(hidden) hidden.value='';
-                              form.submit();
-                            })()">
-                        <span th:text="${param.type[0]}">TYPE</span>
+                            th:title="'Typ entfernen: ' + ${ty}"
+                            th:attr="data-value=${ty}"
+                            onclick="(function(btn){
+                              const value = btn.getAttribute('data-value');
+                              const hidden = document.getElementById('filterType');
+                              const current = (hidden && hidden.value)
+                                ? hidden.value.split(',').map(v=>v.trim()).filter(v=>v)
+                                : [];
+                              const next = current.filter(v => v !== value);
+                              if(hidden) hidden.value = next.join(',');
+                              const select = document.getElementById('typeFilterSelect');
+                               if(select){ select.value = ''; }
+                              document.getElementById('tableFilterForm').submit();
+                            })(this)">
+                        <span th:text="${ty}">TYPE</span>
                         <span aria-hidden="true">&nbsp;×</span>
                     </button>
                 </div>
