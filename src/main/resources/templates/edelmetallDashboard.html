@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Edelmetalle Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" th:href="@{/api/menue/index}">Treasury</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" th:href="@{/api/menue/index}">Hauptmenü</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <h1 class="mb-3">Edelmetalle Dashboard</h1>
+
+    <div th:if="${param.error != null and !#lists.isEmpty(param.error)}" class="alert alert-danger" role="alert">
+        <strong>Fehler:</strong>
+        <span th:text="${param.error[0]}">Preis-Service nicht erreichbar</span>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Aktuelle Preise (EUR / Oz)</h5>
+                    <div th:if="${dashboard.currentPrices.timestamp() != null}">
+                        <div class="small text-muted">Stand: <span id="currentPriceTimestamp" th:text="${dashboard.currentPrices.timestamp()}"></span></div>
+                    </div>
+                    <div class="mt-2">
+                        <div>Gold: <strong id="currentGoldPrice" th:text="${dashboard.currentPrices.goldEurPerOunce()}"></strong></div>
+                        <div>Silber: <strong id="currentSilverPrice" th:text="${dashboard.currentPrices.silverEurPerOunce()}"></strong></div>
+                    </div>
+
+                    <!-- Filter-Buttons (analog zu Displayverwaltung) -->
+                    <div class="mt-3 d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-outline-dark btn-sm" id="filterAllBtn">Alle</button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" id="filterGoldBtn">Gold</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="filterSilverBtn">Silber</button>
+                    </div>
+
+                    <div class="mt-3 d-flex gap-2">
+                        <form method="post" th:action="@{/api/edelmetall/import}">
+                            <button class="btn btn-outline-primary" type="submit">CSV importieren</button>
+                        </form>
+                        <form method="post" th:action="@{/api/edelmetall/prices/update}">
+                            <button class="btn btn-outline-success" type="submit">Preise aktualisieren</button>
+                        </form>
+                        <button class="btn btn-outline-secondary" type="button" id="manualPricesBtn">
+                            Preise manuell setzen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title d-flex flex-wrap align-items-center gap-3">
+                        <span>Gewinn-Verlauf</span>
+                        <span class="badge text-bg-dark" th:if="${dashboard.currentPrices.timestamp() != null}">
+                            Stand:
+                            <span th:text="${#temporals.format(dashboard.currentPrices.timestamp().atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd')}">-</span>
+                        </span>
+                        <span class="badge text-bg-warning">
+                            Gold:
+                            <span th:text="${#numbers.formatDecimal(dashboard.currentPrices.goldEurPerOunce(), 1, 2)}">0,00</span>
+                            €/oz
+                        </span>
+                        <span class="badge text-bg-secondary">
+                            Silber:
+                            <span th:text="${#numbers.formatDecimal(dashboard.currentPrices.silverEurPerOunce(), 1, 2)}">0,00</span>
+                            €/oz
+                        </span>
+                        <span class="badge text-bg-primary">
+                            Gewinn aktuell:
+                            <span th:text="${#numbers.formatDecimal(dashboard.currentProfitTotal(), 1, 2)}">0,00</span>
+                            €
+                        </span>
+                        <span class="badge text-bg-success">
+                            Marktwert aktuell:
+                            <span th:text="${#numbers.formatDecimal(dashboard.currentMarketValueTotal(), 1, 2)}">0,00</span>
+                            €
+                        </span>
+                    </h5>
+                    <canvas id="profitChart" height="90"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Bestand (pro Münze/Position)</h5>
+
+                    <div th:if="${#lists.isEmpty(dashboard.latestValuations())}" class="text-muted">
+                        Noch keine Bewertung vorhanden. Bitte "Preise aktualisieren" oder "Preise manuell setzen".
+                    </div>
+
+                    <div th:if="${!#lists.isEmpty(dashboard.latestValuations())}" class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Typ</th>
+                                <th class="text-end">Gewicht (g)</th>
+                                <th class="text-end">Anzahl</th>
+                                <th class="text-end">Kaufpreis / Stk (EUR)</th>
+                                <th class="text-end">Aktueller Wert / Stk (EUR)</th>
+                                <th class="text-end">Aktueller Wert ges. (EUR)</th>
+                                <th class="text-end">Gewinn (EUR)</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="it : ${dashboard.latestValuations()}" th:attr="data-metal-type=${it.type}">
+                                <td th:text="${it.name}"></td>
+                                <td th:text="${it.type}"></td>
+                                <td class="text-end" th:text="${#numbers.formatDecimal(it.weightInGrams, 1, 4)}"></td>
+                                <td class="text-end" th:text="${it.quantity}"></td>
+                                <td class="text-end" th:text="${#numbers.formatDecimal(it.purchasePrice, 1, 2)}"></td>
+                                <td class="text-end" th:text="${#numbers.formatDecimal(it.currentUnitValue, 1, 2)}"></td>
+                                <td class="text-end" th:text="${#numbers.formatDecimal(it.currentTotalValue, 1, 2)}"></td>
+                                <td class="text-end" th:text="${#numbers.formatDecimal(it.profit, 1, 2)}"></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    // Wichtig: In th:inline="javascript" serialisiert Thymeleaf serverseitig via Jackson.
+    // Daher dürfen wir hier KEINE Objekte mit java.time.Instant einbetten (ProfitPointDto),
+    // sonst crasht das Rendering. Wir geben nur primitive Arrays (String/Number) aus.
+    const labels = /*[[${dashboard.profitTimeline().![timestamp().toString()]}]]*/ [];
+    const values = /*[[${dashboard.profitTimeline().![profitTotal()]}]]*/ [];
+    const marketValues = /*[[${dashboard.marketValueTimeline().![marketValueTotal()]}]]*/ [];
+
+    const ctx = document.getElementById('profitChart');
+    const profitChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                 label: 'Gewinn (EUR)',
+                data: values,
+                borderColor: 'rgb(13,110,253)',
+                backgroundColor: 'rgba(13,110,253,0.1)',
+                borderWidth: 2,
+                tension: 0.2,
+                fill: true,
+                pointRadius: 2,
+            },
+            {
+                label: 'Marktwert (EUR)',
+                data: marketValues,
+                borderColor: 'rgb(25,135,84)',
+                backgroundColor: 'rgba(25,135,84,0.08)',
+                borderWidth: 2,
+                tension: 0.2,
+                fill: true,
+                pointRadius: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    document.getElementById('manualPricesBtn')?.addEventListener('click', async () => {
+        const currentGold = document.getElementById('currentGoldPrice')?.textContent?.trim() || '';
+        const currentSilver = document.getElementById('currentSilverPrice')?.textContent?.trim() || '';
+
+        const goldIn = prompt('Goldpreis (EUR pro Unze) eingeben:', currentGold);
+        if (goldIn == null) return;
+
+        const silverIn = prompt('Silberpreis (EUR pro Unze) eingeben:', currentSilver);
+        if (silverIn == null) return;
+
+        try {
+            const resp = await fetch('/api/edelmetall/prices/manual/view', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goldEurPerOunce: goldIn, silverEurPerOunce: silverIn })
+            });
+
+            if (!resp.ok) {
+                const txt = await resp.text();
+                alert('Fehler beim Speichern: ' + txt);
+                return;
+            }
+
+            // Nach Persistierung zur View navigieren, damit Diagramm+Badges sicher neu gerendert werden.
+            window.location.href = '/api/edelmetall/dashboard/view';
+        } catch (e) {
+            alert('Fehler: ' + e);
+        }
+    });
+
+    function applyMetalTypeFilter(type) {
+        document.querySelectorAll('tr[data-metal-type]').forEach(tr => {
+            const t = tr.getAttribute('data-metal-type');
+            tr.style.display = (!type || t === type) ? '' : 'none';
+        });
+    }
+
+    document.getElementById('filterAllBtn')?.addEventListener('click', () => applyMetalTypeFilter(null));
+    document.getElementById('filterGoldBtn')?.addEventListener('click', () => applyMetalTypeFilter('GOLD'));
+    document.getElementById('filterSilverBtn')?.addEventListener('click', () => applyMetalTypeFilter('SILVER'));
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
