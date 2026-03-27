@@ -70,6 +70,19 @@ public class MagicSetJob {
     processJob();
   }
 
+  /**
+   * Manuelles Triggern (z.B. wenn der Job in Settings aktiviert wird).
+   */
+  public void triggerNow() {
+    if (!jobSettingsService.get().isMagicSetEnabled()) {
+      logger.info("MagicSetJob: triggerNow gestartet (Hinweis: Job ist in Settings deaktiviert)");
+    } else {
+      logger.info("MagicSetJob: triggerNow gestartet");
+    }
+    processJob();
+    logger.info("MagicSetJob: triggerNow beendet");
+  }
+
   private void processJob() {
     try {
       magicSetService.saveAllMagicSets(scryFallWebservice.getSetList());

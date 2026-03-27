@@ -113,6 +113,20 @@ public class PriceScraperJob {
     processDisplayJob();
   }
 
+  /**
+   * Manuelles Triggern (z.B. wenn der Job in Settings aktiviert wird).
+   */
+  public void triggerNow() {
+    if (!jobSettingsService.get().isPriceScraperEnabled()) {
+      logger.info("PriceScraperJob: triggerNow gestartet (Hinweis: Job ist in Settings deaktiviert)");
+    } else {
+      logger.info("PriceScraperJob: triggerNow gestartet");
+    }
+    processSecretLairJob();
+    processDisplayJob();
+    logger.info("PriceScraperJob: triggerNow beendet");
+  }
+
   private void processSecretLairJob() {
     List<SecretLair> secretLairs = secretLairService.getAllSecretLairs();
     Collections.shuffle(secretLairs);

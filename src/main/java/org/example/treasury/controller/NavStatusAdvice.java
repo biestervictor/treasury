@@ -19,7 +19,8 @@ public class NavStatusAdvice {
   @ModelAttribute("jobsAllEnabled")
   public boolean jobsAllEnabled() {
     var s = jobSettingsService.get();
-    return s.isSellEnabled() && s.isPriceScraperEnabled() && s.isMagicSetEnabled();
+    return s.isSellEnabled() && s.isPriceScraperEnabled() && s.isMagicSetEnabled()
+        && s.isMetalPriceScraperEnabled();
   }
 
   @ModelAttribute("jobsAnyDisabled")

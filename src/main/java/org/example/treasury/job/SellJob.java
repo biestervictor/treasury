@@ -117,6 +117,20 @@ public class SellJob {
     logger.info("SellJob: Run beendet");
   }
 
+  /**
+   * Manuelles Triggern (z.B. wenn der Job in Settings aktiviert wird).
+   */
+  public void triggerNow() {
+    if (!jobSettingsService.get().isSellEnabled()) {
+      logger.info("SellJob: triggerNow gestartet (Hinweis: Job ist in Settings deaktiviert)");
+    } else {
+      logger.info("SellJob: triggerNow gestartet");
+    }
+    processSecretLairJob();
+    processDisplayJob();
+    logger.info("SellJob: triggerNow beendet");
+  }
+
   private void processSecretLairJob() {
     List<SecretLair> secretLairs = new ArrayList<>(
         secretLairService.getAllSecretLairs().stream().filter(CardMarketModel::isSelling).toList());

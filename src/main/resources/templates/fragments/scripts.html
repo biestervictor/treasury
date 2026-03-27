@@ -42,6 +42,11 @@
     </script>
 </th:block>
 
+<!-- Alias-Fragment für Seiten, die bereits ":: scripts" referenzieren -->
+<th:block th:fragment="scripts">
+    <th:block th:replace="~{fragments/scripts :: toggleScripts}"></th:block>
+</th:block>
+
 </body>
 </html>
 

@@ -14,6 +14,7 @@ public class JobSettingsProperties {
   private boolean sellEnabled = true;
   private boolean priceScraperEnabled = true;
   private boolean magicSetEnabled = true;
+  private boolean metalPriceScraperEnabled = true;
 
   public boolean isSellEnabled() {
     return sellEnabled;
@@ -37,5 +38,13 @@ public class JobSettingsProperties {
 
   public void setMagicSetEnabled(boolean magicSetEnabled) {
     this.magicSetEnabled = magicSetEnabled;
+  }
+
+  public boolean isMetalPriceScraperEnabled() {
+    return metalPriceScraperEnabled;
+  }
+
+  public void setMetalPriceScraperEnabled(boolean metalPriceScraperEnabled) {
+    this.metalPriceScraperEnabled = metalPriceScraperEnabled;
   }
 }
