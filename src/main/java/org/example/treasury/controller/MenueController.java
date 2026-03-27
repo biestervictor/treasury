@@ -30,7 +30,7 @@ public class MenueController {
    */
   @GetMapping("/shoeMenue")
   public String getShoeMenue() {
-    return "shoeMenue";
+    return "redirect:/api/shoe/list";
   }
 
   /**

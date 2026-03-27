@@ -33,6 +33,11 @@
 
 <!-- Hauptinhalt -->
 <div class="container mt-5">
+    <div class="d-flex justify-content-end mb-3">
+        <form method="get" th:action="@{/api/shoe/insert}">
+            <button type="submit" class="btn btn-outline-primary">Schuhe importieren</button>
+        </form>
+    </div>
     <!-- Summen und Gewinn/Verlust -->
     <div class="container mt-4">
         <div class="row text-center">
