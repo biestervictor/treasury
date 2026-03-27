@@ -3,7 +3,7 @@
 <head th:replace="fragments/layout :: head('Aggregierte Displays')"></head>
 <body class="bg-light">
 
-<nav th:replace="navbarDisplay.html :: nav"></nav>
+<th:block th:replace="navbarDisplay.html :: nav"></th:block>
 <div th:replace="addDisplay.html :: addForm"></div>
 
 <div class="container mt-4">

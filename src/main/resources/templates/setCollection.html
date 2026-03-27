@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head th:replace="fragments/layout :: head('Magic Sets Übersicht')"></head>
 <body class="bg-light">
-<nav th:replace="navbarDisplay.html :: nav"></nav>
+<th:block th:replace="navbarDisplay.html :: nav"></th:block>
 <div class="container">
     <h1 class="mb-4">Magic Sets</h1>
     <form method="get" th:action="@{/api/sets/filter}" class="row g-3 mb-4">
