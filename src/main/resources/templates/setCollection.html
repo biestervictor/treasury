@@ -1,10 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <title>Magic Sets Übersicht</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-</head>
-<body>
+<head th:replace="fragments/layout :: head('Magic Sets Übersicht')"></head>
+<body class="bg-light">
 <nav th:replace="navbarDisplay.html :: nav"></nav>
 <div class="container">
     <h1 class="mb-4">Magic Sets</h1>
@@ -39,7 +36,7 @@
             <input type="text" id="setType" name="setType" th:value="${setType}" class="form-control">
         </div>
         <div class="col-auto">
-            <button type="button" class="btn btn-secondary" onclick="clearSetType()">Filter zurücksetzen</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="clearSetType()">Filter zurücksetzen</button>
         </div>
         <script>
             function clearSetType() {
@@ -47,7 +44,7 @@
             }
         </script>
         <div class="col-auto">
-            <button type="submit" class="btn btn-primary">Filtern</button>
+            <button type="submit" class="btn btn-outline-primary">Filtern</button>
         </div>
     </form>
     <table class="table table-striped table-bordered">
@@ -68,5 +65,8 @@
         </tbody>
     </table>
 </div>
+
+
+<th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
 </body>
 </html>

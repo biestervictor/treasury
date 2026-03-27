@@ -1,0 +1,101 @@
+:root {
+  --th-w-date: 10.5rem;
+  --th-w-money: 8.5rem;
+  --th-w-profit: 7.5rem;
+}
+
+.hidden { display: none; }
+tr.clickable-row { cursor: pointer; }
+
+/* Spaltenbreiten-Utilities (für Header + Filter-Zeile konsistent) */
+.th-w-date { width: var(--th-w-date); }
+.th-w-money { width: var(--th-w-money); }
+.th-w-profit { width: var(--th-w-profit); }
+
+/* Kompakte Filter-Zeile unter dem Tabellenkopf */
+thead tr.filter-row th {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  vertical-align: middle;
+  font-weight: normal;
+  white-space: normal;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  background-color: #f8f9fa; /* unabhängig von table-dark */
+  color: #212529;
+  border-bottom: 1px solid rgba(0,0,0,.125);
+}
+
+/* Header-Zeile darf nicht klein wirken (Filterzeile ist bewusst kompakt) */
+thead tr:not(.filter-row) th {
+  font-size: 1.05rem;
+  font-weight: 600;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+thead tr.filter-row .form-control,
+thead tr.filter-row .form-select {
+  padding-top: 0.15rem;
+  padding-bottom: 0.15rem;
+  line-height: 1.1;
+  min-height: 2rem;
+}
+
+/* Filter-Controls innerhalb der Zelle zentrieren */
+thead tr.filter-row th > .form-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+thead tr.filter-row .form-check-input {
+  margin-top: 0;
+}
+
+/* Header: nur die erste Headerzeile soll dunkel sein (unabhängig von Filterzeile) */
+thead tr.thead-dark-row th {
+  background-color: var(--bs-dark, #212529);
+  color: var(--bs-light, #f8f9fa);
+  white-space: nowrap;
+}
+
+/* Damit die Header-Zeile nicht kleiner wirkt als die Filter-Zeile */
+thead tr.thead-dark-row th {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* Display: Header-Text etwas kleiner, damit die Tabelle ruhiger wirkt */
+#displayTable thead tr.thead-dark-row th {
+  font-size: 0.95rem;
+}
+
+/* Wenn Meta-Spalten eingeblendet werden, sollen Header nicht umbrechen */
+#displayTable thead tr.thead-dark-row th,
+#secretLairTable thead tr.thead-dark-row th {
+  white-space: nowrap;
+}
+
+/* Angebote-Listen kompakt halten (sonst macht diese Spalte die Tabelle optisch sehr breit) */
+table td ul {
+  padding-left: 1rem;
+}
+
+thead tr.filter-row .form-check {
+  margin-bottom: 0;
+}
+
+/* Labels in der Filterzeile sichtbar lassen (Breite wird bei SecretLair über colspan kontrolliert) */
+thead tr.filter-row .form-check-label {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* Tabellenzellen dürfen umbrechen (sonst wird Header/Filter breiter als Tabelle) */
+table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
