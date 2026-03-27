@@ -99,3 +99,9 @@ table td {
   word-break: break-word;
 }
 
+/* Größere Badges (für alle Seiten außer Edelmetalle) */
+.badge-lg {
+  font-size: 1rem;
+  padding: 0.5em 0.75em;
+}
+

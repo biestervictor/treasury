@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Badge-Styles:
+  - default: Bootstrap Badge-Größe (wie Edelmetall-Dashboard)
+  - lg: größere Badges (für alle anderen Seiten)
+-->
+
+<th:block th:fragment="badgeDefault(variant, label, value)">
+    <span class="badge" th:classappend="' text-bg-' + ${variant}">
+        <span th:text="${label}">Label</span>
+        <span th:text="${value}">Wert</span>
+    </span>
+</th:block>
+
+<th:block th:fragment="badgeLg(variant, label, value)">
+    <span class="badge badge-lg" th:classappend="' text-bg-' + ${variant}">
+        <span th:text="${label}">Label</span>
+        <span th:text="${value}">Wert</span>
+    </span>
+</th:block>
+
+</body>
+</html>
+
