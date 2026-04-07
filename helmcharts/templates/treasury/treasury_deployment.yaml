@@ -31,5 +31,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.treasury.name }}-secret
                   key: mailJetApiSecret
+            - name: TZ
+              value: "Europe/Berlin"
           ports:
             - containerPort: 8080
