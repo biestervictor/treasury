@@ -58,6 +58,9 @@ imagePullSecret: ChangeIt
 treasury:
   name: treasury
   nameSpace: treasury
+  image:
+    name: ghcr.io/biestervictor/treasury
+    tag: latest
   secrets: my-tls-secret
   tls:
     certKey: tls-crt

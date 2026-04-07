@@ -69,3 +69,86 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+      - name: Update Helm values image tag (ArgoCD)
+        if: github.actor != 'dependabot[bot]' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+
+          VALUES_FILE="helmcharts/values.yaml"
+
+          # Image-Tag aktualisieren (nur unter treasury.image.tag)
+          python - <<'PY'
+import os
+import re
+from pathlib import Path
+
+path = Path("helmcharts/values.yaml")
+sha = os.environ["GITHUB_SHA"]
+
+lines = path.read_text(encoding="utf-8").splitlines(True)
+
+out = []
+in_treasury = False
+in_image = False
+treasury_indent = None
+image_indent = None
+
+for line in lines:
+    m = re.match(r"^(\s*)treasury:\s*$", line)
+    if m:
+        in_treasury = True
+        in_image = False
+        treasury_indent = len(m.group(1))
+        out.append(line)
+        continue
+
+    if in_treasury:
+        # verlassen, sobald Einrückung <= treasury_indent und nicht leer
+        if re.match(r"^\s*\S", line) and (len(line) - len(line.lstrip(' '))) <= (treasury_indent or 0):
+            in_treasury = False
+            in_image = False
+            treasury_indent = None
+            image_indent = None
+            out.append(line)
+            continue
+
+        mi = re.match(r"^(\s*)image:\s*$", line)
+        if mi:
+            in_image = True
+            image_indent = len(mi.group(1))
+            out.append(line)
+            continue
+
+        if in_image:
+            # verlassen image-block, sobald Einrückung <= image_indent und nicht leer
+            if re.match(r"^\s*\S", line) and (len(line) - len(line.lstrip(' '))) <= (image_indent or 0):
+                in_image = False
+                image_indent = None
+                out.append(line)
+                continue
+
+            mt = re.match(r"^(\s*)tag:\s*.*$", line)
+            if mt:
+                indent = mt.group(1)
+                out.append(f"{indent}tag: {sha}\n")
+                continue
+
+    out.append(line)
+
+path.write_text(''.join(out), encoding='utf-8')
+PY
+
+          # Commit & Push (triggert ArgoCD Sync)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "$VALUES_FILE"
+          if git diff --cached --quiet; then
+            echo "No changes in $VALUES_FILE"
+            exit 0
+          fi
+
+          git commit -m "chore(helm): bump treasury image tag to ${GITHUB_SHA}"
+          git push
+
