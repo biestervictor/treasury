@@ -32,6 +32,24 @@ spec:
                   name: {{ .Values.treasury.name }}-secret
                   key: mailJetApiSecret
             - name: TZ
-              value: "Europe/Berlin"
+              value: '{{ .Values.treasury.timezone | default "Europe/Berlin" }}'
+          volumeMounts:
+            - name: tz-config
+              mountPath: /etc/localtime
+              readOnly: true
+            - name: tz-zone
+              mountPath: /etc/timezone
+              readOnly: true
           ports:
             - containerPort: 8080
+
+      volumes:
+        - name: tz-config
+          hostPath:
+            path: /usr/share/zoneinfo/{{ .Values.treasury.timezone | default "Europe/Berlin" }}
+            type: File
+        - name: tz-zone
+          hostPath:
+            path: /etc/timezone
+            type: File
+
