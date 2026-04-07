@@ -14,7 +14,6 @@ mongoexpress:
     host: mongoexpress-kubitos.biester.vip
   secret:
     name: mongo-express-secret
-
 ## MongoDB configuration
 mongodb:
   name: mongodb
@@ -33,26 +32,21 @@ mongodb:
     resources:
       requests:
         storage: 3Gi
-
-  # appPassword kann später z.B. aus Secret kommen
-
+        # appPassword kann später z.B. aus Secret kommen
 volume:
   accessModes: ReadWriteOnce
   capacity:
     storage: 10Gi
   storageClassNameEnabled: false
-
 ingress:
   className: nginx
   pathType: ImplementationSpecific
-
 secretstore:
   name: azure-kv
   tenantId: "71b67176-40e1-4d4e-80fe-9251918425b2"
   vaultUrl: "https://treasurykeyvault.vault.azure.net/"
 servicePrincipal:
   name: azure-sp
-
 ## Treasury
 imagePullSecret: ChangeIt
 treasury:
@@ -60,7 +54,7 @@ treasury:
   nameSpace: treasury
   image:
     name: ghcr.io/biestervictor/treasury
-    tag: latest
+    tag: 85406a213c3e26185844d69ea46a1f850bb1653e
   secrets: my-tls-secret
   tls:
     certKey: tls-crt
