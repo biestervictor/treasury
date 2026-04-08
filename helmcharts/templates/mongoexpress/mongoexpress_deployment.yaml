@@ -36,7 +36,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.mongoexpress.name }}-secret
-                  key: basicAuthUsername
+                  key: basicAuthUsernameMongoExpress
               {{- end }}
             - name: ME_CONFIG_BASICAUTH_PASSWORD
               {{- if and .Values.mongoexpress.basicAuth .Values.mongoexpress.basicAuth.password }}
@@ -45,7 +45,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.mongoexpress.name }}-secret
-                  key: basicAuthPassword
+                  key: basicAuthPassMongoExpress
               {{- end }}
             - name: ME_CONFIG_OPTIONS_DOCUMENT_LIMIT
               value: "100"

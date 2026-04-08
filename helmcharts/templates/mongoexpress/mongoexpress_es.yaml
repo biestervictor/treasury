@@ -11,12 +11,12 @@ spec:
   target:
     name: {{ .Values.mongoexpress.name}}-secret
   data:
-    - secretKey: basicAuthPassword
+    - secretKey: basicAuthUsernameMongoExpress
       remoteRef:
-        key: basicAuthPassword
-    - secretKey: basicAuthUsername
+        key: basicAuthUsernameMongoExpress
+    - secretKey: basicAuthPassMongoExpress
       remoteRef:
-        key: basicAuthUsername
+        key: basicAuthPassMongoExpress
     - secretKey: siteCookieSecret
       remoteRef:
         key: siteCookieSecret
