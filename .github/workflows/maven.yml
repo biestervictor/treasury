@@ -4,9 +4,9 @@ env:
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "dev" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "dev" ]
 
 permissions:
   contents: write
@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -70,21 +72,50 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
 
-      - name: Update Helm values with new image tag
-        if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Update version/build-time + Helm values and push to dev
+        if: github.actor != 'dependabot[bot]' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          # Nur treasury.image.tag aktualisieren (mongoexpress/mongodb tags dürfen nicht angerührt werden)
-          sudo snap install yq
-          yq -i '.treasury.image.tag = strenv(GITHUB_SHA)' helmcharts/values.yaml
 
-      - name: Commit and push updated image tag
-        if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          set -euo pipefail
+          # Auf dev-Branch wechseln (oder erstellen) und Änderungen dorthin pushen
+          git fetch origin dev || true
+          if git show-ref --verify --quiet refs/remotes/origin/dev; then
+            git checkout -B dev origin/dev
+          else
+            git checkout -B dev
+          fi
+
+          # Tools
+          sudo snap install yq
+
+          # Build-Nummer hochzählen (values.yaml)
+          current=$(yq -r '.treasury.build.version' helmcharts/values.yaml)
+          if [ -z "$current" ] || [ "$current" = "null" ]; then current=0; fi
+          next=$((current + 1))
+
+          # Build-Time setzen (ISO-8601 UTC)
+          build_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Values (Helm) aktualisieren
+          yq -i '.treasury.image.tag = strenv(GITHUB_SHA)' helmcharts/values.yaml
+          yq -i ".treasury.build.version = ${next}" helmcharts/values.yaml
+          yq -i ".treasury.build.time = \"${build_time}\"" helmcharts/values.yaml
+
+          # Properties (lokal + kubitos) aktualisieren
+          sed -i "s/^treasury.build.version=.*/treasury.build.version=${next}/" src/main/resources/application.properties
+          sed -i "s/^treasury.build.time=.*/treasury.build.time=${build_time}/" src/main/resources/application.properties
+          sed -i "s/^treasury.build.version=.*/treasury.build.version=${next}/" src/main/resources/application-kubitos.properties
+          sed -i "s/^treasury.build.time=.*/treasury.build.time=${build_time}/" src/main/resources/application-kubitos.properties
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add helmcharts/values.yaml
-          git diff --cached --quiet || git commit -m "ci: update image tag to ${GITHUB_SHA} [skip ci]"
-          git push
+          git add helmcharts/values.yaml src/main/resources/application.properties src/main/resources/application-kubitos.properties
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "ci(dev): bump build to ${next} (${GITHUB_SHA}) [skip ci]"
+          git push origin dev
 

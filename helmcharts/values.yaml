@@ -56,6 +56,9 @@ treasury:
     name: ghcr.io/biestervictor/treasury
     tag: 6f50e0986c61c1ea91c06be82f75c92a171c754d
   timezone: Europe/Berlin
+  build:
+    version: 0
+    time: "unknown"
   secrets: my-tls-secret
   tls:
     certKey: tls-crt
