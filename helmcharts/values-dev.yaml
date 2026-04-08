@@ -1,9 +1,6 @@
 ## MongoDB Express configuration
 mongoexpress:
   mongodbUrl: "mongodb://192.168.178.141:27017"
-  basicAuth:
-    username: "suppcheck"
-    password: "DEIN_PASSWORT"
   ingress:
     host: mongoexpress-dev.biester.vip
 
