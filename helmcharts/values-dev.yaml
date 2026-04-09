@@ -1,7 +1,3 @@
-## MongoDB Express configuration
-mongoexpress:
-  ingress:
-    host: mongoexpress-dev.biester.vip
 
 ## general
 ingress:
