@@ -1,0 +1,10 @@
+<th:block xmlns:th="http://www.thymeleaf.org" th:fragment="badges">
+    <div class="d-flex align-items-center ms-auto gap-2">
+        <span class="badge bg-success" th:if="${dbIsDev}">Dev</span>
+        <span class="badge bg-danger" th:if="${dbIsProd}">Prod</span>
+        <span class="badge bg-secondary" th:text="'DB: ' + (${mongodbUri} ?: 'unknown')">DB: unknown</span>
+        <span class="badge bg-secondary" th:text="'Build: v' + (${buildVersion} ?: 'unknown')">Build: v0</span>
+        <span class="badge bg-secondary" th:text="(${buildTime} ?: 'unknown')">unknown</span>
+    </div>
+</th:block>
+
