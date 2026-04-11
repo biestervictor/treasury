@@ -1,3 +1,4 @@
+{{- if .Values.hedgedoc.database.internal.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,11 +18,11 @@ spec:
           image: postgres:13.4-alpine
           env:
             - name: POSTGRES_USER
-              value: hedgedoc
+              value: {{ .Values.hedgedoc.database.internal.user }}
             - name: POSTGRES_PASSWORD
-              value: password
+              value: {{ .Values.hedgedoc.database.internal.password }}
             - name: POSTGRES_DB
-              value: hedgedoc
+              value: {{ .Values.hedgedoc.database.internal.name }}
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data
@@ -29,3 +30,4 @@ spec:
         - name: db-data
           persistentVolumeClaim:
             claimName: {{ .Values.hedgedoc.name }}-db-pvc
+{{- end }}

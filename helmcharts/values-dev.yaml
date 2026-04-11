@@ -12,6 +12,21 @@ hedgedoc:
   ingress:
     host: hedgedoc-dev.biester.vip
     tlsEnabled: true
+  database:
+    internal:
+      enabled: false
+    external:
+      enabled: true
+      host: kubitosdell4gb
+      port: 5432
+      name: hedgedoc
+      secretName: hedgedoc-db-credentials
+      userKey: username
+      passwordKey: password
+      sslmode: disable
+      # Nur zum Testen (später durch ExternalSecret ersetzen):
+      testUser: hedgedoc
+      testPassword: hedgedoc
 
 treasury:
   nodeSelector:

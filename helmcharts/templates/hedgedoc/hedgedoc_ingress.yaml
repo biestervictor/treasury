@@ -12,7 +12,7 @@ spec:
   tls:
     - hosts:
         - {{ .Values.hedgedoc.ingress.host }}
-      secretName: {{ .Values.treasury.secrets }}
+      secretName: {{ .Values.hedgedoc.secrets }}
 {{- end }}
   rules:
     - host: {{ .Values.hedgedoc.ingress.host }}

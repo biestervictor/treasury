@@ -58,6 +58,23 @@ hedgedoc:
   name: hedgedoc
   nameSpace: hedgedoc
   secrets: my-tls-secret
+  database:
+    internal:
+      enabled: false
+      host: hedgedoc-db
+      port: 5432
+      name: hedgedoc
+      user: hedgedoc
+      password: password
+    external:
+      enabled: true
+      host: ""
+      port: 5432
+      name: hedgedoc
+      userKey: username
+      passwordKey: password
+      secretName: hedgedoc-db-credentials
+      sslmode: prefer
   mountPath: /data/hedgedoc
   volumeClaimTemplates:
     resources:

@@ -22,8 +22,23 @@ spec:
         - name: {{ .Values.hedgedoc.name }}
           image: quay.io/hedgedoc/hedgedoc:1.10.3
           env:
+            {{- if .Values.hedgedoc.database.external.enabled }}
+            - name: CMD_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hedgedoc.database.external.secretName }}
+                  key: {{ .Values.hedgedoc.database.external.userKey }}
+            - name: CMD_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hedgedoc.database.external.secretName }}
+                  key: {{ .Values.hedgedoc.database.external.passwordKey }}
             - name: CMD_DB_URL
-              value: postgres://hedgedoc:password@hedgedoc-db:5432/hedgedoc
+              value: postgres://$(CMD_DB_USER):$(CMD_DB_PASS)@{{ .Values.hedgedoc.database.external.host }}:{{ .Values.hedgedoc.database.external.port }}/{{ .Values.hedgedoc.database.external.name }}?sslmode={{ .Values.hedgedoc.database.external.sslmode | default "prefer" }}
+            {{- else }}
+            - name: CMD_DB_URL
+              value: postgres://{{ .Values.hedgedoc.database.internal.user }}:{{ .Values.hedgedoc.database.internal.password }}@{{ .Values.hedgedoc.database.internal.host }}:{{ .Values.hedgedoc.database.internal.port }}/{{ .Values.hedgedoc.database.internal.name }}
+            {{- end }}
             - name: CMD_DOMAIN
               value: {{ .Values.hedgedoc.ingress.host }}
             - name: CMD_URL_ADDPORT

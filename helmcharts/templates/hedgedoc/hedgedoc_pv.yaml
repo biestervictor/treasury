@@ -14,6 +14,7 @@ spec:
     - {{ .Values.volume.accessModes }}
   hostPath:
     path: {{ .Values.hedgedoc.mountPath }}/uploads
+{{- if .Values.hedgedoc.database.internal.enabled }}
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -31,3 +32,4 @@ spec:
     - {{ .Values.volume.accessModes }}
   hostPath:
     path: {{ .Values.hedgedoc.mountPath }}/db
+{{- end }}
