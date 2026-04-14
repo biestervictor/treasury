@@ -1,3 +1,4 @@
+{{- if .Values.hedgedoc.enabled }}
 {{- if .Values.hedgedoc.database.internal.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -29,3 +30,4 @@ spec:
   selector:
     matchLabels:
       type: hedgedocupload
+{{- end }}
