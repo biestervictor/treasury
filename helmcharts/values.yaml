@@ -1,5 +1,8 @@
 ## MongoDB configuration
 mongodb:
+  # In Prod kein In-Cluster StatefulSet – Treasury verbindet sich mit dem externen Host (.141).
+  # In Dev auf true setzen (values-dev.yaml), damit der In-Cluster StatefulSet deployt wird.
+  enabled: false
   name: mongodb
   statefulset:
     image:
@@ -16,7 +19,14 @@ mongodb:
     resources:
       requests:
         storage: 3Gi
-        # appPassword kann später z.B. aus Secret kommen
+  # Verbindungskonfiguration für die Treasury Spring Boot App
+  app:
+    host: 192.168.178.141
+    port: 27017
+    database: treasury
+    # auth: true  → ExternalSecret wird angelegt, SPRING_MONGODB_URI kommt aus Secret
+    # auth: false → SPRING_MONGODB_URI wird direkt als Env-Var gesetzt (kein Secret nötig)
+    auth: true
 volume:
   accessModes: ReadWriteOnce
   capacity:

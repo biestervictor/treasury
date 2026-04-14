@@ -1,3 +1,4 @@
+{{- if .Values.mongodb.enabled }}
 # helmcharts/templates/mongodb/mongodb_statefulset.yaml
 apiVersion: apps/v1
 kind: StatefulSet
@@ -34,3 +35,4 @@ spec:
         resources:
           requests:
             storage: {{ .Values.mongodb.volumeClaimTemplates.resources.requests.storage }}
+{{- end }}

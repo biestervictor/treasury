@@ -37,6 +37,19 @@ spec:
               value: "{{ .Values.treasury.build.version | default 0 }}"
             - name: TREASURY_BUILD_TIME
               value: '{{ .Values.treasury.build.time | default "unknown" }}'
+            {{- if .Values.mongodb.app.auth }}
+            # Prod: SPRING_MONGODB_URI überschreibt den in application-kubitos.properties
+            # hardcodierten In-Cluster-Service. URI kommt aus ExternalSecret (mongodb-credentials).
+            - name: SPRING_MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-credentials
+                  key: MONGODB_URI
+            {{- else }}
+            # Dev: URI direkt als Env-Var, kein Auth nötig.
+            - name: SPRING_MONGODB_URI
+              value: "mongodb://{{ .Values.mongodb.app.host }}:{{ .Values.mongodb.app.port }}/{{ .Values.mongodb.app.database }}"
+            {{- end }}
           ports:
             - containerPort: 8080
 

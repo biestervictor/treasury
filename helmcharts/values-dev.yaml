@@ -1,4 +1,11 @@
 
+## MongoDB (Dev: In-Cluster StatefulSet aktiv; app verbindet sich mit dem In-Cluster Service)
+mongodb:
+  enabled: true
+  app:
+    host: mongodb-service.treasury.svc.cluster.local
+    auth: false
+
 ## general
 ingress:
   className: traefik

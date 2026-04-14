@@ -1,3 +1,4 @@
+{{- if .Values.mongodb.enabled }}
 # helmcharts/templates/mongodb/mongodb_headless_service.yaml
 apiVersion: v1
 kind: Service
@@ -11,3 +12,4 @@ spec:
   clusterIP: None
   selector:
     app: {{ .Values.mongodb.name }}
+{{- end }}
