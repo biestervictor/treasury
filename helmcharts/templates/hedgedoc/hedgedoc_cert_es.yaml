@@ -1,3 +1,4 @@
+{{- if .Values.hedgedoc.enabled }}
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -20,3 +21,4 @@ spec:
     - secretKey: tls.key
       remoteRef:
         key: {{ .Values.treasury.tls.keyKey | default "tls-key" | quote }}
+{{- end }}

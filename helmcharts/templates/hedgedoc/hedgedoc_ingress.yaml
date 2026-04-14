@@ -1,3 +1,4 @@
+{{- if .Values.hedgedoc.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -25,3 +26,4 @@ spec:
                 name: {{ .Values.hedgedoc.name }}-svc
                 port:
                   number: {{ .Values.hedgedoc.service.port }}
+{{- end }}

@@ -1,3 +1,4 @@
+{{- if .Values.hedgedoc.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,3 +14,4 @@ spec:
       nodePort: {{ .Values.hedgedoc.service.nodePort }}
 {{- end }}
   type: {{ .Values.hedgedoc.service.type }}
+{{- end }}
