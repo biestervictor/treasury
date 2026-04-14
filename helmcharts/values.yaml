@@ -63,6 +63,8 @@ treasury:
   imagePullSecretDecodingStrategy: Base64
 ## Hedgedoc configuration
 hedgedoc:
+  # hedgedoczwei (hedgedoczwei.tf) ist die Ablösung – alte Instanz deaktiviert
+  enabled: false
   nodeSelector:
     storage: master
   name: hedgedoc

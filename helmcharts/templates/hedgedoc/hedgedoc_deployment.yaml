@@ -1,3 +1,4 @@
+{{- if .Values.hedgedoc.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -58,3 +59,4 @@ spec:
         - name: uploads
           persistentVolumeClaim:
             claimName: {{ .Values.hedgedoc.name }}-uploads-pvc
+{{- end }}

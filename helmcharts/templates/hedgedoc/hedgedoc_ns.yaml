@@ -1,4 +1,6 @@
+{{- if .Values.hedgedoc.enabled }}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Values.hedgedoc.nameSpace}}
+  name: {{ .Values.hedgedoc.nameSpace }}
+{{- end }}

@@ -15,6 +15,7 @@ volume:
 
 ## Hedgedoc configuration
 hedgedoc:
+  enabled: true
   nodeSelector:
   ingress:
     host: hedgedoc-dev.biester.vip
