@@ -3,9 +3,15 @@
 <head th:replace="fragments/layout :: head('Displays')"></head>
 <body class="bg-light">
 <th:block th:replace="navbarDisplay.html :: nav"></th:block>
-<div th:replace="addDisplay.html :: addForm"></div>
 
-<div th:replace="fragments/tableControls :: toggles(true, true)"></div>
+<!-- ====== Unified toolbar: Add + toggle buttons on one line ====== -->
+<div class="d-flex gap-2 flex-wrap align-items-center mb-2 mt-3 px-2">
+    <span th:replace="addDisplay.html :: addFormButton"></span>
+    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleIdColumn()">ID-Spalte ein-/ausblenden</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleMetaColumns()">Meta-Spalten ein-/ausblenden</button>
+</div>
+<th:block th:replace="addDisplay.html :: addFormCollapse"></th:block>
+
 <div th:replace="fragments/tableControls :: summary3('Summe Einkaufspreise:', ${sumEinkaufspreis} + ' €', 'Summe Aktueller Preise:', ${sumAktuellerPreis} + ' €', 'Gewinn bei Verkäufen:', ${sumGewinn} + ' €')"></div>
 
 <div th:replace="fragments/tableFilters :: triStateFlags('/api/display/list', ${soldOnly}, ${isSelling}, ${highProfitOnly})"></div>
@@ -69,11 +75,16 @@
                     th:text="${angebot.name + ' - ' + angebot.preis + ' €'}"></li>
             </ul>
         </td>
+        <td>
+            <button class="btn btn-outline-info btn-sm"
+                    th:attr="data-id=${display.id}, data-name=${display.setCode + ' ' + display.type}"
+                    onclick="showPriceChart(this, event)">Verlauf</button>
+        </td>
     </tr>
     </tbody>
 </table>
 
-<!-- Modal für Bearbeitung -->
+<!-- Edit-Modal -->
 <div class="modal fade" id="editModal" tabindex="-1">
     <div class="modal-dialog">
         <form action="/api/display/update" method="post" id="editForm">
@@ -121,20 +132,35 @@
     </div>
 </div>
 
-<script>
+<!-- Preisverlauf-Modal -->
+<div class="modal fade" id="priceChartModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="priceChartTitle">Preisverlauf</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="priceChartCanvas" height="120"></canvas>
+                <p id="priceChartEmpty" class="text-muted text-center d-none mt-3">
+                    Noch keine Preishistorie verfügbar. Daten werden ab dem nächsten Scraper-Lauf gespeichert.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
 
+<script>
     function sortTable(columnIndex) {
         const table = document.getElementById("displayTable");
         const rows = Array.from(table.tBodies[0].rows);
         const isAscending = table.getAttribute("data-sort-order") === "asc";
         const direction = isAscending ? 1 : -1;
-
         rows.sort((a, b) => {
             const aText = a.cells[columnIndex].innerText.trim();
             const bText = b.cells[columnIndex].innerText.trim();
             return aText.localeCompare(bText) * direction;
         });
-
         rows.forEach(row => table.tBodies[0].appendChild(row));
         table.setAttribute("data-sort-order", isAscending ? "desc" : "asc");
     }
@@ -164,6 +190,73 @@
 
 <div th:replace="fragments/scripts :: toggleScripts"></div>
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    let displayPriceChart = null;
+
+    function showPriceChart(btn, event) {
+        event.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        document.getElementById('priceChartTitle').textContent = 'Preisverlauf: ' + name;
+        const canvas = document.getElementById('priceChartCanvas');
+        const empty = document.getElementById('priceChartEmpty');
+
+        fetch('/api/display/' + id + '/history')
+            .then(r => r.json())
+            .then(data => {
+                if (displayPriceChart) {
+                    displayPriceChart.destroy();
+                    displayPriceChart = null;
+                }
+                if (!data || data.length === 0) {
+                    canvas.style.display = 'none';
+                    empty.classList.remove('d-none');
+                } else {
+                    canvas.style.display = '';
+                    empty.classList.add('d-none');
+                    displayPriceChart = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: data.map(d => d.date),
+                            datasets: [{
+                                label: 'Preis (€)',
+                                data: data.map(d => d.price),
+                                borderColor: '#0d6efd',
+                                backgroundColor: 'rgba(13,110,253,0.08)',
+                                fill: true,
+                                tension: 0.2,
+                                pointRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: ctx => ' ' + ctx.parsed.y.toFixed(2).replace('.', ',') + ' €'
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    ticks: { callback: v => v.toFixed(2).replace('.', ',') + ' €' }
+                                }
+                            }
+                        }
+                    });
+                }
+                new bootstrap.Modal(document.getElementById('priceChartModal')).show();
+            })
+            .catch(() => {
+                canvas.style.display = 'none';
+                empty.classList.remove('d-none');
+                empty.textContent = 'Fehler beim Laden der Preishistorie.';
+                new bootstrap.Modal(document.getElementById('priceChartModal')).show();
+            });
+    }
+</script>
 </body>
 </html>
-

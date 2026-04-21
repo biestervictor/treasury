@@ -177,6 +177,44 @@
         </div>
     </div>
 
+    <!-- ====== CATEGORY FILTER ====== -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="d-flex gap-3 flex-wrap align-items-center">
+                <span class="text-muted small fw-semibold text-uppercase"
+                      style="letter-spacing:0.08em;">Kategorien:</span>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input category-filter" type="checkbox"
+                           id="filter-display" value="MTG Display" checked>
+                    <label class="form-check-label" for="filter-display">
+                        <span class="badge text-bg-primary">MTG Displays</span>
+                    </label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input category-filter" type="checkbox"
+                           id="filter-sl" value="Secret Lair" checked>
+                    <label class="form-check-label" for="filter-sl">
+                        <span class="badge text-bg-success">Secret Lair</span>
+                    </label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input category-filter" type="checkbox"
+                           id="filter-metal" value="Edelmetall" checked>
+                    <label class="form-check-label" for="filter-metal">
+                        <span class="badge text-bg-warning">Edelmetalle</span>
+                    </label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input category-filter" type="checkbox"
+                           id="filter-shoe" value="Sneaker" checked>
+                    <label class="form-check-label" for="filter-shoe">
+                        <span class="badge text-bg-danger">Sneaker</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ====== BELOW PURCHASE PRICE ====== -->
     <div class="row g-3 mb-4" th:if="${not #lists.isEmpty(dashboard.belowPurchaseItems())}">
         <div class="col-12">
@@ -199,8 +237,10 @@
                             </tr>
                             </thead>
                             <tbody>
-                            <tr th:each="item : ${dashboard.belowPurchaseItems()}">
-                                <td><span class="badge text-bg-secondary" th:text="${item.category()}">–</span></td>
+                            <tr th:each="item : ${dashboard.belowPurchaseItems()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
                                 <td>
                                     <a th:href="${item.linkUrl()}" class="text-decoration-none text-dark"
                                        th:text="${item.name()}">–</a>
@@ -242,8 +282,10 @@
                             </tr>
                             </thead>
                             <tbody>
-                            <tr th:each="item : ${dashboard.topGainers()}">
-                                <td><span class="badge text-bg-secondary" th:text="${item.category()}">–</span></td>
+                            <tr th:each="item : ${dashboard.topGainers()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
                                 <td>
                                     <a th:href="${item.linkUrl()}" class="text-decoration-none text-dark"
                                        th:text="${item.name()}">–</a>
@@ -277,8 +319,10 @@
                             </tr>
                             </thead>
                             <tbody>
-                            <tr th:each="item : ${dashboard.topLosers()}">
-                                <td><span class="badge text-bg-secondary" th:text="${item.category()}">–</span></td>
+                            <tr th:each="item : ${dashboard.topLosers()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
                                 <td>
                                     <a th:href="${item.linkUrl()}" class="text-decoration-none text-dark"
                                        th:text="${item.name()}">–</a>
@@ -379,6 +423,22 @@
             scales: { y: { ticks: { font: { size: 10 } } } }
         }
     });
+</script>
+
+<script>
+    function applyDashboardFilter() {
+        const checked = Array.from(
+            document.querySelectorAll('.category-filter:checked')
+        ).map(cb => cb.value);
+        document.querySelectorAll('.dashboard-filterable-row').forEach(row => {
+            const badge = row.querySelector('.category-badge');
+            const cat = badge ? badge.textContent.trim() : '';
+            row.style.display = checked.includes(cat) ? '' : 'none';
+        });
+    }
+    document.querySelectorAll('.category-filter').forEach(cb =>
+        cb.addEventListener('change', applyDashboardFilter)
+    );
 </script>
 
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>

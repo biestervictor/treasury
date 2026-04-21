@@ -6,10 +6,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.example.treasury.dto.PriceSnapshotDto;
 import org.example.treasury.model.AggregatedDisplay;
 import org.example.treasury.model.Display;
 import org.example.treasury.model.DisplayType;
 import org.example.treasury.model.MagicSet;
+import org.example.treasury.service.CardMarketPriceHistoryService;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.DisplayPriceCollectorService;
 import org.example.treasury.service.DisplayService;
@@ -27,37 +29,39 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
  * Display Controller.
  */
-
 @Controller
 @RequestMapping("/api/display")
-
 public class DisplayController {
 
   private final DisplayService displayService;
   private final CsvImporter csvImporter;
   private final MagicSetService magicSetService;
+  private final CardMarketPriceHistoryService priceHistoryService;
   private final List<MagicSet> magicSets;
   Logger logger = LoggerFactory.getLogger(this.getClass());
-
-
 
   /**
    * Constructor for DisplayController.
    *
-   * @param csvImporter    csvImporter
-   * @param displayService displayService
+   * @param csvImporter                    csvImporter
+   * @param displayService                 displayService
+   * @param magicSetService                magicSetService
+   * @param displayPriceCollectorService   displayPriceCollectorService (unused directly)
+   * @param priceHistoryService            price history service
    */
   public DisplayController(CsvImporter csvImporter, DisplayService displayService,
                            MagicSetService magicSetService,
-                           DisplayPriceCollectorService displayPriceCollectorService) {
+                           DisplayPriceCollectorService displayPriceCollectorService,
+                           CardMarketPriceHistoryService priceHistoryService) {
     this.csvImporter = csvImporter;
     this.displayService = displayService;
-
     this.magicSetService = magicSetService;
+    this.priceHistoryService = priceHistoryService;
     magicSets = magicSetService.getAllMagicSets();
   }
 
@@ -66,13 +70,12 @@ public class DisplayController {
    *
    * @param model the model to add attributes to
    * @return the name of the view to render
-   * @throws Exception
    */
   @GetMapping("/new")
-  public String addDisplay(Model model) throws Exception {
+  public String addDisplay(Model model) {
     try {
-      List<MagicSet> magicSets = magicSetService.getAllMagicSets();
-      model.addAttribute("magicSets", magicSets);
+      List<MagicSet> allSets = magicSetService.getAllMagicSets();
+      model.addAttribute("magicSets", allSets);
     } catch (Exception e) {
       logger.error("Hinzufügen fehlgeschlagen", e);
     }
@@ -125,10 +128,9 @@ public class DisplayController {
    *
    * @param model für das frontend
    * @return aggregated displays
-   * @throws Exception exception
    */
   @GetMapping("/aggregated")
-  public String getAggregatedDisplays(Model model) throws Exception {
+  public String getAggregatedDisplays(Model model) {
     Map<String, Map<String, Map<String, Object>>> aggregatedValues =
         displayService.getAggregatedValues();
     List<AggregatedDisplay> aggregatedData = new ArrayList<>();
@@ -153,7 +155,6 @@ public class DisplayController {
     model.addAttribute("aggregatedData", aggregatedData);
     model.addAttribute("display", new Display());
 
-    // Summen für die Anzeige (nur nicht verkaufte Displays)
     DisplayService.AggregatedTotals totals = displayService.getAggregatedTotals();
     model.addAttribute("totalExpenses", totals.totalExpenses());
     model.addAttribute("currentValue", totals.currentValue());
@@ -168,7 +169,6 @@ public class DisplayController {
    */
   @GetMapping
   public List<Display> getAllDisplays() {
-
     return displayService.getAllDisplays();
   }
 
@@ -181,6 +181,25 @@ public class DisplayController {
   @GetMapping("/{id}")
   public Display getDisplayById(@PathVariable String id) {
     return displayService.getDisplayById(id);
+  }
+
+  /**
+   * Returns the price history for a display product (keyed by setCode|type).
+   *
+   * @param id the display ID
+   * @return list of price snapshots ordered by date ascending
+   */
+  @GetMapping("/{id}/history")
+  @ResponseBody
+  public List<PriceSnapshotDto> getDisplayHistory(@PathVariable String id) {
+    Display display = displayService.getDisplayById(id);
+    if (display == null) {
+      return List.of();
+    }
+    String key = display.getSetCode() + "|" + display.getType();
+    return priceHistoryService.getHistory(key).stream()
+        .map(s -> new PriceSnapshotDto(s.getDate().toString(), s.getPrice()))
+        .toList();
   }
 
   /**
@@ -255,30 +274,31 @@ public class DisplayController {
   /**
    * Get all displays and add them to the model.
    *
-   * @param setCode the set code to filter by (optional)
-   * @param model   the model to add attributes to
+   * @param setCode        the set code to filter by (optional, comma-separated)
+   * @param type           the type to filter by (optional, comma-separated)
+   * @param soldOnly       show only sold displays
+   * @param isSelling      show only items currently being sold
+   * @param highProfitOnly show only items with current value &gt; 1.5x purchase price
+   * @param model          the model to add attributes to
    * @return the name of the view
    */
   @GetMapping("/list")
   public String getList(@RequestParam(value = "setCode", required = false) String setCode,
                         @RequestParam(value = "type", required = false) String type,
-                        @RequestParam(value = "soldOnly", required = false, defaultValue = "false") String soldOnly,
-                        @RequestParam(value = "isSelling", required = false, defaultValue = "false") String isSelling,
-                        @RequestParam(value = "highProfitOnly", required = false, defaultValue = "false") String highProfitOnly,
+                        @RequestParam(value = "soldOnly", required = false,
+                            defaultValue = "false") String soldOnly,
+                        @RequestParam(value = "isSelling", required = false,
+                            defaultValue = "false") String isSelling,
+                        @RequestParam(value = "highProfitOnly", required = false,
+                            defaultValue = "false") String highProfitOnly,
                         Model model) {
     List<Display> displays;
-    // Multi-Select Support: setCode/type können kommasepariert kommen (z.B. "INR,SPM")
     List<String> setCodes = setCode == null ? List.of() : Arrays.stream(setCode.split(","))
-        .map(String::trim)
-        .filter(s -> !s.isEmpty())
-        .toList();
+        .map(String::trim).filter(s -> !s.isEmpty()).toList();
     List<String> types = type == null ? List.of() : Arrays.stream(type.split(","))
-        .map(String::trim)
-        .filter(s -> !s.isEmpty())
-        .toList();
+        .map(String::trim).filter(s -> !s.isEmpty()).toList();
 
     if (!setCodes.isEmpty() && !types.isEmpty()) {
-      // OR-Filter: Display passt, wenn setCode in setCodes UND type in types
       displays = displayService.getAllDisplays().stream()
           .filter(d -> setCodes.stream().anyMatch(sc -> sc.equalsIgnoreCase(d.getSetCode())))
           .filter(d -> types.stream().anyMatch(t -> t.equalsIgnoreCase(d.getType())))
@@ -302,23 +322,17 @@ public class DisplayController {
         .filter(d -> !d.isSold())
         .mapToDouble(Display::getValueBought)
         .sum();
-
-    // Gewinn pro verkauftem Display (Summe)
     double sumGewinn = displays.stream()
         .filter(Display::isSold)
         .mapToDouble(d -> d.getSoldPrice() - d.getValueBought())
         .sum();
 
-
-
-
-
-//Filtern
-      displays = displays.stream().filter(d -> d.isSold()==Boolean.parseBoolean(soldOnly)).toList();
-      if("true".equalsIgnoreCase(isSelling)) {
-        displays = displays.stream().filter(d -> d.isSelling() == Boolean.parseBoolean(isSelling))
-            .toList();
-      }
+    displays = displays.stream()
+        .filter(d -> d.isSold() == Boolean.parseBoolean(soldOnly)).toList();
+    if ("true".equalsIgnoreCase(isSelling)) {
+      displays = displays.stream()
+          .filter(d -> d.isSelling() == Boolean.parseBoolean(isSelling)).toList();
+    }
     boolean filterHighProfitOnly = "true".equalsIgnoreCase(highProfitOnly);
     if (filterHighProfitOnly) {
       displays = displays.stream()
@@ -342,10 +356,16 @@ public class DisplayController {
     model.addAttribute("displays", displays);
     return "display";
   }
+
+  /**
+   * Update display via form submission.
+   *
+   * @param display the display with updated fields
+   * @return redirect to display list
+   */
   @PostMapping("/update")
   public String updateDisplay(@ModelAttribute Display display) {
     displayService.updateDisplayById(display.getId(), display);
     return "redirect:/api/display/list";
   }
 }
-
