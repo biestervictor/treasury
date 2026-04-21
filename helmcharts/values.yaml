@@ -48,7 +48,7 @@ treasury:
   nameSpace: treasury
   image:
     name: ghcr.io/biestervictor/treasury
-    tag: "b376cec706eba81e2e8d48edf3d391156f7df26d"
+    tag: "ece01c1e9480749fde39b140777038f903dd2ad6"
   timezone: Europe/Berlin
   build:
     version: 0
