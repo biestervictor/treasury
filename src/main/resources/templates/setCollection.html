@@ -14,27 +14,41 @@
     <!-- Filter bar -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body py-2">
-            <form method="get" th:action="@{/api/sets/filter}"
+            <form method="get" th:action="@{/api/sets/filter}" id="filterForm"
                   class="d-flex gap-2 flex-wrap align-items-center">
                 <span class="text-muted small fw-semibold text-uppercase"
-                      style="letter-spacing:0.08em;">Set-Typ:</span>
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                        onclick="addSetType('core')">core</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                        onclick="addSetType('funny')">funny</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                        onclick="addSetType('draft_innovation')">draft_innovation</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                        onclick="addSetType('masters')">masters</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                        onclick="addSetType('expansion')">expansion</button>
-                <input type="text" id="setType" name="setType"
-                       th:value="${setType}"
-                       class="form-control form-control-sm"
-                       style="max-width:220px;" placeholder="Typen (kommagetrennt)">
+                      style="letter-spacing:0.08em;">Ausblenden:</span>
+
+                <div class="btn-group flex-wrap gap-1" role="group">
+                    <input type="checkbox" class="btn-check filter-toggle" id="toggle-core"
+                           value="core" autocomplete="off"
+                           th:checked="${setType != null and #strings.contains(setType,'core')}">
+                    <label class="btn btn-outline-secondary btn-sm" for="toggle-core">core</label>
+
+                    <input type="checkbox" class="btn-check filter-toggle" id="toggle-funny"
+                           value="funny" autocomplete="off"
+                           th:checked="${setType != null and #strings.contains(setType,'funny')}">
+                    <label class="btn btn-outline-secondary btn-sm" for="toggle-funny">funny</label>
+
+                    <input type="checkbox" class="btn-check filter-toggle" id="toggle-draft"
+                           value="draft_innovation" autocomplete="off"
+                           th:checked="${setType != null and #strings.contains(setType,'draft_innovation')}">
+                    <label class="btn btn-outline-secondary btn-sm" for="toggle-draft">draft_innovation</label>
+
+                    <input type="checkbox" class="btn-check filter-toggle" id="toggle-masters"
+                           value="masters" autocomplete="off"
+                           th:checked="${setType != null and #strings.contains(setType,'masters')}">
+                    <label class="btn btn-outline-secondary btn-sm" for="toggle-masters">masters</label>
+
+                    <input type="checkbox" class="btn-check filter-toggle" id="toggle-expansion"
+                           value="expansion" autocomplete="off"
+                           th:checked="${setType != null and #strings.contains(setType,'expansion')}">
+                    <label class="btn btn-outline-secondary btn-sm" for="toggle-expansion">expansion</label>
+                </div>
+
+                <input type="hidden" id="setType" name="setType" th:value="${setType}">
                 <button type="submit" class="btn btn-primary btn-sm">Filtern</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                        onclick="clearSetType()">Zurücksetzen</button>
+                <a th:href="@{/api/sets/list}" class="btn btn-outline-secondary btn-sm">Zurücksetzen</a>
             </form>
         </div>
     </div>
@@ -85,6 +99,14 @@
                     <span class="badge text-bg-secondary mb-1"
                           style="font-size:0.65rem;"
                           th:text="${set.setType}">Type</span>
+                    <!-- Display type badges for sets in collection -->
+                    <div class="d-flex flex-wrap gap-1 justify-content-center mb-1"
+                         th:if="${setCodeToTypes != null and setCodeToTypes.containsKey(set.code.toUpperCase())}">
+                        <span th:each="dtype : ${setCodeToTypes.get(set.code.toUpperCase())}"
+                              class="badge text-bg-info"
+                              style="font-size:0.6rem;"
+                              th:text="${dtype}"></span>
+                    </div>
                     <div class="text-muted mt-auto"
                          style="font-size:0.7rem;"
                          th:text="${#temporals.format(set.releaseDate, 'MMM yyyy')}">Date</div>
@@ -102,18 +124,12 @@
 
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
 <script>
-    function addSetType(type) {
-        const input = document.getElementById('setType');
-        let values = input.value ? input.value.split(',').map(v => v.trim()) : [];
-        if (!values.includes(type)) {
-            values.push(type);
-            input.value = values.filter(v => v).join(',');
-        }
-    }
-
-    function clearSetType() {
-        document.getElementById('setType').value = '';
-    }
+    // Sync btn-check toggles to the hidden setType input before submit
+    document.getElementById('filterForm').addEventListener('submit', function () {
+        const checked = Array.from(document.querySelectorAll('.filter-toggle:checked'))
+            .map(cb => cb.value);
+        document.getElementById('setType').value = checked.join(',');
+    });
 </script>
 </body>
 </html>

@@ -6,6 +6,7 @@ package org.example.treasury.model;
 
 public enum DisplayType {
   COLLECTOR,
+  COMMANDER,
   DRAFT,
   PLAY,
   BUNDLE,

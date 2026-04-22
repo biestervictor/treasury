@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import org.example.treasury.dto.AssetGroupDto;
 import org.example.treasury.dto.PriceSnapshotDto;
+import org.example.treasury.model.AggregatedSecretLair;
 import org.example.treasury.model.SecretLair;
 import org.example.treasury.service.CardMarketPriceHistoryService;
 import org.example.treasury.service.CsvImporter;
@@ -53,6 +54,31 @@ public class SecretLairController {
     this.csvImporter = csvImporter;
     this.secretLairService = secretLairService;
     this.priceHistoryService = priceHistoryService;
+  }
+
+  /**
+   * Shows the aggregated Secret Lair overview grouped by name.
+   *
+   * @param model the Spring MVC model
+   * @return view name
+   */
+  @GetMapping("/aggregated")
+  public String getAggregatedSecretLairs(Model model) {
+    List<AggregatedSecretLair> aggregatedData = secretLairService.getAggregatedSecretLairs();
+
+    double totalExpenses = secretLairService.getAllSecretLairs().stream()
+        .filter(sl -> !sl.isSold())
+        .mapToDouble(SecretLair::getValueBought)
+        .sum();
+    double currentValue = secretLairService.getAllSecretLairs().stream()
+        .filter(sl -> !sl.isSold())
+        .mapToDouble(SecretLair::getCurrentValue)
+        .sum();
+
+    model.addAttribute("aggregatedData", aggregatedData);
+    model.addAttribute("totalExpenses", totalExpenses);
+    model.addAttribute("currentValue", currentValue);
+    return "aggregatedSecretLairs";
   }
 
   /**

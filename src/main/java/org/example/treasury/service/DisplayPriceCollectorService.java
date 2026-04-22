@@ -176,6 +176,9 @@ public class DisplayPriceCollectorService extends PriceCollectorService {
       case "PRERELEASE" ->
           "https://www.cardmarket.com/de/Magic/Products/Tournament-Packs/" + namePart
               + "-Prerelease-Pack?" + query;
+      case "COMMANDER" ->
+          "https://www.cardmarket.com/de/Magic/Products/Commander-Decks/" + namePart
+              + "-Commander-Deck?" + query;
       default -> base + namePart + "-Booster-Box?" + query;
     };
 
