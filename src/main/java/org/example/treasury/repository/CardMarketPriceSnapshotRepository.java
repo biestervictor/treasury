@@ -28,4 +28,12 @@ public interface CardMarketPriceSnapshotRepository
    * @return the snapshot if present
    */
   Optional<CardMarketPriceSnapshot> findByItemIdAndDate(String itemId, LocalDate date);
+
+  /**
+   * Returns all snapshots for a given date across all items.
+   *
+   * @param date the snapshot date
+   * @return list of snapshots
+   */
+  List<CardMarketPriceSnapshot> findByDate(LocalDate date);
 }

@@ -2,7 +2,11 @@ package org.example.treasury.service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import org.example.treasury.dto.DashboardDto;
 import org.example.treasury.dto.MetalDashboardDto;
 import org.example.treasury.model.Display;
@@ -29,24 +33,28 @@ public class DashboardService {
   private final SecretLairService secretLairService;
   private final EdelmetallService edelmetallService;
   private final ShoeService shoeService;
+  private final CardMarketPriceHistoryService priceHistoryService;
 
   /**
    * Konstruktor mit allen benötigten Services.
    *
-   * @param displayService     Display-Service
-   * @param secretLairService  SecretLair-Service
-   * @param edelmetallService  Edelmetall-Service
-   * @param shoeService        Schuh-Service
+   * @param displayService      Display-Service
+   * @param secretLairService   SecretLair-Service
+   * @param edelmetallService   Edelmetall-Service
+   * @param shoeService         Schuh-Service
+   * @param priceHistoryService Preishistorie-Service
    */
   public DashboardService(
       DisplayService displayService,
       SecretLairService secretLairService,
       EdelmetallService edelmetallService,
-      ShoeService shoeService) {
+      ShoeService shoeService,
+      CardMarketPriceHistoryService priceHistoryService) {
     this.displayService = displayService;
     this.secretLairService = secretLairService;
     this.edelmetallService = edelmetallService;
     this.shoeService = shoeService;
+    this.priceHistoryService = priceHistoryService;
   }
 
   /**
@@ -57,8 +65,28 @@ public class DashboardService {
   public DashboardDto getDashboard() {
     List<DashboardDto.ItemHighlight> allItems = new ArrayList<>();
 
-    DashboardDto.CategorySummary displaySummary = buildDisplaySummary(allItems);
-    DashboardDto.CategorySummary secretLairSummary = buildSecretLairSummary(allItems);
+    // Fetch active items once — reused for summaries and daily highlights
+    List<Display> activeDisplays = displayService.getAllDisplays().stream()
+        .filter(d -> !d.isSold())
+        .filter(d -> d.getCurrentValue() > 0)
+        .toList();
+    List<SecretLair> activeSecretLairs = secretLairService.getAllSecretLairs().stream()
+        .filter(s -> !s.isSold())
+        .filter(s -> s.getCurrentValue() > 0)
+        .toList();
+
+    // One history URL per setCode|type key (first matching display ID is sufficient)
+    Map<String, String> displayHistUrlByKey = new LinkedHashMap<>();
+    for (Display d : activeDisplays) {
+      displayHistUrlByKey.putIfAbsent(
+          d.getSetCode() + "|" + d.getType(),
+          "/api/display/" + d.getId() + "/history");
+    }
+
+    DashboardDto.CategorySummary displaySummary =
+        buildDisplaySummary(allItems, activeDisplays, displayHistUrlByKey);
+    DashboardDto.CategorySummary secretLairSummary =
+        buildSecretLairSummary(allItems, activeSecretLairs);
     DashboardDto.CategorySummary metalSummary = buildMetalSummary(allItems);
     DashboardDto.CategorySummary shoeSummary = buildShoeSummary(allItems);
 
@@ -91,6 +119,24 @@ public class DashboardService {
         .limit(BELOW_PURCHASE_LIMIT)
         .toList();
 
+    // Daily highlight lookups
+    Map<String, String> displayNameByKey = new LinkedHashMap<>();
+    for (Display d : activeDisplays) {
+      displayNameByKey.putIfAbsent(
+          d.getSetCode() + "|" + d.getType(),
+          d.getSetCode() + " " + d.getType());
+    }
+    Map<String, SecretLair> slById = activeSecretLairs.stream()
+        .collect(Collectors.toMap(SecretLair::getId, s -> s, (a, b) -> a));
+
+    List<CardMarketPriceHistoryService.DailyChange> dailyChanges =
+        priceHistoryService.getDailyChanges();
+
+    List<DashboardDto.ItemHighlight> dailyTopGainers =
+        buildDailyHighlights(dailyChanges, displayNameByKey, displayHistUrlByKey, slById, true);
+    List<DashboardDto.ItemHighlight> dailyTopLosers =
+        buildDailyHighlights(dailyChanges, displayNameByKey, displayHistUrlByKey, slById, false);
+
     return new DashboardDto(
         categories,
         totalInvested,
@@ -99,15 +145,15 @@ public class DashboardService {
         totalBelow,
         topGainers,
         topLosers,
-        belowPurchaseItems);
+        belowPurchaseItems,
+        dailyTopGainers,
+        dailyTopLosers);
   }
 
   private DashboardDto.CategorySummary buildDisplaySummary(
-      List<DashboardDto.ItemHighlight> allItems) {
-    List<Display> active = displayService.getAllDisplays().stream()
-        .filter(d -> !d.isSold())
-        .filter(d -> d.getCurrentValue() > 0)
-        .toList();
+      List<DashboardDto.ItemHighlight> allItems,
+      List<Display> active,
+      Map<String, String> histUrlByKey) {
 
     double invested = active.stream().mapToDouble(Display::getValueBought).sum();
     double current = active.stream().mapToDouble(Display::getCurrentValue).sum();
@@ -115,8 +161,11 @@ public class DashboardService {
     for (Display d : active) {
       double profit = d.getCurrentValue() - d.getValueBought();
       String label = d.getSetCode() + " " + d.getType();
-      allItems.add(new DashboardDto.ItemHighlight("MTG Display", label,
-          d.getValueBought(), d.getCurrentValue(), profit, DISPLAY_LINK));
+      String key = d.getSetCode() + "|" + d.getType();
+      allItems.add(new DashboardDto.ItemHighlight(
+          "MTG Display", label,
+          d.getValueBought(), d.getCurrentValue(), profit,
+          DISPLAY_LINK, histUrlByKey.get(key)));
     }
 
     int below = (int) active.stream()
@@ -128,19 +177,18 @@ public class DashboardService {
   }
 
   private DashboardDto.CategorySummary buildSecretLairSummary(
-      List<DashboardDto.ItemHighlight> allItems) {
-    List<SecretLair> active = secretLairService.getAllSecretLairs().stream()
-        .filter(s -> !s.isSold())
-        .filter(s -> s.getCurrentValue() > 0)
-        .toList();
+      List<DashboardDto.ItemHighlight> allItems,
+      List<SecretLair> active) {
 
     double invested = active.stream().mapToDouble(SecretLair::getValueBought).sum();
     double current = active.stream().mapToDouble(SecretLair::getCurrentValue).sum();
 
     for (SecretLair s : active) {
       double profit = s.getCurrentValue() - s.getValueBought();
-      allItems.add(new DashboardDto.ItemHighlight("Secret Lair", s.getName(),
-          s.getValueBought(), s.getCurrentValue(), profit, SECRET_LAIR_LINK));
+      allItems.add(new DashboardDto.ItemHighlight(
+          "Secret Lair", s.getName(),
+          s.getValueBought(), s.getCurrentValue(), profit,
+          SECRET_LAIR_LINK, "/api/secretlair/" + s.getId() + "/history"));
     }
 
     int below = (int) active.stream()
@@ -163,8 +211,10 @@ public class DashboardService {
 
     for (ItemValuation v : valuations) {
       double itemInvested = v.getPurchasePrice() * v.getQuantity();
-      allItems.add(new DashboardDto.ItemHighlight("Edelmetall", v.getName(),
-          itemInvested, v.getCurrentTotalValue(), v.getProfit(), METAL_LINK));
+      allItems.add(new DashboardDto.ItemHighlight(
+          "Edelmetall", v.getName(),
+          itemInvested, v.getCurrentTotalValue(), v.getProfit(),
+          METAL_LINK, null));
     }
 
     int below = (int) valuations.stream()
@@ -191,9 +241,11 @@ public class DashboardService {
       double stockX = s.getValueStockX();
       double currentVal = stockX > 0 ? stockX : s.getValueBought();
       double shoeProfit = currentVal - s.getValueBought();
-      allItems.add(new DashboardDto.ItemHighlight("Sneaker",
+      allItems.add(new DashboardDto.ItemHighlight(
+          "Sneaker",
           s.getName() != null ? s.getName() : s.getTyp(),
-          s.getValueBought(), currentVal, shoeProfit, SHOE_LINK));
+          s.getValueBought(), currentVal, shoeProfit,
+          SHOE_LINK, null));
     }
 
     int below = (int) active.stream()
@@ -203,5 +255,54 @@ public class DashboardService {
     return new DashboardDto.CategorySummary(
         "Sneaker", "danger", active.size(),
         invested, current, current - invested, below, SHOE_LINK);
+  }
+
+  private List<DashboardDto.ItemHighlight> buildDailyHighlights(
+      List<CardMarketPriceHistoryService.DailyChange> changes,
+      Map<String, String> displayNameByKey,
+      Map<String, String> displayHistUrlByKey,
+      Map<String, SecretLair> slById,
+      boolean gainers) {
+
+    Comparator<CardMarketPriceHistoryService.DailyChange> comp = gainers
+        ? Comparator.comparingDouble(
+            CardMarketPriceHistoryService.DailyChange::absoluteChange).reversed()
+        : Comparator.comparingDouble(
+            CardMarketPriceHistoryService.DailyChange::absoluteChange);
+
+    return changes.stream()
+        .filter(c -> gainers ? c.absoluteChange() > 0 : c.absoluteChange() < 0)
+        .sorted(comp)
+        .limit(TOP_N)
+        .map(c -> toHighlight(c, displayNameByKey, displayHistUrlByKey, slById))
+        .filter(Objects::nonNull)
+        .toList();
+  }
+
+  private DashboardDto.ItemHighlight toHighlight(
+      CardMarketPriceHistoryService.DailyChange c,
+      Map<String, String> displayNameByKey,
+      Map<String, String> displayHistUrlByKey,
+      Map<String, SecretLair> slById) {
+
+    if ("DISPLAY".equals(c.itemType())) {
+      String name = displayNameByKey.getOrDefault(c.itemId(), c.itemId());
+      String histUrl = displayHistUrlByKey.get(c.itemId());
+      return new DashboardDto.ItemHighlight(
+          "MTG Display", name,
+          c.prevPrice(), c.currentPrice(), c.absoluteChange(),
+          DISPLAY_LINK, histUrl);
+    }
+    if ("SECRET_LAIR".equals(c.itemType())) {
+      SecretLair sl = slById.get(c.itemId());
+      if (sl == null) {
+        return null;
+      }
+      return new DashboardDto.ItemHighlight(
+          "Secret Lair", sl.getName(),
+          c.prevPrice(), c.currentPrice(), c.absoluteChange(),
+          SECRET_LAIR_LINK, "/api/secretlair/" + c.itemId() + "/history");
+    }
+    return null;
   }
 }

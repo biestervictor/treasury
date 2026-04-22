@@ -11,9 +11,11 @@ import java.util.List;
  * @param totalCurrentValue    Aktueller Gesamtmarktwert
  * @param totalProfit          Gesamtgewinn (currentValue - invested)
  * @param totalBelowPurchase   Anzahl Positionen unter Einkaufspreis
- * @param topGainers           Top-5 Gewinner (höchster absoluter Gewinn)
- * @param topLosers            Top-5 Verlierer (höchster absoluter Verlust)
- * @param belowPurchaseItems   Alle Positionen mit aktuellem Wert unter Einkaufspreis
+ * @param topGainers           Top Gewinner (höchster absoluter Gewinn, gesamt)
+ * @param topLosers            Top Verlierer (höchster absoluter Verlust, gesamt)
+ * @param belowPurchaseItems   Positionen mit aktuellem Wert unter Einkaufspreis
+ * @param dailyTopGainers      Top Gewinner nach täglicher Preisänderung
+ * @param dailyTopLosers       Top Verlierer nach täglicher Preisänderung
  */
 public record DashboardDto(
     List<CategorySummary> categories,
@@ -23,7 +25,9 @@ public record DashboardDto(
     int totalBelowPurchase,
     List<ItemHighlight> topGainers,
     List<ItemHighlight> topLosers,
-    List<ItemHighlight> belowPurchaseItems
+    List<ItemHighlight> belowPurchaseItems,
+    List<ItemHighlight> dailyTopGainers,
+    List<ItemHighlight> dailyTopLosers
 ) {
 
   /**
@@ -55,10 +59,11 @@ public record DashboardDto(
    *
    * @param category     Name der Asset-Kategorie
    * @param name         Bezeichnung der Position
-   * @param invested     Einkaufspreis
-   * @param currentValue Aktueller Marktwert
-   * @param profit       Gewinn (negativ = Verlust)
-   * @param linkUrl      Link zur zugehörigen Detail-Ansicht
+   * @param invested     Einkaufspreis (oder Vortagespreis im täglichen Modus)
+   * @param currentValue Aktueller Marktwert (oder heutiger Preis im täglichen Modus)
+   * @param profit       Gewinn in EUR (negativ = Verlust)
+   * @param linkUrl      Link zur zugehörigen Listenansicht
+   * @param historyUrl   API-Pfad zur Preishistorie (null falls nicht verfügbar)
    */
   public record ItemHighlight(
       String category,
@@ -66,7 +71,8 @@ public record DashboardDto(
       double invested,
       double currentValue,
       double profit,
-      String linkUrl
+      String linkUrl,
+      String historyUrl
   ) {
   }
 }

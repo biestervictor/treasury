@@ -217,7 +217,30 @@
 
     <!-- ====== TOP GAINERS + TOP LOSERS ====== -->
     <div class="row g-3 mb-4">
-        <div class="col-md-6" th:if="${not #lists.isEmpty(dashboard.topGainers())}">
+
+        <!-- View toggle -->
+        <div class="col-12 pb-0 pt-1">
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted small fw-semibold text-uppercase"
+                      style="letter-spacing:0.08em;">Ansicht:</span>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="radio" name="gainersLosersView"
+                           id="viewTotal" value="total" checked>
+                    <label class="form-check-label small" for="viewTotal">Gesamt</label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="radio" name="gainersLosersView"
+                           id="viewDaily" value="daily">
+                    <label class="form-check-label small" for="viewDaily">
+                        Täglich &#9650;&#9660;
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOTAL: Gewinner -->
+        <div class="col-md-6" id="section-gainers-total"
+             th:if="${not #lists.isEmpty(dashboard.topGainers())}">
             <div class="card border-0 shadow-sm border-start border-4 border-success">
                 <div class="card-body pb-2">
                     <h6 class="card-title fw-bold mb-2">
@@ -242,7 +265,13 @@
                                 <td><span class="badge text-bg-secondary category-badge"
                                           th:text="${item.category()}">–</span></td>
                                 <td>
-                                    <a th:href="${item.linkUrl()}"
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
                                        class="text-decoration-none text-dark"
                                        th:text="${item.name()}">–</a>
                                 </td>
@@ -264,7 +293,10 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6" th:if="${not #lists.isEmpty(dashboard.topLosers())}">
+
+        <!-- TOTAL: Verlierer -->
+        <div class="col-md-6" id="section-losers-total"
+             th:if="${not #lists.isEmpty(dashboard.topLosers())}">
             <div class="card border-0 shadow-sm border-start border-4 border-warning">
                 <div class="card-body pb-2">
                     <h6 class="card-title fw-bold mb-2">
@@ -289,7 +321,13 @@
                                 <td><span class="badge text-bg-secondary category-badge"
                                           th:text="${item.category()}">–</span></td>
                                 <td>
-                                    <a th:href="${item.linkUrl()}"
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
                                        class="text-decoration-none text-dark"
                                        th:text="${item.name()}">–</a>
                                 </td>
@@ -304,6 +342,126 @@
                         </table>
                     </div>
                     <button id="losers-expand-btn"
+                            class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
+                            type="button" style="display:none; font-size:0.8rem;">
+                        &#9660; mehr anzeigen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAILY: Tagesgewinner (hidden by default) -->
+        <div class="col-md-6" id="section-gainers-daily" style="display:none">
+            <div class="card border-0 shadow-sm border-start border-4 border-success">
+                <div class="card-body pb-2">
+                    <h6 class="card-title fw-bold mb-2">
+                        Tagesgewinner
+                        <span class="badge text-bg-success ms-1"
+                              th:text="${#lists.size(dashboard.dailyTopGainers())}">0</span>
+                    </h6>
+                    <div th:if="${#lists.isEmpty(dashboard.dailyTopGainers())}"
+                         class="text-muted small fst-italic">
+                        Noch keine Tagesdaten verfügbar.
+                    </div>
+                    <div th:unless="${#lists.isEmpty(dashboard.dailyTopGainers())}"
+                         class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Bezeichnung</th>
+                                <th class="text-end">Gestern (€)</th>
+                                <th class="text-end">Heute (€)</th>
+                                <th class="text-end">Änderung (€)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="daily-gainers-rows">
+                            <tr th:each="item : ${dashboard.dailyTopGainers()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
+                                <td>
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
+                                       class="text-decoration-none text-dark"
+                                       th:text="${item.name()}">–</a>
+                                </td>
+                                <td class="text-end font-monospace"
+                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-success"
+                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-success fw-semibold"
+                                    th:text="'+' + ${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">+0,00</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button id="daily-gainers-expand-btn"
+                            class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
+                            type="button" style="display:none; font-size:0.8rem;">
+                        &#9660; mehr anzeigen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAILY: Tagesverlierer (hidden by default) -->
+        <div class="col-md-6" id="section-losers-daily" style="display:none">
+            <div class="card border-0 shadow-sm border-start border-4 border-warning">
+                <div class="card-body pb-2">
+                    <h6 class="card-title fw-bold mb-2">
+                        Tagesverlierer
+                        <span class="badge text-bg-warning ms-1"
+                              th:text="${#lists.size(dashboard.dailyTopLosers())}">0</span>
+                    </h6>
+                    <div th:if="${#lists.isEmpty(dashboard.dailyTopLosers())}"
+                         class="text-muted small fst-italic">
+                        Noch keine Tagesdaten verfügbar.
+                    </div>
+                    <div th:unless="${#lists.isEmpty(dashboard.dailyTopLosers())}"
+                         class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Bezeichnung</th>
+                                <th class="text-end">Gestern (€)</th>
+                                <th class="text-end">Heute (€)</th>
+                                <th class="text-end">Änderung (€)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="daily-losers-rows">
+                            <tr th:each="item : ${dashboard.dailyTopLosers()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
+                                <td>
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
+                                       class="text-decoration-none text-dark"
+                                       th:text="${item.name()}">–</a>
+                                </td>
+                                <td class="text-end font-monospace"
+                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger"
+                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger fw-semibold"
+                                    th:text="${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button id="daily-losers-expand-btn"
                             class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
                             type="button" style="display:none; font-size:0.8rem;">
                         &#9660; mehr anzeigen
@@ -341,7 +499,13 @@
                                 <td><span class="badge text-bg-secondary category-badge"
                                           th:text="${item.category()}">–</span></td>
                                 <td>
-                                    <a th:href="${item.linkUrl()}"
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
                                        class="text-decoration-none text-dark"
                                        th:text="${item.name()}">–</a>
                                 </td>
@@ -364,6 +528,25 @@
                             type="button" style="display:none; font-size:0.8rem;">
                         &#9660; mehr anzeigen
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== PRICE HISTORY MODAL ====== -->
+    <div class="modal fade" id="priceHistoryModal" tabindex="-1"
+         aria-labelledby="priceHistoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="priceHistoryModalLabel">Preisverlauf</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Schließen"></button>
+                </div>
+                <div class="modal-body">
+                    <canvas id="priceHistoryChart" height="120"></canvas>
+                    <p id="priceHistoryEmpty" class="text-muted text-center fst-italic mt-3"
+                       style="display:none">Noch keine Preisdaten vorhanden.</p>
                 </div>
             </div>
         </div>
@@ -455,8 +638,11 @@
 <script>
     const PREVIEW_LIMIT = 10;
     const FULL_LIMIT = 40;
-    const SECTIONS = ['gainers', 'losers', 'below'];
-    const expandState = { gainers: false, losers: false, below: false };
+    const SECTIONS = ['gainers', 'losers', 'below', 'daily-gainers', 'daily-losers'];
+    const expandState = {
+        'gainers': false, 'losers': false, 'below': false,
+        'daily-gainers': false, 'daily-losers': false
+    };
 
     function getCheckedCategories() {
         return Array.from(
@@ -470,13 +656,11 @@
         if (!tbody) {
             return;
         }
-
         const rows = Array.from(tbody.querySelectorAll('.dashboard-filterable-row'));
         const checked = getCheckedCategories();
         const expanded = expandState[section];
         const limit = expanded ? FULL_LIMIT : PREVIEW_LIMIT;
 
-        // count how many rows match the filter (ignoring limit)
         const matchingRows = rows.filter(row => {
             const cat = row.querySelector('.category-badge')?.textContent.trim() ?? '';
             return checked.includes(cat);
@@ -500,11 +684,9 @@
             btn.style.display = 'none';
         } else {
             btn.style.display = '';
-            if (expanded) {
-                btn.innerHTML = '&#9650; weniger anzeigen';
-            } else {
-                btn.innerHTML = '&#9660; mehr anzeigen (' + matchingRows.length + ')';
-            }
+            btn.innerHTML = expanded
+                ? '&#9650; weniger anzeigen'
+                : '&#9660; mehr anzeigen (' + matchingRows.length + ')';
         }
     }
 
@@ -531,6 +713,82 @@
             applySection(section);
         });
     });
+
+    // Gesamt / Täglich toggle
+    document.querySelectorAll('input[name="gainersLosersView"]').forEach(radio =>
+        radio.addEventListener('change', function () {
+            const daily = this.value === 'daily';
+            const totalIds = ['section-gainers-total', 'section-losers-total'];
+            const dailyIds = ['section-gainers-daily', 'section-losers-daily'];
+            totalIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = daily ? 'none' : '';
+                }
+            });
+            dailyIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = daily ? '' : 'none';
+                }
+            });
+            SECTIONS.forEach(s => { expandState[s] = false; });
+            applyAllSections();
+        })
+    );
+
+    // Price history modal
+    let priceChart = null;
+
+    async function showPriceHistory(name, historyUrl) {
+        document.getElementById('priceHistoryModalLabel').textContent = name;
+        document.getElementById('priceHistoryEmpty').style.display = 'none';
+        const modal = new bootstrap.Modal(document.getElementById('priceHistoryModal'));
+        modal.show();
+        try {
+            const resp = await fetch(historyUrl);
+            const data = await resp.json();
+            const ctx = document.getElementById('priceHistoryChart').getContext('2d');
+            if (priceChart) {
+                priceChart.destroy();
+            }
+            if (!data || data.length === 0) {
+                document.getElementById('priceHistoryEmpty').style.display = '';
+                return;
+            }
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date),
+                    datasets: [{
+                        label: 'Preis (€)',
+                        data: data.map(d => d.price),
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13,110,253,0.08)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { ticks: { callback: v => v.toFixed(2).replace('.', ',') + ' €' } }
+                    }
+                }
+            });
+        } catch (e) {
+            document.getElementById('priceHistoryEmpty').style.display = '';
+        }
+    }
+
+    document.querySelectorAll('.history-trigger').forEach(a =>
+        a.addEventListener('click', function (e) {
+            e.preventDefault();
+            showPriceHistory(this.dataset.itemName, this.dataset.historyUrl);
+        })
+    );
 
     // Initial render
     applyAllSections();
