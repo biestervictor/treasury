@@ -40,7 +40,12 @@
         <div th:each="entry : ${aggregatedData}" class="col-6 col-sm-4 col-md-3 col-lg-2">
             <a th:href="@{/api/display/list(setCode=${entry.setCode},type=${entry.type})}"
                class="text-decoration-none">
-                <div class="card border-0 shadow-sm h-100 text-center p-1">
+                <div class="card border-0 shadow-sm h-100 text-center p-1"
+                     th:style="${entry.sanitizedMarketPrice >= entry.averagePrice * 1.5}
+                                ? 'background-color:rgba(13,110,253,0.12)'
+                                : (${entry.sanitizedMarketPrice > entry.averagePrice}
+                                   ? 'background-color:rgba(25,135,84,0.12)'
+                                   : 'background-color:rgba(220,53,69,0.10)')">
                     <div class="card-body p-2 d-flex flex-column align-items-center">
                         <img th:src="${entry.iconUri}" alt="Set-Icon"
                              style="width:56px;height:56px;object-fit:contain;" class="mb-2">
@@ -51,7 +56,12 @@
                              th:text="${entry.type}">Type</div>
                         <span class="badge text-bg-secondary mb-2"
                               th:text="${entry.count} + ' Stk'">0 Stk</span>
-                        <div class="fw-bold small text-dark mt-auto"
+                        <div class="fw-bold small mt-auto"
+                             th:classappend="${entry.sanitizedMarketPrice >= entry.averagePrice * 1.5}
+                                             ? 'text-primary'
+                                             : (${entry.sanitizedMarketPrice > entry.averagePrice}
+                                                ? 'text-success'
+                                                : 'text-danger')"
                              th:text="${#numbers.formatDecimal(entry.sanitizedMarketPrice, 1, 'COMMA', 2, 'POINT')} + ' €'">
                             0,00 €
                         </div>
