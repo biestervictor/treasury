@@ -18,7 +18,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class DashboardService {
 
-  private static final int TOP_N = 5;
+  private static final int TOP_N = 10;
+  private static final int BELOW_PURCHASE_LIMIT = 40;
   private static final String DISPLAY_LINK = "/api/display/list";
   private static final String SECRET_LAIR_LINK = "/api/secretlair/insert";
   private static final String METAL_LINK = "/api/edelmetall/dashboard/view";
@@ -87,6 +88,7 @@ public class DashboardService {
     List<DashboardDto.ItemHighlight> belowPurchaseItems = allItems.stream()
         .filter(i -> i.profit() < 0)
         .sorted(Comparator.comparingDouble(DashboardDto.ItemHighlight::profit))
+        .limit(BELOW_PURCHASE_LIMIT)
         .toList();
 
     return new DashboardDto(

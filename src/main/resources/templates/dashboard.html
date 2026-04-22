@@ -215,127 +215,169 @@
         </div>
     </div>
 
-    <!-- ====== BELOW PURCHASE PRICE ====== -->
-    <div class="row g-3 mb-4" th:if="${not #lists.isEmpty(dashboard.belowPurchaseItems())}">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm border-start border-4 border-danger">
-                <div class="card-body">
-                    <h6 class="card-title fw-bold mb-3">
-                        Positionen unter Einkaufspreis
-                        <span class="badge text-bg-danger ms-1" th:text="${dashboard.totalBelowPurchase()}">0</span>
-                    </h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light">
-                            <tr>
-                                <th>Kategorie</th>
-                                <th>Bezeichnung</th>
-                                <th class="text-end">Einkauf (€)</th>
-                                <th class="text-end">Aktuell (€)</th>
-                                <th class="text-end">Verlust (€)</th>
-                                <th class="text-end">Verlust (%)</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr th:each="item : ${dashboard.belowPurchaseItems()}"
-                                class="dashboard-filterable-row">
-                                <td><span class="badge text-bg-secondary category-badge"
-                                          th:text="${item.category()}">–</span></td>
-                                <td>
-                                    <a th:href="${item.linkUrl()}" class="text-decoration-none text-dark"
-                                       th:text="${item.name()}">–</a>
-                                </td>
-                                <td class="text-end font-monospace"
-                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-danger"
-                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-danger fw-semibold"
-                                    th:text="${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-danger"
-                                    th:if="${item.invested() > 0}"
-                                    th:text="${#numbers.formatDecimal(item.profit() / item.invested() * 100, 1, 'COMMA', 1, 'POINT')} + ' %'">0,0 %</td>
-                                <td th:if="${item.invested() <= 0}" class="text-end text-muted">–</td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- ====== TOP GAINERS + TOP LOSERS ====== -->
     <div class="row g-3 mb-4">
         <div class="col-md-6" th:if="${not #lists.isEmpty(dashboard.topGainers())}">
             <div class="card border-0 shadow-sm border-start border-4 border-success">
-                <div class="card-body">
-                    <h6 class="card-title fw-bold mb-3">Top Gewinner</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light">
-                            <tr>
-                                <th>Kategorie</th>
-                                <th>Bezeichnung</th>
-                                <th class="text-end">Einkauf (€)</th>
-                                <th class="text-end">Aktuell (€)</th>
-                                <th class="text-end">Gewinn (€)</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr th:each="item : ${dashboard.topGainers()}"
-                                class="dashboard-filterable-row">
-                                <td><span class="badge text-bg-secondary category-badge"
-                                          th:text="${item.category()}">–</span></td>
-                                <td>
-                                    <a th:href="${item.linkUrl()}" class="text-decoration-none text-dark"
-                                       th:text="${item.name()}">–</a>
-                                </td>
-                                <td class="text-end font-monospace"
-                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-success"
-                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-success fw-semibold"
-                                    th:text="'+' + ${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">+0,00</td>
-                            </tr>
-                            </tbody>
-                        </table>
+                <div class="card-body pb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="card-title fw-bold mb-0">
+                            Top Gewinner
+                            <span class="badge text-bg-success ms-1"
+                                  th:text="${#lists.size(dashboard.topGainers())}">0</span>
+                        </h6>
+                        <button class="btn btn-sm btn-outline-secondary border-0 py-0 px-1"
+                                type="button" data-bs-toggle="collapse"
+                                data-bs-target="#gainersBody" aria-expanded="true"
+                                aria-controls="gainersBody">
+                            <span class="dashboard-collapse-icon">&#9650;</span>
+                        </button>
+                    </div>
+                    <div class="collapse show" id="gainersBody">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>Kategorie</th>
+                                    <th>Bezeichnung</th>
+                                    <th class="text-end">Einkauf (€)</th>
+                                    <th class="text-end">Aktuell (€)</th>
+                                    <th class="text-end">Gewinn (€)</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="item : ${dashboard.topGainers()}"
+                                    class="dashboard-filterable-row">
+                                    <td><span class="badge text-bg-secondary category-badge"
+                                              th:text="${item.category()}">–</span></td>
+                                    <td>
+                                        <a th:href="${item.linkUrl()}"
+                                           class="text-decoration-none text-dark"
+                                           th:text="${item.name()}">–</a>
+                                    </td>
+                                    <td class="text-end font-monospace"
+                                        th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                    <td class="text-end font-monospace text-success"
+                                        th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                    <td class="text-end font-monospace text-success fw-semibold"
+                                        th:text="'+' + ${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">+0,00</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-6" th:if="${not #lists.isEmpty(dashboard.topLosers())}">
             <div class="card border-0 shadow-sm border-start border-4 border-warning">
-                <div class="card-body">
-                    <h6 class="card-title fw-bold mb-3">Top Verlierer</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light">
-                            <tr>
-                                <th>Kategorie</th>
-                                <th>Bezeichnung</th>
-                                <th class="text-end">Einkauf (€)</th>
-                                <th class="text-end">Aktuell (€)</th>
-                                <th class="text-end">Verlust (€)</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr th:each="item : ${dashboard.topLosers()}"
-                                class="dashboard-filterable-row">
-                                <td><span class="badge text-bg-secondary category-badge"
-                                          th:text="${item.category()}">–</span></td>
-                                <td>
-                                    <a th:href="${item.linkUrl()}" class="text-decoration-none text-dark"
-                                       th:text="${item.name()}">–</a>
-                                </td>
-                                <td class="text-end font-monospace"
-                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-danger"
-                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-danger fw-semibold"
-                                    th:text="${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                            </tr>
-                            </tbody>
-                        </table>
+                <div class="card-body pb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="card-title fw-bold mb-0">
+                            Top Verlierer
+                            <span class="badge text-bg-warning ms-1"
+                                  th:text="${#lists.size(dashboard.topLosers())}">0</span>
+                        </h6>
+                        <button class="btn btn-sm btn-outline-secondary border-0 py-0 px-1"
+                                type="button" data-bs-toggle="collapse"
+                                data-bs-target="#losersBody" aria-expanded="true"
+                                aria-controls="losersBody">
+                            <span class="dashboard-collapse-icon">&#9650;</span>
+                        </button>
+                    </div>
+                    <div class="collapse show" id="losersBody">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>Kategorie</th>
+                                    <th>Bezeichnung</th>
+                                    <th class="text-end">Einkauf (€)</th>
+                                    <th class="text-end">Aktuell (€)</th>
+                                    <th class="text-end">Verlust (€)</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="item : ${dashboard.topLosers()}"
+                                    class="dashboard-filterable-row">
+                                    <td><span class="badge text-bg-secondary category-badge"
+                                              th:text="${item.category()}">–</span></td>
+                                    <td>
+                                        <a th:href="${item.linkUrl()}"
+                                           class="text-decoration-none text-dark"
+                                           th:text="${item.name()}">–</a>
+                                    </td>
+                                    <td class="text-end font-monospace"
+                                        th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                    <td class="text-end font-monospace text-danger"
+                                        th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                    <td class="text-end font-monospace text-danger fw-semibold"
+                                        th:text="${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== BELOW PURCHASE PRICE ====== -->
+    <div class="row g-3 mb-4" th:if="${not #lists.isEmpty(dashboard.belowPurchaseItems())}">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm border-start border-4 border-danger">
+                <div class="card-body pb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="card-title fw-bold mb-0">
+                            Positionen unter Einkaufspreis
+                            <span class="badge text-bg-danger ms-1"
+                                  th:text="${dashboard.totalBelowPurchase()}">0</span>
+                        </h6>
+                        <button class="btn btn-sm btn-outline-secondary border-0 py-0 px-1"
+                                type="button" data-bs-toggle="collapse"
+                                data-bs-target="#belowPurchaseBody" aria-expanded="true"
+                                aria-controls="belowPurchaseBody">
+                            <span class="dashboard-collapse-icon">&#9650;</span>
+                        </button>
+                    </div>
+                    <div class="collapse show" id="belowPurchaseBody">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>Kategorie</th>
+                                    <th>Bezeichnung</th>
+                                    <th class="text-end">Einkauf (€)</th>
+                                    <th class="text-end">Aktuell (€)</th>
+                                    <th class="text-end">Verlust (€)</th>
+                                    <th class="text-end">Verlust (%)</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="item : ${dashboard.belowPurchaseItems()}"
+                                    class="dashboard-filterable-row">
+                                    <td><span class="badge text-bg-secondary category-badge"
+                                              th:text="${item.category()}">–</span></td>
+                                    <td>
+                                        <a th:href="${item.linkUrl()}"
+                                           class="text-decoration-none text-dark"
+                                           th:text="${item.name()}">–</a>
+                                    </td>
+                                    <td class="text-end font-monospace"
+                                        th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                    <td class="text-end font-monospace text-danger"
+                                        th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                    <td class="text-end font-monospace text-danger fw-semibold"
+                                        th:text="${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                    <td class="text-end font-monospace text-danger"
+                                        th:if="${item.invested() > 0}"
+                                        th:text="${#numbers.formatDecimal(item.profit() / item.invested() * 100, 1, 'COMMA', 1, 'POINT')} + ' %'">0,0 %</td>
+                                    <td th:if="${item.invested() <= 0}" class="text-end text-muted">–</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -439,6 +481,26 @@
     document.querySelectorAll('.category-filter').forEach(cb =>
         cb.addEventListener('change', applyDashboardFilter)
     );
+
+    // Collapse icon toggle ▲/▼
+    ['gainersBody', 'losersBody', 'belowPurchaseBody'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) {
+            return;
+        }
+        const btn = el.closest('.card-body').querySelector('[data-bs-target="#' + id + '"]');
+        const icon = btn ? btn.querySelector('.dashboard-collapse-icon') : null;
+        el.addEventListener('hide.bs.collapse', () => {
+            if (icon) {
+                icon.innerHTML = '&#9660;';
+            }
+        });
+        el.addEventListener('show.bs.collapse', () => {
+            if (icon) {
+                icon.innerHTML = '&#9650;';
+            }
+        });
+    });
 </script>
 
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
