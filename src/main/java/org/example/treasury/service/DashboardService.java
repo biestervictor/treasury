@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DashboardService {
 
-  private static final int TOP_N = 10;
+  private static final int TOP_N = 40;
   private static final int BELOW_PURCHASE_LIMIT = 40;
   private static final String DISPLAY_LINK = "/api/display/list";
   private static final String SECRET_LAIR_LINK = "/api/secretlair/insert";
