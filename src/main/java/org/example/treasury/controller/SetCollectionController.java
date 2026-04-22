@@ -40,18 +40,29 @@ public class SetCollectionController {
     this.displayService = displayService;
   }
 
+  private static final String DEFAULT_FILTER =
+      "funny,core,masters,commander,draft_innovation";
+
   /**
-   * Shows all sets with collection status.
+   * Shows all sets with collection status, hiding the default set types by default.
    *
    * @param model the Spring MVC model
    * @return view name
    */
   @GetMapping("/list")
   public String getSets(Model model) {
-    List<MagicSet> missingSets = setCollectionService.getMissingSets();
-    List<MagicSet> allSets = magicSetService.getAllMagicSets();
+    List<String> filters = Arrays.stream(DEFAULT_FILTER.split(",")).toList();
+    List<MagicSet> missingSets = setCollectionService.getMissingSets(filters);
+    List<MagicSet> allSets = magicSetService.getAllMagicSets().stream()
+        .filter(set ->
+            !set.getName().equalsIgnoreCase("Time Spiral Timeshifted")
+                && !set.getName().equalsIgnoreCase("The Big Score")
+                && filters.stream()
+                .noneMatch(f -> set.getSetType().equalsIgnoreCase(f)))
+        .toList();
     model.addAttribute("missingSets", missingSets);
     model.addAttribute("allSets", allSets);
+    model.addAttribute("setType", DEFAULT_FILTER);
     model.addAttribute("setCodeToTypes", buildSetCodeToTypes());
     return "setCollection";
   }

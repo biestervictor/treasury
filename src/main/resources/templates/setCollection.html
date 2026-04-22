@@ -40,6 +40,11 @@
                            th:checked="${setType != null and #strings.contains(setType,'masters')}">
                     <label class="btn btn-outline-secondary btn-sm" for="toggle-masters">masters</label>
 
+                    <input type="checkbox" class="btn-check filter-toggle" id="toggle-commander"
+                           value="commander" autocomplete="off"
+                           th:checked="${setType != null and #strings.contains(setType,'commander')}">
+                    <label class="btn btn-outline-secondary btn-sm" for="toggle-commander">commander</label>
+
                     <input type="checkbox" class="btn-check filter-toggle" id="toggle-expansion"
                            value="expansion" autocomplete="off"
                            th:checked="${setType != null and #strings.contains(setType,'expansion')}">
