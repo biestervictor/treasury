@@ -551,7 +551,13 @@
                     </div>
                     <!-- Content -->
                     <div id="assetGroupContent" style="display:none">
+                        <!-- Price Chart (always visible) -->
+                        <canvas id="assetGroupChart" height="120"></canvas>
+                        <p id="assetGroupChartEmpty"
+                           class="text-muted text-center fst-italic mt-3"
+                           style="display:none">Noch keine Preisdaten vorhanden.</p>
                         <!-- Positions table -->
+                        <hr class="my-3">
                         <h6 class="fw-semibold mb-2" id="assetGroupPositionsLabel">
                             Positionen
                         </h6>
@@ -570,37 +576,20 @@
                                 <tbody id="assetGroupRows"></tbody>
                             </table>
                         </div>
-                        <!-- Update Price -->
+                        <!-- Scrape button -->
                         <hr class="my-3">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <label class="fw-semibold small mb-0"
-                                   for="assetGroupNewPrice">Preis aktualisieren:</label>
-                            <input type="number" step="0.01" min="0"
-                                   class="form-control form-control-sm"
-                                   id="assetGroupNewPrice" style="max-width:130px">
                             <button class="btn btn-sm btn-primary"
-                                    id="assetGroupSavePrice">Speichern</button>
+                                    id="assetGroupScrapeBtn">Preis aktualisieren</button>
+                            <div id="assetGroupScrapeSpinner"
+                                 class="spinner-border spinner-border-sm text-primary"
+                                 role="status" style="display:none"></div>
                             <span id="assetGroupSaveMsg"
                                   class="small text-success fw-semibold"
-                                  style="display:none">&#10003; Gespeichert</span>
+                                  style="display:none">&#10003; Aktualisiert</span>
                             <span id="assetGroupSaveErr"
                                   class="small text-danger"
-                                  style="display:none">Fehler beim Speichern.</span>
-                        </div>
-                        <!-- Price History (collapsible) -->
-                        <hr class="my-3">
-                        <button class="btn btn-sm btn-outline-secondary" type="button"
-                                id="assetGroupHistoryToggle"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#assetGroupHistoryCollapse"
-                                aria-expanded="false">
-                            &#9660; Preisverlauf
-                        </button>
-                        <div class="collapse mt-2" id="assetGroupHistoryCollapse">
-                            <canvas id="assetGroupChart" height="120"></canvas>
-                            <p id="assetGroupChartEmpty"
-                               class="text-muted text-center fst-italic mt-3"
-                               style="display:none">Noch keine Preisdaten vorhanden.</p>
+                                  style="display:none">Fehler beim Scraping.</span>
                         </div>
                     </div>
                 </div>
@@ -795,19 +784,56 @@
 
     // Asset group modal
     let assetChart = null;
-    let currentPriceUrl = null;
+    let currentScrapeUrl = null;
     let currentHistoryUrl = null;
-    let historyLoaded = false;
 
     function fmtEuro(v) {
         return v.toFixed(2).replace('.', ',');
     }
 
+    function buildChartFromData(histData) {
+        const empty = document.getElementById('assetGroupChartEmpty');
+        if (!histData || histData.length === 0) {
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+        const ctx = document.getElementById('assetGroupChart').getContext('2d');
+        if (assetChart) {
+            assetChart.destroy();
+        }
+        assetChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: histData.map(d => d.date),
+                datasets: [{
+                    label: 'Preis (\u20ac)',
+                    data: histData.map(d => d.price),
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13,110,253,0.08)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: v => v.toFixed(2).replace('.', ',') + ' \u20ac'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     async function showAssetGroup(name, historyUrl) {
         const groupUrl = historyUrl.replace('/history', '/group');
-        currentPriceUrl = historyUrl.replace('/history', '/price');
+        currentScrapeUrl = historyUrl.replace('/history', '/scrape');
         currentHistoryUrl = historyUrl;
-        historyLoaded = false;
 
         // Reset UI
         document.getElementById('assetGroupModalLabel').textContent = name;
@@ -815,9 +841,7 @@
         document.getElementById('assetGroupContent').style.display = 'none';
         document.getElementById('assetGroupSaveMsg').style.display = 'none';
         document.getElementById('assetGroupSaveErr').style.display = 'none';
-        const collapse = document.getElementById('assetGroupHistoryCollapse');
-        collapse.classList.remove('show');
-        document.getElementById('assetGroupHistoryToggle').setAttribute('aria-expanded', 'false');
+        document.getElementById('assetGroupScrapeSpinner').style.display = 'none';
         document.getElementById('assetGroupChartEmpty').style.display = 'none';
         if (assetChart) {
             assetChart.destroy();
@@ -828,11 +852,15 @@
         modal.show();
 
         try {
-            const resp = await fetch(groupUrl);
-            if (!resp.ok) {
-                throw new Error('HTTP ' + resp.status);
+            const [groupResp, histResp] = await Promise.all([
+                fetch(groupUrl),
+                fetch(currentHistoryUrl)
+            ]);
+
+            if (!groupResp.ok) {
+                throw new Error('HTTP ' + groupResp.status);
             }
-            const data = await resp.json();
+            const data = await groupResp.json();
 
             document.getElementById('assetGroupModalLabel')
                 .textContent = data.groupName + ' \u2013 ' + data.category;
@@ -862,7 +890,12 @@
                     + '</tr>';
             }).join('');
 
-            document.getElementById('assetGroupNewPrice').value = data.currentPrice.toFixed(2);
+            if (histResp.ok) {
+                buildChartFromData(await histResp.json());
+            } else {
+                document.getElementById('assetGroupChartEmpty').style.display = '';
+            }
+
             document.getElementById('assetGroupLoading').style.display = 'none';
             document.getElementById('assetGroupContent').style.display = '';
 
@@ -875,91 +908,43 @@
         }
     }
 
-    async function loadAssetChart() {
-        if (historyLoaded) {
-            return;
-        }
-        historyLoaded = true;
-        const empty = document.getElementById('assetGroupChartEmpty');
-        empty.style.display = 'none';
-        try {
-            const resp = await fetch(currentHistoryUrl);
-            const data = await resp.json();
-            if (!data || data.length === 0) {
-                empty.style.display = '';
-                return;
-            }
-            const ctx = document.getElementById('assetGroupChart').getContext('2d');
-            if (assetChart) {
-                assetChart.destroy();
-            }
-            assetChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.map(d => d.date),
-                    datasets: [{
-                        label: 'Preis (\u20ac)',
-                        data: data.map(d => d.price),
-                        borderColor: '#0d6efd',
-                        backgroundColor: 'rgba(13,110,253,0.08)',
-                        tension: 0.3,
-                        fill: true,
-                        pointRadius: 3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: {
-                            ticks: {
-                                callback: v => v.toFixed(2).replace('.', ',') + ' \u20ac'
-                            }
-                        }
-                    }
-                }
-            });
-        } catch (e) {
-            document.getElementById('assetGroupChartEmpty').style.display = '';
-        }
-    }
-
-    // Lazy-load chart when collapse opens
-    document.getElementById('assetGroupHistoryCollapse')
-        .addEventListener('show.bs.collapse', loadAssetChart);
-
-    // Save price
-    document.getElementById('assetGroupSavePrice').addEventListener('click', async () => {
-        const price = parseFloat(document.getElementById('assetGroupNewPrice').value);
-        if (isNaN(price) || price < 0) {
-            return;
-        }
+    // Scrape price button
+    document.getElementById('assetGroupScrapeBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('assetGroupScrapeBtn');
+        const spinner = document.getElementById('assetGroupScrapeSpinner');
         const msg = document.getElementById('assetGroupSaveMsg');
         const err = document.getElementById('assetGroupSaveErr');
         msg.style.display = 'none';
         err.style.display = 'none';
+        btn.disabled = true;
+        spinner.style.display = '';
         try {
-            const resp = await fetch(
-                currentPriceUrl + '?price=' + price.toFixed(2),
-                { method: 'PATCH' }
-            );
+            const resp = await fetch(currentScrapeUrl, { method: 'POST' });
             if (resp.ok) {
-                // Update displayed values in the table
+                const result = await resp.json();
+                const newPrice = result.price;
                 document.querySelectorAll('#assetGroupRows tr').forEach(tr => {
                     const cells = tr.querySelectorAll('td');
                     if (cells.length >= 4) {
-                        const ek = parseFloat(
-                            cells[1].textContent.replace(',', '.')
-                        );
-                        const profit = price - ek;
-                        cells[2].textContent = fmtEuro(price);
+                        const ek = parseFloat(cells[1].textContent.replace(',', '.'));
+                        const profit = newPrice - ek;
+                        cells[2].textContent = fmtEuro(newPrice);
                         cells[3].textContent = (profit >= 0 ? '+' : '') + fmtEuro(profit);
                         cells[3].className =
                             'text-end font-monospace fw-semibold '
                             + (profit >= 0 ? 'text-success' : 'text-danger');
                     }
                 });
-                document.getElementById('assetGroupNewPrice').value = price.toFixed(2);
+                if (assetChart) {
+                    assetChart.destroy();
+                    assetChart = null;
+                }
+                try {
+                    const histResp = await fetch(currentHistoryUrl);
+                    if (histResp.ok) {
+                        buildChartFromData(await histResp.json());
+                    }
+                } catch (e2) { /* chart reload failed, ignore */ }
                 msg.style.display = '';
                 setTimeout(() => { msg.style.display = 'none'; }, 2500);
             } else {
@@ -967,6 +952,9 @@
             }
         } catch (e) {
             err.style.display = '';
+        } finally {
+            btn.disabled = false;
+            spinner.style.display = 'none';
         }
     });
 

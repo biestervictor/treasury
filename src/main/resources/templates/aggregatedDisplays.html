@@ -6,63 +6,63 @@
 <th:block th:replace="navbarDisplay.html :: nav"></th:block>
 <div th:replace="addDisplay.html :: addForm"></div>
 
-<div class="container mt-4">
-    <div class="row text-center">
-        <div class="col">
-            <p>Gesamtausgaben:</p>
-            <span th:text="${totalExpenses} + ' €'"></span>
+<div class="container-fluid mt-4 px-4">
+
+    <!-- Totals row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-muted small mb-1">Gesamtausgaben</div>
+                    <div class="fs-4 fw-bold text-dark"
+                         th:text="${#numbers.formatDecimal(totalExpenses, 1, 'COMMA', 2, 'POINT')} + ' €'">
+                        0,00 €
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col">
-            <p>Aktueller Gesamtwert:</p>
-            <span th:text="${currentValue} + ' €'"></span>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-muted small mb-1">Aktueller Gesamtwert</div>
+                    <div class="fs-4 fw-bold"
+                         th:classappend="${currentValue >= totalExpenses} ? 'text-success' : 'text-danger'"
+                         th:text="${#numbers.formatDecimal(currentValue, 1, 'COMMA', 2, 'POINT')} + ' €'">
+                        0,00 €
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Card grid -->
+    <div class="row g-3">
+        <div th:each="entry : ${aggregatedData}" class="col-6 col-sm-4 col-md-3 col-lg-2">
+            <a th:href="@{/api/display/list(setCode=${entry.setCode},type=${entry.type})}"
+               class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 text-center p-1">
+                    <div class="card-body p-2 d-flex flex-column align-items-center">
+                        <img th:src="${entry.iconUri}" alt="Set-Icon"
+                             style="width:56px;height:56px;object-fit:contain;" class="mb-2">
+                        <div class="fw-semibold small text-dark"
+                             th:text="${entry.setCode}">XXX</div>
+                        <div class="text-muted mb-1"
+                             style="font-size:0.75rem;"
+                             th:text="${entry.type}">Type</div>
+                        <span class="badge text-bg-secondary mb-2"
+                              th:text="${entry.count} + ' Stk'">0 Stk</span>
+                        <div class="fw-bold small text-dark mt-auto"
+                             th:text="${#numbers.formatDecimal(entry.sanitizedMarketPrice, 1, 'COMMA', 2, 'POINT')} + ' €'">
+                            0,00 €
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
 </div>
 
-<table class="table table-striped table-hover" data-sort-order="asc" id="displayTable">
-    <thead>
-    <tr>
-        <th onclick="sortTable(0)">Set Code &#x25B2;&#x25BC;</th>
-        <th>Icon</th>
-        <th onclick="sortTable(1)">Type &#x25B2;&#x25BC;</th>
-        <th>Anzahl</th>
-        <th>Durchschnittlicher Preis</th>
-        <th>Angebote</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr th:each="entry : ${aggregatedData}">
-        <td th:text="${entry.setCode}"></td>
-        <td>
-            <img alt="Icon" style="width: 32px; height: 32px;" th:src="${entry.iconUri}">
-        </td>
-        <td th:text="${entry.type}"></td>
-        <td th:text="${entry.count}"></td>
-        <td th:text="${entry.averagePrice} + ' €'"></td>
-        <td th:text="${entry.sanitizedMarketPrice} + ' €'"></td>
-    </tr>
-    </tbody>
-</table>
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
-<script>
-    function sortTable(columnIndex) {
-        const table = document.getElementById("displayTable");
-        const rows = Array.from(table.rows).slice(1); // Überspringe den Header
-        const isAscending = table.getAttribute("data-sort-order") === "asc";
-        const direction = isAscending ? 1 : -1;
-
-        rows.sort((a, b) => {
-            const aText = a.cells[columnIndex].innerText.trim();
-            const bText = b.cells[columnIndex].innerText.trim();
-            return aText.localeCompare(bText) * direction;
-        });
-
-        // Sortierte Reihenfolge anwenden
-        rows.forEach(row => table.tBodies[0].appendChild(row));
-
-        // Sortierreihenfolge umkehren
-        table.setAttribute("data-sort-order", isAscending ? "desc" : "asc");
-    }
-</script>
 </body>
 </html>

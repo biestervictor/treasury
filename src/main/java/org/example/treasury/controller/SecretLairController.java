@@ -3,6 +3,7 @@ package org.example.treasury.controller;
 import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.example.treasury.dto.AssetGroupDto;
 import org.example.treasury.dto.PriceSnapshotDto;
 import org.example.treasury.model.SecretLair;
@@ -198,6 +199,28 @@ public class SecretLairController {
     });
     secretLairService.saveAllSecretLairs(siblings);
     return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Triggers the Cardmarket scraper for a single Secret Lair and returns the scraped price.
+   *
+   * @param id the Secret Lair document ID
+   * @return 200 with {"price": X.XX}, 404 if not found, 500 on scrape error
+   */
+  @PostMapping("/{id}/scrape")
+  @ResponseBody
+  public ResponseEntity<Map<String, Double>> scrapeSecretLairPrice(@PathVariable String id) {
+    SecretLair sl = secretLairService.findById(id).orElse(null);
+    if (sl == null) {
+      return ResponseEntity.notFound().build();
+    }
+    try (Playwright playwright = Playwright.create()) {
+      secretLairPriceCollectorService.runScraper(playwright, List.of(sl));
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().build();
+    }
+    SecretLair updated = secretLairService.findById(id).orElse(sl);
+    return ResponseEntity.ok(Map.of("price", updated.getCurrentValue()));
   }
 
   /**

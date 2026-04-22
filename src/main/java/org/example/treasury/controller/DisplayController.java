@@ -1,5 +1,6 @@
 package org.example.treasury.controller;
 
+import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +47,7 @@ public class DisplayController {
   private final CsvImporter csvImporter;
   private final MagicSetService magicSetService;
   private final CardMarketPriceHistoryService priceHistoryService;
+  private final DisplayPriceCollectorService displayPriceCollectorService;
   private final List<MagicSet> magicSets;
   Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -55,7 +57,7 @@ public class DisplayController {
    * @param csvImporter                    csvImporter
    * @param displayService                 displayService
    * @param magicSetService                magicSetService
-   * @param displayPriceCollectorService   displayPriceCollectorService (unused directly)
+   * @param displayPriceCollectorService   displayPriceCollectorService
    * @param priceHistoryService            price history service
    */
   public DisplayController(CsvImporter csvImporter, DisplayService displayService,
@@ -65,6 +67,7 @@ public class DisplayController {
     this.csvImporter = csvImporter;
     this.displayService = displayService;
     this.magicSetService = magicSetService;
+    this.displayPriceCollectorService = displayPriceCollectorService;
     this.priceHistoryService = priceHistoryService;
     magicSets = magicSetService.getAllMagicSets();
   }
@@ -293,6 +296,31 @@ public class DisplayController {
     });
     displayService.saveAllDisplays(siblings);
     return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Triggers the Cardmarket scraper for a single display and returns the scraped price.
+   * All active siblings (same setCode + type) are updated as a side-effect.
+   *
+   * @param id any display document ID within the target group
+   * @return 200 with {"price": X.XX}, 404 if not found, 500 on scrape error
+   */
+  @PostMapping("/{id}/scrape")
+  @ResponseBody
+  public ResponseEntity<Map<String, Double>> scrapeDisplayPrice(@PathVariable String id) {
+    Display d = displayService.getDisplayById(id);
+    if (d == null) {
+      return ResponseEntity.notFound().build();
+    }
+    try (Playwright playwright = Playwright.create()) {
+      displayPriceCollectorService.runScraper(playwright, d, false);
+    } catch (Exception e) {
+      logger.error("Fehler beim Scraping für Display {}", id, e);
+      return ResponseEntity.internalServerError().build();
+    }
+    Display updated = displayService.getDisplayById(id);
+    double price = updated != null ? updated.getCurrentValue() : d.getCurrentValue();
+    return ResponseEntity.ok(Map.of("price", price));
   }
 
   /**
