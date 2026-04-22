@@ -14,8 +14,9 @@ volume:
   storageClassNameEnabled: true
 
 ## Hedgedoc configuration
+## hedgedoc (treasury-Chart) in Dev deaktiviert: hedgedoc.tf (Terraform) übernimmt den hedgedoc-Namespace
 hedgedoc:
-  enabled: true
+  enabled: false
   nodeSelector:
   ingress:
     host: hedgedoc-dev.biester.vip

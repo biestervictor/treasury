@@ -43,6 +43,17 @@ public interface DisplayRepository extends MongoRepository<Display, String> {
 
   List<Display> findBySetCodeIgnoreCaseAndTypeIgnoreCase(String setCode, String type);
 
+  /**
+   * Finds all non-sold displays with the given set code and type (case-insensitive).
+   *
+   * @param setCode set code
+   * @param type    display type
+   * @return list of matching active displays
+   */
+  List<Display> findBySetCodeIgnoreCaseAndTypeIgnoreCaseAndIsSoldFalse(
+      String setCode, String type);
+
   List<Display> findByTypeIgnoreCase(String type);
+
   List<Display> findAll();
 }

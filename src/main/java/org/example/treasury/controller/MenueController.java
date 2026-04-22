@@ -20,7 +20,7 @@ public class MenueController {
    */
   @GetMapping("/index")
   public String getindex() {
-    return "index";
+    return "redirect:/api/dashboard";
   }
 
   /**

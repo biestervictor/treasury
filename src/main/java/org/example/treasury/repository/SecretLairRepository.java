@@ -1,10 +1,8 @@
 package org.example.treasury.repository;
 
 import java.util.List;
-import org.example.treasury.model.Display;
 import org.example.treasury.model.SecretLair;
 import org.springframework.data.mongodb.repository.MongoRepository;
-import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -16,5 +14,12 @@ import org.springframework.stereotype.Repository;
 
 public interface SecretLairRepository extends MongoRepository<SecretLair, String> {
 
+  /**
+   * Finds all non-sold Secret Lairs with the given name.
+   *
+   * @param name the product name
+   * @return list of matching active Secret Lairs
+   */
+  List<SecretLair> findByNameAndIsSoldFalse(String name);
 
 }

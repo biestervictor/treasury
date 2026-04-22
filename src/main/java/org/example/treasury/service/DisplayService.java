@@ -36,6 +36,26 @@ public class DisplayService {
     return displayRepository.findByTypeIgnoreCase(type);
   }
 
+  /**
+   * Returns all non-sold displays with the given set code and type (case-insensitive).
+   *
+   * @param setCode the set code
+   * @param type    the display type
+   * @return list of active displays in this group
+   */
+  public List<Display> findActiveBySetCodeAndType(String setCode, String type) {
+    return displayRepository
+        .findBySetCodeIgnoreCaseAndTypeIgnoreCaseAndIsSoldFalse(setCode, type);
+  }
+
+  /**
+   * Returns displays filtered by setCode and/or type (case-insensitive), returning all if both
+   * parameters are null or empty.
+   *
+   * @param setCode optional set code filter
+   * @param type    optional type filter
+   * @return list of matching displays
+   */
   public List<Display> findBySetCodeAndType(String setCode, String type) {
     if (setCode != null && !setCode.isEmpty() && type != null && !type.isEmpty()) {
       return displayRepository.findBySetCodeIgnoreCaseAndTypeIgnoreCase(setCode, type);

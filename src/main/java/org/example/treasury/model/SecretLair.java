@@ -18,6 +18,7 @@ public class SecretLair extends CardMarketModel {
 
   private boolean isDeck;
   boolean isFoil;
+  private String imageUrl;
 
 
   /**

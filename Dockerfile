@@ -1,21 +1,7 @@
-# Build-Container
-FROM maven:3.9.4-eclipse-temurin-21 AS build
-WORKDIR /app
-# Projektdateien kopieren
-COPY pom.xml .
-COPY src ./src
-
-# Playwright-Browser-Dependencies installieren
-RUN mvn exec:java -e -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install-deps"
-
-# Anwendung bauen
-RUN mvn clean package -DskipTests
-
-# Runtime-Container
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Playwright-Dependencies auch im Runtime-Container installieren
+# Playwright OS-level dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     wget \
@@ -45,8 +31,8 @@ RUN apt-get update && \
     libxshmfence1 && \
     rm -rf /var/lib/apt/lists/*
 
-# Kopiere das erstellte JAR-File aus dem Build-Container
-COPY --from=build /app/target/*.jar app.jar
+# JAR is built by CI (mvn clean install) before docker build
+COPY target/*.jar app.jar
 
 ENV SPRING_PROFILES_ACTIVE=docker
 EXPOSE 30800

@@ -9,7 +9,8 @@ class DisplayPriceCollectorServiceUrlTest {
 
   @Test
   void buildUrl_soiShadowsOverInnerstrafDraft_languageDE() {
-    DisplayPriceCollectorService service = new DisplayPriceCollectorService(null, Optional.empty());
+    DisplayPriceCollectorService service =
+        new DisplayPriceCollectorService(null, Optional.empty(), null);
 
     String actual = service.buildUrl("SOI", "Shadows over Innistrad", "DRAFT", true, "DE");
 
@@ -20,7 +21,8 @@ class DisplayPriceCollectorServiceUrlTest {
 
   @Test
   void buildUrl_khmKaldheimDraft_languageEN() {
-    DisplayPriceCollectorService service = new DisplayPriceCollectorService(null, Optional.empty());
+    DisplayPriceCollectorService service =
+        new DisplayPriceCollectorService(null, Optional.empty(), null);
 
     String actual = service.buildUrl("KHM", "Kaldheim", "DRAFT", false, "EN");
 
@@ -31,7 +33,8 @@ class DisplayPriceCollectorServiceUrlTest {
 
   @Test
   void buildUrl_khmKaldheimSet_languageEN() {
-    DisplayPriceCollectorService service = new DisplayPriceCollectorService(null, Optional.empty());
+    DisplayPriceCollectorService service =
+        new DisplayPriceCollectorService(null, Optional.empty(), null);
 
     String actual = service.buildUrl("KHM", "Kaldheim", "SET", false, "DE");
 
@@ -42,7 +45,8 @@ class DisplayPriceCollectorServiceUrlTest {
 
   @Test
   void buildUrl_tlaAvatarCollector_languageEN() {
-    DisplayPriceCollectorService service = new DisplayPriceCollectorService(null, Optional.empty());
+    DisplayPriceCollectorService service =
+        new DisplayPriceCollectorService(null, Optional.empty(), null);
 
     String actual = service.buildUrl("TLA", "Avatar: The last Airbender", "COLLECTOR", true, "EN");
 

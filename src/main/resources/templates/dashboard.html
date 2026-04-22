@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('Dashboard')"></head>
+<body class="bg-light">
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" th:href="@{/api/dashboard}">Treasury</a>
+        <button aria-controls="navbarNav" aria-expanded="false" aria-label="Navigation umschalten"
+                class="navbar-toggler"
+                data-bs-target="#navbarNav" data-bs-toggle="collapse" type="button">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link active" th:href="@{/api/dashboard}">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/api/display/list}">Displays</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/api/secretlair/insert}">Secret Lair</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/api/edelmetall/dashboard/view}">Edelmetalle</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/api/shoe/list}">Schuhe</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/api/settings}">
+                        Settings
+                        <span class="badge bg-success" th:if="${jobsAllEnabled}">Jobs: ON</span>
+                        <span class="badge bg-danger" th:if="${jobsAnyDisabled}">Jobs: OFF</span>
+                    </a>
+                </li>
+            </ul>
+            <th:block th:replace="fragments/buildDbBadges :: badges"></th:block>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid mt-4 px-4">
+    <h1 class="mb-1 fw-bold">Asset Dashboard</h1>
+    <p class="text-muted mb-4">Gesamtübersicht aller Investments</p>
+
+    <!-- ====== TOTALS ROW ====== -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small mb-1">Gesamtinvestition</div>
+                    <div class="fs-3 fw-bold text-dark"
+                         th:text="${#numbers.formatDecimal(dashboard.totalInvested(), 1, 'COMMA', 2, 'POINT')} + ' €'">
+                        0,00 €
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small mb-1">Aktueller Gesamtwert</div>
+                    <div class="fs-3 fw-bold"
+                         th:classappend="${dashboard.totalCurrentValue() >= dashboard.totalInvested()} ? 'text-success' : 'text-danger'"
+                         th:text="${#numbers.formatDecimal(dashboard.totalCurrentValue(), 1, 'COMMA', 2, 'POINT')} + ' €'">
+                        0,00 €
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small mb-1">Gesamtgewinn / -verlust</div>
+                    <div class="fs-3 fw-bold"
+                         th:classappend="${dashboard.totalProfit() >= 0} ? 'text-success' : 'text-danger'">
+                        <span th:text="${dashboard.totalProfit() >= 0} ? '+' : ''"></span><span
+                            th:text="${#numbers.formatDecimal(dashboard.totalProfit(), 1, 'COMMA', 2, 'POINT')} + ' €'">0,00 €</span>
+                    </div>
+                    <div class="text-muted small mt-1"
+                         th:if="${dashboard.totalInvested() > 0}"
+                         th:text="${#numbers.formatDecimal(dashboard.totalProfit() / dashboard.totalInvested() * 100, 1, 'COMMA', 1, 'POINT')} + ' %'">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small mb-1">Positionen unter Einkaufspreis</div>
+                    <div class="fs-3 fw-bold"
+                         th:classappend="${dashboard.totalBelowPurchase() == 0} ? 'text-success' : 'text-danger'"
+                         th:text="${dashboard.totalBelowPurchase()}">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== CATEGORY CARDS ====== -->
+    <h5 class="mb-3 text-muted text-uppercase" style="font-size:0.8rem; letter-spacing:0.08em;">Kategorien</h5>
+    <div class="row g-3 mb-4">
+        <div th:each="cat : ${dashboard.categories()}" class="col-sm-6 col-xl-3">
+            <a th:href="${cat.linkUrl()}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 dashboard-cat-card"
+                     th:classappend="'border-start border-4 border-' + ${cat.colorClass()}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0 fw-bold" th:text="${cat.name()}">Kategorie</h6>
+                            <span class="badge rounded-pill"
+                                  th:classappend="'text-bg-' + ${cat.colorClass()}"
+                                  th:text="${cat.count()} + ' Stk'">0 Stk</span>
+                        </div>
+                        <div class="row g-1 text-center">
+                            <div class="col-6">
+                                <div class="small text-muted">Investiert</div>
+                                <div class="fw-semibold"
+                                     th:text="${#numbers.formatDecimal(cat.totalInvested(), 1, 'COMMA', 2, 'POINT')} + ' €'">0 €</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-muted">Marktwert</div>
+                                <div class="fw-semibold"
+                                     th:classappend="${cat.currentValue() >= cat.totalInvested()} ? 'text-success' : 'text-danger'"
+                                     th:text="${#numbers.formatDecimal(cat.currentValue(), 1, 'COMMA', 2, 'POINT')} + ' €'">0 €</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-muted">Gewinn</div>
+                                <div class="fw-semibold"
+                                     th:classappend="${cat.profit() >= 0} ? 'text-success' : 'text-danger'">
+                                    <span th:text="${cat.profit() >= 0} ? '+' : ''"></span><span
+                                        th:text="${#numbers.formatDecimal(cat.profit(), 1, 'COMMA', 2, 'POINT')} + ' €'">0 €</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-muted">Unter EK</div>
+                                <div class="fw-semibold"
+                                     th:classappend="${cat.belowPurchasePriceCount() == 0} ? 'text-success' : 'text-danger'"
+                                     th:text="${cat.belowPurchasePriceCount()}">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ====== CHARTS ROW ====== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="card-title fw-bold text-muted text-uppercase mb-3"
+                        style="font-size:0.75rem; letter-spacing:0.08em;">Asset-Allokation (Marktwert)</h6>
+                    <canvas id="allocationChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="card-title fw-bold text-muted text-uppercase mb-3"
+                        style="font-size:0.75rem; letter-spacing:0.08em;">Investition vs. Marktwert</h6>
+                    <canvas id="compareChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="card-title fw-bold text-muted text-uppercase mb-3"
+                        style="font-size:0.75rem; letter-spacing:0.08em;">Gewinn / Verlust pro Kategorie</h6>
+                    <canvas id="profitChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== CATEGORY FILTER ====== -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="d-flex gap-3 flex-wrap align-items-center">
+                <span class="text-muted small fw-semibold text-uppercase"
+                      style="letter-spacing:0.08em;">Kategorien:</span>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input category-filter" type="checkbox"
+                           id="filter-display" value="MTG Display" checked>
+                    <label class="form-check-label" for="filter-display">
+                        <span class="badge text-bg-primary">MTG Displays</span>
+                    </label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input category-filter" type="checkbox"
+                           id="filter-sl" value="Secret Lair" checked>
+                    <label class="form-check-label" for="filter-sl">
+                        <span class="badge text-bg-success">Secret Lair</span>
+                    </label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input category-filter" type="checkbox"
+                           id="filter-metal" value="Edelmetall" checked>
+                    <label class="form-check-label" for="filter-metal">
+                        <span class="badge text-bg-warning">Edelmetalle</span>
+                    </label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input category-filter" type="checkbox"
+                           id="filter-shoe" value="Sneaker" checked>
+                    <label class="form-check-label" for="filter-shoe">
+                        <span class="badge text-bg-danger">Sneaker</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== TOP GAINERS + TOP LOSERS ====== -->
+    <div class="row g-3 mb-4">
+
+        <!-- View toggle -->
+        <div class="col-12 pb-0 pt-1">
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted small fw-semibold text-uppercase"
+                      style="letter-spacing:0.08em;">Ansicht:</span>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="radio" name="gainersLosersView"
+                           id="viewTotal" value="total" checked>
+                    <label class="form-check-label small" for="viewTotal">Gesamt</label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="radio" name="gainersLosersView"
+                           id="viewDaily" value="daily">
+                    <label class="form-check-label small" for="viewDaily">
+                        Täglich &#9650;&#9660;
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOTAL: Gewinner -->
+        <div class="col-md-6" id="section-gainers-total"
+             th:if="${not #lists.isEmpty(dashboard.topGainers())}">
+            <div class="card border-0 shadow-sm border-start border-4 border-success">
+                <div class="card-body pb-2">
+                    <h6 class="card-title fw-bold mb-2">
+                        Top Gewinner
+                        <span class="badge text-bg-success ms-1"
+                              th:text="${#lists.size(dashboard.topGainers())}">0</span>
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Bezeichnung</th>
+                                <th class="text-end">Einkauf (€)</th>
+                                <th class="text-end">Aktuell (€)</th>
+                                <th class="text-end">Gewinn (€)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="gainers-rows">
+                            <tr th:each="item : ${dashboard.topGainers()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
+                                <td>
+                                     <a th:if="${item.historyUrl() != null}"
+                                        href="#" class="text-decoration-none text-dark asset-trigger"
+                                        th:data-history-url="${item.historyUrl()}"
+                                        th:data-item-name="${item.name()}"
+                                        th:text="${item.name()}">–</a>
+                                     <a th:if="${item.historyUrl() == null}"
+                                        th:href="${item.linkUrl()}"
+                                        class="text-decoration-none text-dark"
+                                        th:text="${item.name()}">–</a>
+                                 </td>
+                                 <td class="text-end font-monospace"
+                                     th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                 <td class="text-end font-monospace text-success"
+                                     th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                 <td class="text-end font-monospace text-success fw-semibold"
+                                     th:text="'+' + ${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">+0,00</td>
+                             </tr>
+                             </tbody>
+                         </table>
+                     </div>
+                     <button id="gainers-expand-btn"
+                            class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
+                            type="button" style="display:none; font-size:0.8rem;">
+                        &#9660; mehr anzeigen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOTAL: Verlierer -->
+        <div class="col-md-6" id="section-losers-total"
+             th:if="${not #lists.isEmpty(dashboard.topLosers())}">
+            <div class="card border-0 shadow-sm border-start border-4 border-warning">
+                <div class="card-body pb-2">
+                    <h6 class="card-title fw-bold mb-2">
+                        Top Verlierer
+                        <span class="badge text-bg-warning ms-1"
+                              th:text="${#lists.size(dashboard.topLosers())}">0</span>
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Bezeichnung</th>
+                                <th class="text-end">Einkauf (€)</th>
+                                <th class="text-end">Aktuell (€)</th>
+                                <th class="text-end">Verlust (€)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="losers-rows">
+                            <tr th:each="item : ${dashboard.topLosers()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
+                                <td>
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark asset-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
+                                       class="text-decoration-none text-dark"
+                                       th:text="${item.name()}">–</a>
+                                </td>
+                                <td class="text-end font-monospace"
+                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger"
+                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger fw-semibold"
+                                    th:text="${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button id="losers-expand-btn"
+                            class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
+                            type="button" style="display:none; font-size:0.8rem;">
+                        &#9660; mehr anzeigen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAILY: Tagesgewinner (hidden by default) -->
+        <div class="col-md-6" id="section-gainers-daily" style="display:none">
+            <div class="card border-0 shadow-sm border-start border-4 border-success">
+                <div class="card-body pb-2">
+                    <h6 class="card-title fw-bold mb-2">
+                        Tagesgewinner
+                        <span class="badge text-bg-success ms-1"
+                              th:text="${#lists.size(dashboard.dailyTopGainers())}">0</span>
+                    </h6>
+                    <div th:if="${#lists.isEmpty(dashboard.dailyTopGainers())}"
+                         class="text-muted small fst-italic">
+                        Noch keine Tagesdaten verfügbar.
+                    </div>
+                    <div th:unless="${#lists.isEmpty(dashboard.dailyTopGainers())}"
+                         class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Bezeichnung</th>
+                                <th class="text-end">Vorherig (€)</th>
+                                <th class="text-end">Heute (€)</th>
+                                <th class="text-end">Änderung (€)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="daily-gainers-rows">
+                            <tr th:each="item : ${dashboard.dailyTopGainers()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
+                                <td>
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark asset-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
+                                       class="text-decoration-none text-dark"
+                                       th:text="${item.name()}">–</a>
+                                </td>
+                                <td class="text-end font-monospace"
+                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-success"
+                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-success fw-semibold"
+                                    th:text="'+' + ${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">+0,00</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button id="daily-gainers-expand-btn"
+                            class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
+                            type="button" style="display:none; font-size:0.8rem;">
+                        &#9660; mehr anzeigen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAILY: Tagesverlierer (hidden by default) -->
+        <div class="col-md-6" id="section-losers-daily" style="display:none">
+            <div class="card border-0 shadow-sm border-start border-4 border-warning">
+                <div class="card-body pb-2">
+                    <h6 class="card-title fw-bold mb-2">
+                        Tagesverlierer
+                        <span class="badge text-bg-warning ms-1"
+                              th:text="${#lists.size(dashboard.dailyTopLosers())}">0</span>
+                    </h6>
+                    <div th:if="${#lists.isEmpty(dashboard.dailyTopLosers())}"
+                         class="text-muted small fst-italic">
+                        Noch keine Tagesdaten verfügbar.
+                    </div>
+                    <div th:unless="${#lists.isEmpty(dashboard.dailyTopLosers())}"
+                         class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Bezeichnung</th>
+                                <th class="text-end">Vorherig (€)</th>
+                                <th class="text-end">Heute (€)</th>
+                                <th class="text-end">Änderung (€)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="daily-losers-rows">
+                            <tr th:each="item : ${dashboard.dailyTopLosers()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
+                                <td>
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark asset-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
+                                       class="text-decoration-none text-dark"
+                                       th:text="${item.name()}">–</a>
+                                </td>
+                                <td class="text-end font-monospace"
+                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger"
+                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger fw-semibold"
+                                    th:text="${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button id="daily-losers-expand-btn"
+                            class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
+                            type="button" style="display:none; font-size:0.8rem;">
+                        &#9660; mehr anzeigen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== BELOW PURCHASE PRICE ====== -->
+    <div class="row g-3 mb-4" th:if="${not #lists.isEmpty(dashboard.belowPurchaseItems())}">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm border-start border-4 border-danger">
+                <div class="card-body pb-2">
+                    <h6 class="card-title fw-bold mb-2">
+                        Positionen unter Einkaufspreis
+                        <span class="badge text-bg-danger ms-1"
+                              th:text="${dashboard.totalBelowPurchase()}">0</span>
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Bezeichnung</th>
+                                <th class="text-end">Einkauf (€)</th>
+                                <th class="text-end">Aktuell (€)</th>
+                                <th class="text-end">Verlust (€)</th>
+                                <th class="text-end">Verlust (%)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="below-rows">
+                            <tr th:each="item : ${dashboard.belowPurchaseItems()}"
+                                class="dashboard-filterable-row">
+                                <td><span class="badge text-bg-secondary category-badge"
+                                          th:text="${item.category()}">–</span></td>
+                                <td>
+                                    <a th:if="${item.historyUrl() != null}"
+                                       href="#" class="text-decoration-none text-dark asset-trigger"
+                                       th:data-history-url="${item.historyUrl()}"
+                                       th:data-item-name="${item.name()}"
+                                       th:text="${item.name()}">–</a>
+                                    <a th:if="${item.historyUrl() == null}"
+                                       th:href="${item.linkUrl()}"
+                                       class="text-decoration-none text-dark"
+                                       th:text="${item.name()}">–</a>
+                                </td>
+                                <td class="text-end font-monospace"
+                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger"
+                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger fw-semibold"
+                                    th:text="${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                <td class="text-end font-monospace text-danger"
+                                    th:if="${item.invested() > 0}"
+                                    th:text="${#numbers.formatDecimal(item.profit() / item.invested() * 100, 1, 'COMMA', 1, 'POINT')} + ' %'">0,0 %</td>
+                                <td th:if="${item.invested() <= 0}" class="text-end text-muted">–</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button id="below-expand-btn"
+                            class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
+                            type="button" style="display:none; font-size:0.8rem;">
+                        &#9660; mehr anzeigen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== ASSET GROUP MODAL ====== -->
+    <div class="modal fade" id="assetGroupModal" tabindex="-1"
+         aria-labelledby="assetGroupModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="assetGroupModalLabel">Asset</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Schließen"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Loader -->
+                    <div id="assetGroupLoading" class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-secondary"
+                             role="status"></div>
+                    </div>
+                    <!-- Content -->
+                    <div id="assetGroupContent" style="display:none">
+                        <!-- Price Chart (always visible) -->
+                        <canvas id="assetGroupChart" height="120"></canvas>
+                        <p id="assetGroupChartEmpty"
+                           class="text-muted text-center fst-italic mt-3"
+                           style="display:none">Noch keine Preisdaten vorhanden.</p>
+                        <!-- Positions table -->
+                        <hr class="my-3">
+                        <h6 class="fw-semibold mb-2" id="assetGroupPositionsLabel">
+                            Positionen
+                        </h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>Lagerort</th>
+                                    <th class="text-end">EK-Preis (€)</th>
+                                    <th class="text-end">Marktwert (€)</th>
+                                    <th class="text-end">Gewinn (€)</th>
+                                    <th>Sprache</th>
+                                    <th></th>
+                                </tr>
+                                </thead>
+                                <tbody id="assetGroupRows"></tbody>
+                            </table>
+                        </div>
+                        <!-- Scrape button -->
+                        <hr class="my-3">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button class="btn btn-sm btn-primary"
+                                    id="assetGroupScrapeBtn">Preis aktualisieren</button>
+                            <div id="assetGroupScrapeSpinner"
+                                 class="spinner-border spinner-border-sm text-primary"
+                                 role="status" style="display:none"></div>
+                            <span id="assetGroupSaveMsg"
+                                  class="small text-success fw-semibold"
+                                  style="display:none">&#10003; Aktualisiert</span>
+                            <span id="assetGroupSaveErr"
+                                  class="small text-danger"
+                                  style="display:none">Fehler beim Scraping.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    const catNames  = /*[[${dashboard.categories().![name()]}]]*/ [];
+    const catValues = /*[[${dashboard.categories().![currentValue()]}]]*/ [];
+    const catInvest = /*[[${dashboard.categories().![totalInvested()]}]]*/ [];
+    const catProfit = /*[[${dashboard.categories().![profit()]}]]*/ [];
+
+    const PALETTE = ['#0d6efd', '#198754', '#ffc107', '#dc3545'];
+
+    // Donut: Asset-Allokation
+    new Chart(document.getElementById('allocationChart'), {
+        type: 'doughnut',
+        data: {
+            labels: catNames,
+            datasets: [{
+                data: catValues.map(v => Math.max(v, 0)),
+                backgroundColor: PALETTE,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ' ' + ctx.label + ': ' + ctx.parsed.toFixed(2).replace('.', ',') + ' €'
+                    }
+                }
+            }
+        }
+    });
+
+    // Bar: Investiert vs. Marktwert
+    new Chart(document.getElementById('compareChart'), {
+        type: 'bar',
+        data: {
+            labels: catNames,
+            datasets: [
+                {
+                    label: 'Investiert',
+                    data: catInvest,
+                    backgroundColor: 'rgba(108,117,125,0.6)',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Marktwert',
+                    data: catValues,
+                    backgroundColor: PALETTE.map(c => c + 'cc'),
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+            scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } } }
+        }
+    });
+
+    // Bar: Gewinn/Verlust
+    new Chart(document.getElementById('profitChart'), {
+        type: 'bar',
+        data: {
+            labels: catNames,
+            datasets: [{
+                label: 'Gewinn/Verlust (€)',
+                data: catProfit,
+                backgroundColor: catProfit.map(v => v >= 0 ? 'rgba(25,135,84,0.7)' : 'rgba(220,53,69,0.7)'),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { ticks: { font: { size: 10 } } } }
+        }
+    });
+</script>
+
+<script>
+    const PREVIEW_LIMIT = 10;
+    const FULL_LIMIT = 40;
+    const SECTIONS = ['gainers', 'losers', 'below', 'daily-gainers', 'daily-losers'];
+    const expandState = {
+        'gainers': false, 'losers': false, 'below': false,
+        'daily-gainers': false, 'daily-losers': false
+    };
+
+    function getCheckedCategories() {
+        return Array.from(
+            document.querySelectorAll('.category-filter:checked')
+        ).map(cb => cb.value);
+    }
+
+    function applySection(section) {
+        const tbody = document.getElementById(section + '-rows');
+        const btn = document.getElementById(section + '-expand-btn');
+        if (!tbody) {
+            return;
+        }
+        const rows = Array.from(tbody.querySelectorAll('.dashboard-filterable-row'));
+        const checked = getCheckedCategories();
+        const expanded = expandState[section];
+        const limit = expanded ? FULL_LIMIT : PREVIEW_LIMIT;
+
+        const matchingRows = rows.filter(row => {
+            const cat = row.querySelector('.category-badge')?.textContent.trim() ?? '';
+            return checked.includes(cat);
+        });
+
+        let shown = 0;
+        rows.forEach(row => {
+            const cat = row.querySelector('.category-badge')?.textContent.trim() ?? '';
+            if (checked.includes(cat) && shown < limit) {
+                row.style.display = '';
+                shown++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        if (!btn) {
+            return;
+        }
+        if (matchingRows.length <= PREVIEW_LIMIT) {
+            btn.style.display = 'none';
+        } else {
+            btn.style.display = '';
+            btn.innerHTML = expanded
+                ? '&#9650; weniger anzeigen'
+                : '&#9660; mehr anzeigen (' + matchingRows.length + ')';
+        }
+    }
+
+    function applyAllSections() {
+        SECTIONS.forEach(applySection);
+    }
+
+    // Category filter: reset expand state and re-apply
+    document.querySelectorAll('.category-filter').forEach(cb =>
+        cb.addEventListener('change', () => {
+            SECTIONS.forEach(s => { expandState[s] = false; });
+            applyAllSections();
+        })
+    );
+
+    // Expand / collapse buttons
+    SECTIONS.forEach(section => {
+        const btn = document.getElementById(section + '-expand-btn');
+        if (!btn) {
+            return;
+        }
+        btn.addEventListener('click', () => {
+            expandState[section] = !expandState[section];
+            applySection(section);
+        });
+    });
+
+    // Gesamt / Täglich toggle
+    document.querySelectorAll('input[name="gainersLosersView"]').forEach(radio =>
+        radio.addEventListener('change', function () {
+            const daily = this.value === 'daily';
+            const totalIds = ['section-gainers-total', 'section-losers-total'];
+            const dailyIds = ['section-gainers-daily', 'section-losers-daily'];
+            totalIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = daily ? 'none' : '';
+                }
+            });
+            dailyIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = daily ? '' : 'none';
+                }
+            });
+            SECTIONS.forEach(s => { expandState[s] = false; });
+            applyAllSections();
+        })
+    );
+
+    // Asset group modal
+    let assetChart = null;
+    let currentScrapeUrl = null;
+    let currentHistoryUrl = null;
+
+    function fmtEuro(v) {
+        return v.toFixed(2).replace('.', ',');
+    }
+
+    function buildChartFromData(histData) {
+        const empty = document.getElementById('assetGroupChartEmpty');
+        if (!histData || histData.length === 0) {
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+        const ctx = document.getElementById('assetGroupChart').getContext('2d');
+        if (assetChart) {
+            assetChart.destroy();
+        }
+        assetChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: histData.map(d => d.date),
+                datasets: [{
+                    label: 'Preis (\u20ac)',
+                    data: histData.map(d => d.price),
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13,110,253,0.08)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: v => v.toFixed(2).replace('.', ',') + ' \u20ac'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async function showAssetGroup(name, historyUrl) {
+        const groupUrl = historyUrl.replace('/history', '/group');
+        currentScrapeUrl = historyUrl.replace('/history', '/scrape');
+        currentHistoryUrl = historyUrl;
+
+        // Reset UI
+        document.getElementById('assetGroupModalLabel').textContent = name;
+        document.getElementById('assetGroupLoading').style.display = '';
+        document.getElementById('assetGroupContent').style.display = 'none';
+        document.getElementById('assetGroupSaveMsg').style.display = 'none';
+        document.getElementById('assetGroupSaveErr').style.display = 'none';
+        document.getElementById('assetGroupScrapeSpinner').style.display = 'none';
+        document.getElementById('assetGroupChartEmpty').style.display = 'none';
+        if (assetChart) {
+            assetChart.destroy();
+            assetChart = null;
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('assetGroupModal'));
+        modal.show();
+
+        try {
+            const [groupResp, histResp] = await Promise.all([
+                fetch(groupUrl),
+                fetch(currentHistoryUrl)
+            ]);
+
+            if (!groupResp.ok) {
+                throw new Error('HTTP ' + groupResp.status);
+            }
+            const data = await groupResp.json();
+
+            document.getElementById('assetGroupModalLabel')
+                .textContent = data.groupName + ' \u2013 ' + data.category;
+            document.getElementById('assetGroupPositionsLabel')
+                .textContent = 'Positionen (' + data.items.length + ')';
+
+            const tbody = document.getElementById('assetGroupRows');
+            tbody.innerHTML = data.items.map(item => {
+                const profit = item.profit;
+                const profitClass = profit >= 0 ? 'text-success' : 'text-danger';
+                const profitSign = profit >= 0 ? '+' : '';
+                const loc = item.location || '\u2013';
+                const lang = item.language || '\u2013';
+                const cmLink = item.url
+                    ? '<a href="' + item.url
+                    + '" target="_blank" rel="noopener"'
+                    + ' class="btn btn-sm btn-outline-secondary py-0 px-1">CM</a>'
+                    : '';
+                return '<tr>'
+                    + '<td>' + loc + '</td>'
+                    + '<td class="text-end font-monospace">' + fmtEuro(item.valueBought) + '</td>'
+                    + '<td class="text-end font-monospace">' + fmtEuro(item.currentValue) + '</td>'
+                    + '<td class="text-end font-monospace fw-semibold ' + profitClass + '">'
+                    + profitSign + fmtEuro(profit) + '</td>'
+                    + '<td>' + lang + '</td>'
+                    + '<td>' + cmLink + '</td>'
+                    + '</tr>';
+            }).join('');
+
+            if (histResp.ok) {
+                buildChartFromData(await histResp.json());
+            } else {
+                document.getElementById('assetGroupChartEmpty').style.display = '';
+            }
+
+            document.getElementById('assetGroupLoading').style.display = 'none';
+            document.getElementById('assetGroupContent').style.display = '';
+
+        } catch (e) {
+            document.getElementById('assetGroupLoading').style.display = 'none';
+            document.getElementById('assetGroupContent').style.display = '';
+            document.getElementById('assetGroupRows').innerHTML =
+                '<tr><td colspan="6" class="text-muted text-center fst-italic">'
+                + 'Fehler beim Laden der Daten.</td></tr>';
+        }
+    }
+
+    // Scrape price button
+    document.getElementById('assetGroupScrapeBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('assetGroupScrapeBtn');
+        const spinner = document.getElementById('assetGroupScrapeSpinner');
+        const msg = document.getElementById('assetGroupSaveMsg');
+        const err = document.getElementById('assetGroupSaveErr');
+        msg.style.display = 'none';
+        err.style.display = 'none';
+        btn.disabled = true;
+        spinner.style.display = '';
+        try {
+            const resp = await fetch(currentScrapeUrl, { method: 'POST' });
+            if (resp.ok) {
+                const result = await resp.json();
+                const newPrice = result.price;
+                document.querySelectorAll('#assetGroupRows tr').forEach(tr => {
+                    const cells = tr.querySelectorAll('td');
+                    if (cells.length >= 4) {
+                        const ek = parseFloat(cells[1].textContent.replace(',', '.'));
+                        const profit = newPrice - ek;
+                        cells[2].textContent = fmtEuro(newPrice);
+                        cells[3].textContent = (profit >= 0 ? '+' : '') + fmtEuro(profit);
+                        cells[3].className =
+                            'text-end font-monospace fw-semibold '
+                            + (profit >= 0 ? 'text-success' : 'text-danger');
+                    }
+                });
+                if (assetChart) {
+                    assetChart.destroy();
+                    assetChart = null;
+                }
+                try {
+                    const histResp = await fetch(currentHistoryUrl);
+                    if (histResp.ok) {
+                        buildChartFromData(await histResp.json());
+                    }
+                } catch (e2) { /* chart reload failed, ignore */ }
+                msg.style.display = '';
+                setTimeout(() => { msg.style.display = 'none'; }, 2500);
+            } else {
+                err.style.display = '';
+            }
+        } catch (e) {
+            err.style.display = '';
+        } finally {
+            btn.disabled = false;
+            spinner.style.display = 'none';
+        }
+    });
+
+    // Wire up all .asset-trigger links
+    document.querySelectorAll('.asset-trigger').forEach(a =>
+        a.addEventListener('click', function (e) {
+            e.preventDefault();
+            showAssetGroup(this.dataset.itemName, this.dataset.historyUrl);
+        })
+    );
+
+    // Initial render
+    applyAllSections();
+</script>
+
+<th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
+</body>
+</html>
