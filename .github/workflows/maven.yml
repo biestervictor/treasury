@@ -122,12 +122,16 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
+          BUILD_TIME="$(date -u '+%Y-%m-%d %H:%M UTC')"
           echo "Updating image tag to ${{ github.sha }} and appVersion to ${VERSION}"
           sed -i "/^treasury:/,/^[^[:space:]]/{s|^    tag: .*|    tag: \"${{ github.sha }}\"|}" helmcharts/values.yaml
+          # build.version und build.time aktualisieren
+          sed -i "s|^    version: .*|    version: ${VERSION}|" helmcharts/values.yaml
+          sed -i "s|^    time: .*|    time: \"${BUILD_TIME}\"|" helmcharts/values.yaml
           # Chart appVersion auf Maven-Version
           sed -i "s|^appVersion: .*|appVersion: \"${VERSION}\"|" helmcharts/Chart.yaml
-          echo "--- values.yaml (image block) ---"
-          grep -A2 "^\s*image:\|^\s*tag:" helmcharts/values.yaml | head -n 20 || true
+          echo "--- values.yaml (image + build block) ---"
+          grep -A2 "^\s*image:\|^\s*tag:\|^\s*build:" helmcharts/values.yaml | head -n 20 || true
           echo "--- Chart.yaml (appVersion) ---"
           grep "appVersion" helmcharts/Chart.yaml || true
 

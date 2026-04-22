@@ -51,7 +51,7 @@ treasury:
     tag: "70ebefa4836a5d3d550084abec8524726eca7855"
   timezone: Europe/Berlin
   build:
-    version: 0
+    version: 0.0.0
     time: "unknown"
   secrets: my-tls-secret
   tls:
