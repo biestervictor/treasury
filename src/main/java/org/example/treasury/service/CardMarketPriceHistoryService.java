@@ -2,9 +2,7 @@ package org.example.treasury.service;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import org.example.treasury.model.CardMarketPriceSnapshot;
 import org.example.treasury.repository.CardMarketPriceSnapshotRepository;
 import org.springframework.stereotype.Service;
@@ -64,46 +62,48 @@ public class CardMarketPriceHistoryService {
   }
 
   /**
-   * Returns items that have snapshots for both today and yesterday,
-   * representing the daily price change.
+   * Returns items that have a today-snapshot and at least one earlier snapshot,
+   * representing the price change since the last available prior snapshot.
+   * This is robust against missed scraper runs: instead of requiring strictly
+   * yesterday's data, it uses the most recent snapshot before today.
    *
-   * @return list of daily changes ordered by absolute change descending
+   * @return list of daily changes
    */
   public List<DailyChange> getDailyChanges() {
     LocalDate today = LocalDate.now();
-    LocalDate yesterday = today.minusDays(1);
 
     List<CardMarketPriceSnapshot> todaySnaps = repository.findByDate(today);
     if (todaySnaps.isEmpty()) {
       return List.of();
     }
 
-    List<CardMarketPriceSnapshot> yesterdaySnaps = repository.findByDate(yesterday);
-    Map<String, CardMarketPriceSnapshot> yesterdayByItemId = yesterdaySnaps.stream()
-        .collect(Collectors.toMap(CardMarketPriceSnapshot::getItemId, s -> s));
-
     return todaySnaps.stream()
-        .filter(s -> yesterdayByItemId.containsKey(s.getItemId()))
-        .filter(s -> yesterdayByItemId.get(s.getItemId()).getPrice() > 0)
-        .map(s -> new DailyChange(
-            s.getItemId(),
-            s.getItemType(),
-            yesterdayByItemId.get(s.getItemId()).getPrice(),
-            s.getPrice()))
+        .flatMap(s -> repository
+            .findTopByItemIdAndDateBeforeOrderByDateDesc(s.getItemId(), today)
+            .filter(prev -> prev.getPrice() > 0)
+            .map(prev -> new DailyChange(
+                s.getItemId(),
+                s.getItemType(),
+                prev.getDate(),
+                prev.getPrice(),
+                s.getPrice()))
+            .stream())
         .toList();
   }
 
   /**
-   * Represents the price change of one item between yesterday and today.
+   * Represents the price change of one item between the last available prior snapshot and today.
    *
-   * @param itemId      the item key (setCode|type for Display, MongoDB ID for SecretLair)
-   * @param itemType    "DISPLAY" or "SECRET_LAIR"
-   * @param prevPrice   yesterday's price in EUR
+   * @param itemId       the item key (setCode|type for Display, MongoDB ID for SecretLair)
+   * @param itemType     "DISPLAY" or "SECRET_LAIR"
+   * @param prevDate     date of the comparison snapshot (may be earlier than yesterday)
+   * @param prevPrice    price on prevDate in EUR
    * @param currentPrice today's price in EUR
    */
   public record DailyChange(
       String itemId,
       String itemType,
+      LocalDate prevDate,
       double prevPrice,
       double currentPrice
   ) {

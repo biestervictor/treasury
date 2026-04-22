@@ -36,4 +36,14 @@ public interface CardMarketPriceSnapshotRepository
    * @return list of snapshots
    */
   List<CardMarketPriceSnapshot> findByDate(LocalDate date);
+
+  /**
+   * Finds the most recent snapshot for an item strictly before the given date.
+   *
+   * @param itemId the item key
+   * @param date   exclusive upper bound date
+   * @return the most recent snapshot before the given date, if any
+   */
+  Optional<CardMarketPriceSnapshot> findTopByItemIdAndDateBeforeOrderByDateDesc(
+      String itemId, LocalDate date);
 }

@@ -2,6 +2,7 @@ package org.example.treasury.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import org.example.treasury.model.SecretLair;
 import org.example.treasury.repository.SecretLairRepository;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ public class SecretLairService {
   public void addSecretLair(SecretLair secretLair) {
     secretLairRepository.save(secretLair);
   }
+
   /**
    * Save all secretlairs.
    *
@@ -26,6 +28,7 @@ public class SecretLairService {
   public void saveAllSecretLairs(List<SecretLair> secretLairs) {
     secretLairRepository.saveAll(secretLairs);
   }
+
   public void updateSecretLair(String id, String location, Double currentValue, boolean isSold,
                               Double soldPrice, LocalDate boughtDate) {
     SecretLair sl = secretLairRepository.findById(id).orElseThrow();
@@ -43,12 +46,34 @@ public class SecretLairService {
     sl.setDateBought(boughtDate);
     secretLairRepository.save(sl);
   }
+
   /**
    * Get all secretlair displays.
+   *
    * @return a list of all SecretLair displays
    */
   public List<SecretLair> getAllSecretLairs() {
     return secretLairRepository.findAll();
+  }
+
+  /**
+   * Finds a SecretLair by its MongoDB document ID.
+   *
+   * @param id the document ID
+   * @return Optional containing the SecretLair if found
+   */
+  public Optional<SecretLair> findById(String id) {
+    return secretLairRepository.findById(id);
+  }
+
+  /**
+   * Returns all non-sold SecretLairs with the given name.
+   *
+   * @param name the product name
+   * @return list of matching active Secret Lairs
+   */
+  public List<SecretLair> findActiveByName(String name) {
+    return secretLairRepository.findByNameAndIsSoldFalse(name);
   }
 
   // In SecretLairService.java

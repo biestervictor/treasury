@@ -3,6 +3,7 @@ package org.example.treasury.controller;
 import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.List;
+import org.example.treasury.dto.AssetGroupDto;
 import org.example.treasury.dto.PriceSnapshotDto;
 import org.example.treasury.model.SecretLair;
 import org.example.treasury.service.CardMarketPriceHistoryService;
@@ -12,10 +13,12 @@ import org.example.treasury.service.SecretLairService;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -143,6 +146,58 @@ public class SecretLairController {
       }
     }
     return secretLairs;
+  }
+
+  /**
+   * Returns group information for a Secret Lair: all active positions with the same name.
+   *
+   * @param id the Secret Lair MongoDB document ID
+   * @return AssetGroupDto for the group, or 404 if the Secret Lair is not found
+   */
+  @GetMapping("/{id}/group")
+  @ResponseBody
+  public ResponseEntity<AssetGroupDto> getSecretLairGroup(@PathVariable String id) {
+    SecretLair sl = secretLairService.findById(id).orElse(null);
+    if (sl == null) {
+      return ResponseEntity.notFound().build();
+    }
+    List<SecretLair> siblings = secretLairService.findActiveByName(sl.getName());
+    List<AssetGroupDto.AssetItemDto> items = siblings.stream()
+        .map(s -> new AssetGroupDto.AssetItemDto(
+            s.getId(), s.getLocation(), s.getValueBought(), s.getCurrentValue(),
+            s.getCurrentValue() - s.getValueBought(), s.getLanguage(), s.getUrl()))
+        .toList();
+    double currentPrice = siblings.isEmpty() ? 0 : siblings.get(0).getCurrentValue();
+    return ResponseEntity.ok(new AssetGroupDto(
+        sl.getName(), "Secret Lair", currentPrice,
+        "/api/secretlair/" + id + "/history",
+        "/api/secretlair/" + id + "/price",
+        items));
+  }
+
+  /**
+   * Updates the current market price for all active Secret Lairs with the same name.
+   *
+   * @param id    any Secret Lair document ID within the target group
+   * @param price the new market price in EUR
+   * @return 200 OK on success, 404 if the given Secret Lair is not found
+   */
+  @PatchMapping("/{id}/price")
+  @ResponseBody
+  public ResponseEntity<Void> updateSecretLairGroupPrice(
+      @PathVariable String id, @RequestParam double price) {
+    SecretLair sl = secretLairService.findById(id).orElse(null);
+    if (sl == null) {
+      return ResponseEntity.notFound().build();
+    }
+    List<SecretLair> siblings = secretLairService.findActiveByName(sl.getName());
+    LocalDate today = LocalDate.now();
+    siblings.forEach(s -> {
+      s.setCurrentValue(price);
+      s.setUpdatedAt(today);
+    });
+    secretLairService.saveAllSecretLairs(siblings);
+    return ResponseEntity.ok().build();
   }
 
   /**

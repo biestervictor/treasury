@@ -265,27 +265,27 @@
                                 <td><span class="badge text-bg-secondary category-badge"
                                           th:text="${item.category()}">–</span></td>
                                 <td>
-                                    <a th:if="${item.historyUrl() != null}"
-                                       href="#" class="text-decoration-none text-dark history-trigger"
-                                       th:data-history-url="${item.historyUrl()}"
-                                       th:data-item-name="${item.name()}"
-                                       th:text="${item.name()}">–</a>
-                                    <a th:if="${item.historyUrl() == null}"
-                                       th:href="${item.linkUrl()}"
-                                       class="text-decoration-none text-dark"
-                                       th:text="${item.name()}">–</a>
-                                </td>
-                                <td class="text-end font-monospace"
-                                    th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-success"
-                                    th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
-                                <td class="text-end font-monospace text-success fw-semibold"
-                                    th:text="'+' + ${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">+0,00</td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <button id="gainers-expand-btn"
+                                     <a th:if="${item.historyUrl() != null}"
+                                        href="#" class="text-decoration-none text-dark asset-trigger"
+                                        th:data-history-url="${item.historyUrl()}"
+                                        th:data-item-name="${item.name()}"
+                                        th:text="${item.name()}">–</a>
+                                     <a th:if="${item.historyUrl() == null}"
+                                        th:href="${item.linkUrl()}"
+                                        class="text-decoration-none text-dark"
+                                        th:text="${item.name()}">–</a>
+                                 </td>
+                                 <td class="text-end font-monospace"
+                                     th:text="${#numbers.formatDecimal(item.invested(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                 <td class="text-end font-monospace text-success"
+                                     th:text="${#numbers.formatDecimal(item.currentValue(), 1, 'COMMA', 2, 'POINT')}">0,00</td>
+                                 <td class="text-end font-monospace text-success fw-semibold"
+                                     th:text="'+' + ${#numbers.formatDecimal(item.profit(), 1, 'COMMA', 2, 'POINT')}">+0,00</td>
+                             </tr>
+                             </tbody>
+                         </table>
+                     </div>
+                     <button id="gainers-expand-btn"
                             class="btn btn-sm btn-link p-0 mt-1 text-muted text-decoration-none"
                             type="button" style="display:none; font-size:0.8rem;">
                         &#9660; mehr anzeigen
@@ -322,7 +322,7 @@
                                           th:text="${item.category()}">–</span></td>
                                 <td>
                                     <a th:if="${item.historyUrl() != null}"
-                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       href="#" class="text-decoration-none text-dark asset-trigger"
                                        th:data-history-url="${item.historyUrl()}"
                                        th:data-item-name="${item.name()}"
                                        th:text="${item.name()}">–</a>
@@ -370,7 +370,7 @@
                             <tr>
                                 <th>Kategorie</th>
                                 <th>Bezeichnung</th>
-                                <th class="text-end">Gestern (€)</th>
+                                <th class="text-end">Vorherig (€)</th>
                                 <th class="text-end">Heute (€)</th>
                                 <th class="text-end">Änderung (€)</th>
                             </tr>
@@ -382,7 +382,7 @@
                                           th:text="${item.category()}">–</span></td>
                                 <td>
                                     <a th:if="${item.historyUrl() != null}"
-                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       href="#" class="text-decoration-none text-dark asset-trigger"
                                        th:data-history-url="${item.historyUrl()}"
                                        th:data-item-name="${item.name()}"
                                        th:text="${item.name()}">–</a>
@@ -430,7 +430,7 @@
                             <tr>
                                 <th>Kategorie</th>
                                 <th>Bezeichnung</th>
-                                <th class="text-end">Gestern (€)</th>
+                                <th class="text-end">Vorherig (€)</th>
                                 <th class="text-end">Heute (€)</th>
                                 <th class="text-end">Änderung (€)</th>
                             </tr>
@@ -442,7 +442,7 @@
                                           th:text="${item.category()}">–</span></td>
                                 <td>
                                     <a th:if="${item.historyUrl() != null}"
-                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       href="#" class="text-decoration-none text-dark asset-trigger"
                                        th:data-history-url="${item.historyUrl()}"
                                        th:data-item-name="${item.name()}"
                                        th:text="${item.name()}">–</a>
@@ -500,7 +500,7 @@
                                           th:text="${item.category()}">–</span></td>
                                 <td>
                                     <a th:if="${item.historyUrl() != null}"
-                                       href="#" class="text-decoration-none text-dark history-trigger"
+                                       href="#" class="text-decoration-none text-dark asset-trigger"
                                        th:data-history-url="${item.historyUrl()}"
                                        th:data-item-name="${item.name()}"
                                        th:text="${item.name()}">–</a>
@@ -533,20 +533,76 @@
         </div>
     </div>
 
-    <!-- ====== PRICE HISTORY MODAL ====== -->
-    <div class="modal fade" id="priceHistoryModal" tabindex="-1"
-         aria-labelledby="priceHistoryModalLabel" aria-hidden="true">
+    <!-- ====== ASSET GROUP MODAL ====== -->
+    <div class="modal fade" id="assetGroupModal" tabindex="-1"
+         aria-labelledby="assetGroupModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title fw-bold" id="priceHistoryModalLabel">Preisverlauf</h5>
+                    <h5 class="modal-title fw-bold" id="assetGroupModalLabel">Asset</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"
                             aria-label="Schließen"></button>
                 </div>
                 <div class="modal-body">
-                    <canvas id="priceHistoryChart" height="120"></canvas>
-                    <p id="priceHistoryEmpty" class="text-muted text-center fst-italic mt-3"
-                       style="display:none">Noch keine Preisdaten vorhanden.</p>
+                    <!-- Loader -->
+                    <div id="assetGroupLoading" class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-secondary"
+                             role="status"></div>
+                    </div>
+                    <!-- Content -->
+                    <div id="assetGroupContent" style="display:none">
+                        <!-- Positions table -->
+                        <h6 class="fw-semibold mb-2" id="assetGroupPositionsLabel">
+                            Positionen
+                        </h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>Lagerort</th>
+                                    <th class="text-end">EK-Preis (€)</th>
+                                    <th class="text-end">Marktwert (€)</th>
+                                    <th class="text-end">Gewinn (€)</th>
+                                    <th>Sprache</th>
+                                    <th></th>
+                                </tr>
+                                </thead>
+                                <tbody id="assetGroupRows"></tbody>
+                            </table>
+                        </div>
+                        <!-- Update Price -->
+                        <hr class="my-3">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <label class="fw-semibold small mb-0"
+                                   for="assetGroupNewPrice">Preis aktualisieren:</label>
+                            <input type="number" step="0.01" min="0"
+                                   class="form-control form-control-sm"
+                                   id="assetGroupNewPrice" style="max-width:130px">
+                            <button class="btn btn-sm btn-primary"
+                                    id="assetGroupSavePrice">Speichern</button>
+                            <span id="assetGroupSaveMsg"
+                                  class="small text-success fw-semibold"
+                                  style="display:none">&#10003; Gespeichert</span>
+                            <span id="assetGroupSaveErr"
+                                  class="small text-danger"
+                                  style="display:none">Fehler beim Speichern.</span>
+                        </div>
+                        <!-- Price History (collapsible) -->
+                        <hr class="my-3">
+                        <button class="btn btn-sm btn-outline-secondary" type="button"
+                                id="assetGroupHistoryToggle"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#assetGroupHistoryCollapse"
+                                aria-expanded="false">
+                            &#9660; Preisverlauf
+                        </button>
+                        <div class="collapse mt-2" id="assetGroupHistoryCollapse">
+                            <canvas id="assetGroupChart" height="120"></canvas>
+                            <p id="assetGroupChartEmpty"
+                               class="text-muted text-center fst-italic mt-3"
+                               style="display:none">Noch keine Preisdaten vorhanden.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -737,31 +793,112 @@
         })
     );
 
-    // Price history modal
-    let priceChart = null;
+    // Asset group modal
+    let assetChart = null;
+    let currentPriceUrl = null;
+    let currentHistoryUrl = null;
+    let historyLoaded = false;
 
-    async function showPriceHistory(name, historyUrl) {
-        document.getElementById('priceHistoryModalLabel').textContent = name;
-        document.getElementById('priceHistoryEmpty').style.display = 'none';
-        const modal = new bootstrap.Modal(document.getElementById('priceHistoryModal'));
+    function fmtEuro(v) {
+        return v.toFixed(2).replace('.', ',');
+    }
+
+    async function showAssetGroup(name, historyUrl) {
+        const groupUrl = historyUrl.replace('/history', '/group');
+        currentPriceUrl = historyUrl.replace('/history', '/price');
+        currentHistoryUrl = historyUrl;
+        historyLoaded = false;
+
+        // Reset UI
+        document.getElementById('assetGroupModalLabel').textContent = name;
+        document.getElementById('assetGroupLoading').style.display = '';
+        document.getElementById('assetGroupContent').style.display = 'none';
+        document.getElementById('assetGroupSaveMsg').style.display = 'none';
+        document.getElementById('assetGroupSaveErr').style.display = 'none';
+        const collapse = document.getElementById('assetGroupHistoryCollapse');
+        collapse.classList.remove('show');
+        document.getElementById('assetGroupHistoryToggle').setAttribute('aria-expanded', 'false');
+        document.getElementById('assetGroupChartEmpty').style.display = 'none';
+        if (assetChart) {
+            assetChart.destroy();
+            assetChart = null;
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('assetGroupModal'));
         modal.show();
+
         try {
-            const resp = await fetch(historyUrl);
-            const data = await resp.json();
-            const ctx = document.getElementById('priceHistoryChart').getContext('2d');
-            if (priceChart) {
-                priceChart.destroy();
+            const resp = await fetch(groupUrl);
+            if (!resp.ok) {
+                throw new Error('HTTP ' + resp.status);
             }
+            const data = await resp.json();
+
+            document.getElementById('assetGroupModalLabel')
+                .textContent = data.groupName + ' \u2013 ' + data.category;
+            document.getElementById('assetGroupPositionsLabel')
+                .textContent = 'Positionen (' + data.items.length + ')';
+
+            const tbody = document.getElementById('assetGroupRows');
+            tbody.innerHTML = data.items.map(item => {
+                const profit = item.profit;
+                const profitClass = profit >= 0 ? 'text-success' : 'text-danger';
+                const profitSign = profit >= 0 ? '+' : '';
+                const loc = item.location || '\u2013';
+                const lang = item.language || '\u2013';
+                const cmLink = item.url
+                    ? '<a href="' + item.url
+                    + '" target="_blank" rel="noopener"'
+                    + ' class="btn btn-sm btn-outline-secondary py-0 px-1">CM</a>'
+                    : '';
+                return '<tr>'
+                    + '<td>' + loc + '</td>'
+                    + '<td class="text-end font-monospace">' + fmtEuro(item.valueBought) + '</td>'
+                    + '<td class="text-end font-monospace">' + fmtEuro(item.currentValue) + '</td>'
+                    + '<td class="text-end font-monospace fw-semibold ' + profitClass + '">'
+                    + profitSign + fmtEuro(profit) + '</td>'
+                    + '<td>' + lang + '</td>'
+                    + '<td>' + cmLink + '</td>'
+                    + '</tr>';
+            }).join('');
+
+            document.getElementById('assetGroupNewPrice').value = data.currentPrice.toFixed(2);
+            document.getElementById('assetGroupLoading').style.display = 'none';
+            document.getElementById('assetGroupContent').style.display = '';
+
+        } catch (e) {
+            document.getElementById('assetGroupLoading').style.display = 'none';
+            document.getElementById('assetGroupContent').style.display = '';
+            document.getElementById('assetGroupRows').innerHTML =
+                '<tr><td colspan="6" class="text-muted text-center fst-italic">'
+                + 'Fehler beim Laden der Daten.</td></tr>';
+        }
+    }
+
+    async function loadAssetChart() {
+        if (historyLoaded) {
+            return;
+        }
+        historyLoaded = true;
+        const empty = document.getElementById('assetGroupChartEmpty');
+        empty.style.display = 'none';
+        try {
+            const resp = await fetch(currentHistoryUrl);
+            const data = await resp.json();
             if (!data || data.length === 0) {
-                document.getElementById('priceHistoryEmpty').style.display = '';
+                empty.style.display = '';
                 return;
             }
-            priceChart = new Chart(ctx, {
+            const ctx = document.getElementById('assetGroupChart').getContext('2d');
+            if (assetChart) {
+                assetChart.destroy();
+            }
+            assetChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: data.map(d => d.date),
                     datasets: [{
-                        label: 'Preis (€)',
+                        label: 'Preis (\u20ac)',
                         data: data.map(d => d.price),
                         borderColor: '#0d6efd',
                         backgroundColor: 'rgba(13,110,253,0.08)',
@@ -774,19 +911,70 @@
                     responsive: true,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { ticks: { callback: v => v.toFixed(2).replace('.', ',') + ' €' } }
+                        y: {
+                            ticks: {
+                                callback: v => v.toFixed(2).replace('.', ',') + ' \u20ac'
+                            }
+                        }
                     }
                 }
             });
         } catch (e) {
-            document.getElementById('priceHistoryEmpty').style.display = '';
+            document.getElementById('assetGroupChartEmpty').style.display = '';
         }
     }
 
-    document.querySelectorAll('.history-trigger').forEach(a =>
+    // Lazy-load chart when collapse opens
+    document.getElementById('assetGroupHistoryCollapse')
+        .addEventListener('show.bs.collapse', loadAssetChart);
+
+    // Save price
+    document.getElementById('assetGroupSavePrice').addEventListener('click', async () => {
+        const price = parseFloat(document.getElementById('assetGroupNewPrice').value);
+        if (isNaN(price) || price < 0) {
+            return;
+        }
+        const msg = document.getElementById('assetGroupSaveMsg');
+        const err = document.getElementById('assetGroupSaveErr');
+        msg.style.display = 'none';
+        err.style.display = 'none';
+        try {
+            const resp = await fetch(
+                currentPriceUrl + '?price=' + price.toFixed(2),
+                { method: 'PATCH' }
+            );
+            if (resp.ok) {
+                // Update displayed values in the table
+                document.querySelectorAll('#assetGroupRows tr').forEach(tr => {
+                    const cells = tr.querySelectorAll('td');
+                    if (cells.length >= 4) {
+                        const ek = parseFloat(
+                            cells[1].textContent.replace(',', '.')
+                        );
+                        const profit = price - ek;
+                        cells[2].textContent = fmtEuro(price);
+                        cells[3].textContent = (profit >= 0 ? '+' : '') + fmtEuro(profit);
+                        cells[3].className =
+                            'text-end font-monospace fw-semibold '
+                            + (profit >= 0 ? 'text-success' : 'text-danger');
+                    }
+                });
+                document.getElementById('assetGroupNewPrice').value = price.toFixed(2);
+                msg.style.display = '';
+                setTimeout(() => { msg.style.display = 'none'; }, 2500);
+            } else {
+                err.style.display = '';
+            }
+        } catch (e) {
+            err.style.display = '';
+        }
+    });
+
+    // Wire up all .asset-trigger links
+    document.querySelectorAll('.asset-trigger').forEach(a =>
         a.addEventListener('click', function (e) {
             e.preventDefault();
-            showPriceHistory(this.dataset.itemName, this.dataset.historyUrl);
+            showAssetGroup(this.dataset.itemName, this.dataset.historyUrl);
         })
     );
 

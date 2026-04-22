@@ -1,11 +1,13 @@
 package org.example.treasury.controller;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.example.treasury.dto.AssetGroupDto;
 import org.example.treasury.dto.PriceSnapshotDto;
 import org.example.treasury.model.AggregatedDisplay;
 import org.example.treasury.model.Display;
@@ -18,11 +20,13 @@ import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -234,6 +238,61 @@ public class DisplayController {
   @DeleteMapping("/{id}")
   public void deleteDisplay(@PathVariable String id) {
     displayService.deleteDisplay(id);
+  }
+
+  /**
+   * Returns group information for a display: all active positions of the same setCode+type.
+   *
+   * @param id the display MongoDB document ID
+   * @return AssetGroupDto for the group, or 404 if the display is not found
+   */
+  @GetMapping("/{id}/group")
+  @ResponseBody
+  public ResponseEntity<AssetGroupDto> getDisplayGroup(@PathVariable String id) {
+    Display d = displayService.getDisplayById(id);
+    if (d == null) {
+      return ResponseEntity.notFound().build();
+    }
+    List<Display> siblings =
+        displayService.findActiveBySetCodeAndType(d.getSetCode(), d.getType());
+    List<AssetGroupDto.AssetItemDto> items = siblings.stream()
+        .map(s -> new AssetGroupDto.AssetItemDto(
+            s.getId(), s.getLocation(), s.getValueBought(), s.getCurrentValue(),
+            s.getCurrentValue() - s.getValueBought(), s.getLanguage(), s.getUrl()))
+        .toList();
+    double currentPrice = siblings.isEmpty() ? 0 : siblings.get(0).getCurrentValue();
+    String groupName = d.getSetCode() + " " + d.getType();
+    return ResponseEntity.ok(new AssetGroupDto(
+        groupName, "MTG Display", currentPrice,
+        "/api/display/" + id + "/history",
+        "/api/display/" + id + "/price",
+        items));
+  }
+
+  /**
+   * Updates the current market price for all active displays in the same setCode+type group.
+   *
+   * @param id    any display document ID within the target group
+   * @param price the new market price in EUR
+   * @return 200 OK on success, 404 if the given display is not found
+   */
+  @PatchMapping("/{id}/price")
+  @ResponseBody
+  public ResponseEntity<Void> updateDisplayGroupPrice(
+      @PathVariable String id, @RequestParam double price) {
+    Display d = displayService.getDisplayById(id);
+    if (d == null) {
+      return ResponseEntity.notFound().build();
+    }
+    List<Display> siblings =
+        displayService.findActiveBySetCodeAndType(d.getSetCode(), d.getType());
+    LocalDate today = LocalDate.now();
+    siblings.forEach(s -> {
+      s.setCurrentValue(price);
+      s.setUpdatedAt(today);
+    });
+    displayService.saveAllDisplays(siblings);
+    return ResponseEntity.ok().build();
   }
 
   /**
