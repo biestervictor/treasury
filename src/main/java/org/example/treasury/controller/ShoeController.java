@@ -1,12 +1,17 @@
 package org.example.treasury.controller;
 
 import java.util.List;
+import java.util.Optional;
 import org.example.treasury.model.Shoe;
 import org.example.treasury.service.CsvImporter;
+import org.example.treasury.service.ShoePriceCollectorService;
 import org.example.treasury.service.ShoeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,7 +19,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * ShoeController is a Spring MVC controller that handles requests related to shoes.
- * It provides endpoints for inserting and listing shoes.
+ * It provides endpoints for inserting, listing, scraping Klekt prices, and managing shoes.
  */
 
 @Controller
@@ -22,18 +27,24 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 public class ShoeController {
 
+  private static final Logger logger = LoggerFactory.getLogger(ShoeController.class);
+
   private final CsvImporter csvImporter;
   private final ShoeService shoeService;
+  private final ShoePriceCollectorService shoePriceCollectorService;
 
   /**
    * Constructor for ShoeController.
    *
-   * @param csvImporter the CsvImporter instance
-   * @param shoeService the ShoeService instance
+   * @param csvImporter               the CsvImporter instance
+   * @param shoeService               the ShoeService instance
+   * @param shoePriceCollectorService the ShoePriceCollectorService instance
    */
-  public ShoeController(CsvImporter csvImporter, ShoeService shoeService) {
+  public ShoeController(CsvImporter csvImporter, ShoeService shoeService,
+                        ShoePriceCollectorService shoePriceCollectorService) {
     this.csvImporter = csvImporter;
     this.shoeService = shoeService;
+    this.shoePriceCollectorService = shoePriceCollectorService;
   }
 
   /**
@@ -56,6 +67,14 @@ public class ShoeController {
   }
 
 
+  /**
+   * Update the sold value for a shoe.
+   *
+   * @param id                 shoe id
+   * @param valueSold          the sold value
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
   @PostMapping("/updateValueSold")
   public String updateValueSold(
       @RequestParam String id,
@@ -63,6 +82,115 @@ public class ShoeController {
       RedirectAttributes redirectAttributes) {
     shoeService.updateValueSold(id, valueSold);
     redirectAttributes.addFlashAttribute("message", "Verkaufspreis gespeichert!");
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Update the Klekt slug for a shoe.
+   *
+   * @param id                 shoe id
+   * @param klektSlug          the Klekt product slug
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/updateKlektSlug")
+  public String updateKlektSlug(
+      @RequestParam String id,
+      @RequestParam String klektSlug,
+      RedirectAttributes redirectAttributes) {
+    shoeService.updateKlektSlug(id, klektSlug);
+    redirectAttributes.addFlashAttribute("message", "Klekt-Slug gespeichert!");
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Scrape the current Klekt price for a single shoe and update it in the database.
+   *
+   * @param id                 shoe id
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/{id}/scrapeKlekt")
+  public String scrapeKlekt(
+      @PathVariable String id,
+      RedirectAttributes redirectAttributes) {
+    Shoe shoe = shoeService.getAllShoes().stream()
+        .filter(s -> id.equals(s.getId()))
+        .findFirst()
+        .orElse(null);
+
+    if (shoe == null) {
+      redirectAttributes.addFlashAttribute("error", "Schuh nicht gefunden: " + id);
+      return "redirect:/api/shoe/list";
+    }
+
+    if (shoe.getKlektSlug() == null || shoe.getKlektSlug().isBlank()) {
+      redirectAttributes.addFlashAttribute("error",
+          "Kein Klekt-Slug gesetzt für: " + shoe.getName());
+      return "redirect:/api/shoe/list";
+    }
+
+    try {
+      Optional<Double> price = shoePriceCollectorService.fetchLowestPrice(shoe);
+      if (price.isPresent()) {
+        shoeService.updateKlektPrice(id, price.get());
+        redirectAttributes.addFlashAttribute("message",
+            String.format("Klekt-Preis aktualisiert: %.2f €  (%s %s)",
+                price.get(), shoe.getName(), shoe.getTyp()));
+      } else {
+        redirectAttributes.addFlashAttribute("error",
+            "Kein Angebot auf Klekt gefunden für: " + shoe.getName()
+                + " US " + shoe.getUsSize());
+      }
+    } catch (Exception e) {
+      logger.error("Fehler beim Klekt-Scraping für {}: {}", shoe.getName(), e.getMessage());
+      redirectAttributes.addFlashAttribute("error",
+          "Scraping-Fehler: " + e.getMessage());
+    }
+
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Scrape Klekt prices for ALL shoes that have a klektSlug set.
+   *
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/scrapeAllKlekt")
+  public String scrapeAllKlekt(RedirectAttributes redirectAttributes) {
+    List<Shoe> shoes = shoeService.getAllShoes();
+    int updated = 0;
+    int skipped = 0;
+    int errors = 0;
+
+    for (Shoe shoe : shoes) {
+      if (shoe.getKlektSlug() == null || shoe.getKlektSlug().isBlank()) {
+        skipped++;
+        continue;
+      }
+      try {
+        Optional<Double> price = shoePriceCollectorService.fetchLowestPrice(shoe);
+        if (price.isPresent()) {
+          shoeService.updateKlektPrice(shoe.getId(), price.get());
+          updated++;
+        } else {
+          skipped++;
+        }
+        // Polite delay between requests
+        Thread.sleep(1500);
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        break;
+      } catch (Exception e) {
+        logger.error("Scraping-Fehler für {}: {}", shoe.getName(), e.getMessage());
+        errors++;
+      }
+    }
+
+    redirectAttributes.addFlashAttribute("message",
+        String.format("Klekt Scraping abgeschlossen: %d aktualisiert, %d übersprungen, %d Fehler",
+            updated, skipped, errors));
     return "redirect:/api/shoe/list";
   }
 

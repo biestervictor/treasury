@@ -13,12 +13,45 @@ import org.springframework.stereotype.Service;
 
 public class ShoeService {
 
-public void updateValueSold(String shoeId, Double valueSold) {
+  /**
+   * Updates the sold value of a shoe.
+   *
+   * @param shoeId    the shoe ID
+   * @param valueSold the sold value
+   */
+  public void updateValueSold(String shoeId, Double valueSold) {
     Shoe shoe = shoeRepository.findById(shoeId)
         .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
     shoe.setValueSold(valueSold);
     shoeRepository.save(shoe);
-}
+  }
+
+  /**
+   * Updates the Klekt market value of a shoe.
+   *
+   * @param shoeId     the shoe ID
+   * @param klektPrice the new price from Klekt in EUR
+   */
+  public void updateKlektPrice(String shoeId, Double klektPrice) {
+    Shoe shoe = shoeRepository.findById(shoeId)
+        .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
+    shoe.setValueStockX(klektPrice);
+    shoe.setWinStockX(klektPrice - shoe.getValueBought());
+    shoeRepository.save(shoe);
+  }
+
+  /**
+   * Updates the Klekt product slug for a shoe.
+   *
+   * @param shoeId    the shoe ID
+   * @param klektSlug the Klekt product slug (e.g. "yeezy-boost-350-v2-zebra")
+   */
+  public void updateKlektSlug(String shoeId, String klektSlug) {
+    Shoe shoe = shoeRepository.findById(shoeId)
+        .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
+    shoe.setKlektSlug(klektSlug == null ? null : klektSlug.trim());
+    shoeRepository.save(shoe);
+  }
 
   private final ShoeRepository shoeRepository;
 
@@ -32,7 +65,7 @@ public void updateValueSold(String shoeId, Double valueSold) {
   }
 
   /**
-   * get all shoes.
+   * Gets all shoes.
    *
    * @return a list of all shoes
    */
