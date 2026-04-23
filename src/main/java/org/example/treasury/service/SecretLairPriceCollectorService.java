@@ -45,26 +45,30 @@ public class SecretLairPriceCollectorService extends PriceCollectorService {
                 + "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
     BrowserContext context = browser.newContext(contextOptions);
-    for (SecretLair secretLair : secretLairList) {
-      try {
-        logger.info("Günstigste Angebote pro Verkäufer von " + secretLair.getName());
+    try {
+      for (SecretLair secretLair : secretLairList) {
+        try {
+          logger.info("Günstigste Angebote pro Verkäufer von " + secretLair.getName());
 
-        secretLair.setUrl(buildUrl(secretLair));
-        secretLair.setAngebotList(requestOffers(context, secretLair.getUrl()));
-        secretLair.setUpdatedAt(LocalDate.now());
-        secretLair.setCurrentValue(secretLair.getRelevantPreis());
+          secretLair.setUrl(buildUrl(secretLair));
+          secretLair.setAngebotList(requestOffers(context, secretLair.getUrl()));
+          secretLair.setUpdatedAt(LocalDate.now());
+          secretLair.setCurrentValue(secretLair.getRelevantPreis());
 
-        logger.info("Scraping erfolgreich: " + secretLair.getName() + " " + secretLair.getUrl());
+          logger.info(
+              "Scraping erfolgreich: " + secretLair.getName() + " " + secretLair.getUrl());
 
-      } catch (Exception e) {
-        logger.error("Fehler beim Scraping: " + e.getMessage());
-        logger.error(secretLair.getName() + " " + secretLair.getUrl());
+        } catch (Exception e) {
+          logger.error("Fehler beim Scraping: " + e.getMessage());
+          logger.error(secretLair.getName() + " " + secretLair.getUrl());
 
-      } finally {
-        secretLairService.updateSecretLair(secretLair);
-        saveSecretLairSnapshot(secretLair);
-        browser.close();
+        } finally {
+          secretLairService.updateSecretLair(secretLair);
+          saveSecretLairSnapshot(secretLair);
+        }
       }
+    } finally {
+      browser.close();
     }
   }
 
