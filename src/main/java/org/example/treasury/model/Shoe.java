@@ -28,6 +28,7 @@ public class Shoe {
   private double winStockX;
   private Date updatedAt;
   private double valueSold;
+  private String klektSlug;
 
 
 }
