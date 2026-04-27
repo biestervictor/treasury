@@ -49,10 +49,11 @@ public class MtgStocksService {
 
     for (int i = 0; i < sets.length(); i++) {
       JSONObject set = sets.getJSONObject(i);
-      if (!set.has("abbreviation") || !set.has("products")) {
+      String abbreviation = set.optString("abbreviation", "");
+      if (abbreviation.isEmpty() || !set.has("products")) {
         continue;
       }
-      String setCode = set.getString("abbreviation").toUpperCase();
+      String setCode = abbreviation.toUpperCase();
       JSONArray products = set.getJSONArray("products");
 
       Integer boosterBoxId = null;

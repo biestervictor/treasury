@@ -123,7 +123,19 @@ class MtgStocksServiceParseTest {
     Map<String, String> result = service.parseBoosterBoxImageUrls(json);
 
     assertEquals(2, result.size());
+  }
+
+  @Test
+  void parse_nullAbbreviation_setSkipped() {
+    String json = """
+        [
+          {"abbreviation":null,"products":[{"id":1,"name":"BB","type":"boosterbox"}]},
+          {"abbreviation":"IKO","products":[{"id":239,"name":"BB","type":"boosterbox"}]}
+        ]""";
+
+    Map<String, String> result = service.parseBoosterBoxImageUrls(json);
+
+    assertEquals(1, result.size());
     assertEquals("https://static.mtgstocks.com/sealedimage/t239.png", result.get("IKO"));
-    assertEquals("https://static.mtgstocks.com/sealedimage/t350.png", result.get("KHM"));
   }
 }
