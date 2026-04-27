@@ -98,10 +98,19 @@
     <!-- Card grid -->
     <div class="row g-2">
         <div th:each="set : ${allSets}" class="col-6 col-sm-4 col-md-3 col-lg-2">
-            <div class="card border-0 shadow-sm h-100"
+            <div class="set-card card border-0 shadow-sm h-100"
+                 style="cursor:pointer;"
                  th:classappend="${missingSets != null and #lists.contains(missingSets, set)}
                                    ? 'border-top border-3 border-warning'
-                                   : 'border-top border-3 border-success'">
+                                   : 'border-top border-3 border-success'"
+                 th:attr="data-code=${set.code},
+                          data-name=${set.name},
+                          data-image-url=${set.boosterBoxImageUrl},
+                          data-icon-url=${set.iconUri},
+                          data-set-type=${set.setType},
+                          data-release=${set.releaseDate != null ? #temporals.format(set.releaseDate, 'MMM yyyy') : ''},
+                          data-missing=${missingSets != null and #lists.contains(missingSets, set)},
+                          data-wish-price=${set.wishPrice != null ? set.wishPrice : ''}">
                 <div class="card-body p-2 d-flex flex-column">
                     <!-- Top: booster box image -->
                     <div class="text-center mb-2"
@@ -132,17 +141,69 @@
                               style="font-size:0.6rem;"
                               th:text="${dtype}"></span>
                     </div>
-                    <!-- Date + status -->
+                    <!-- Date + status + wish price -->
                     <div class="d-flex align-items-center justify-content-between mt-auto">
                         <div class="text-muted"
                              style="font-size:0.65rem;"
                              th:text="${#temporals.format(set.releaseDate, 'MMM yyyy')}">Date</div>
-                        <span th:if="${missingSets != null and #lists.contains(missingSets, set)}"
-                              class="badge text-bg-warning"
-                              style="font-size:0.6rem;">Fehlt</span>
-                        <span th:unless="${missingSets != null and #lists.contains(missingSets, set)}"
-                              class="badge text-bg-success"
-                              style="font-size:0.6rem;">Vorhanden</span>
+                        <div class="d-flex gap-1 align-items-center">
+                            <span th:if="${set.wishPrice != null}"
+                                  class="badge text-bg-primary"
+                                  style="font-size:0.6rem;"
+                                  th:text="${#numbers.formatDecimal(set.wishPrice,1,'COMMA',0,'POINT')} + ' €'"></span>
+                            <span th:if="${missingSets != null and #lists.contains(missingSets, set)}"
+                                  class="badge text-bg-warning"
+                                  style="font-size:0.6rem;">Fehlt</span>
+                            <span th:unless="${missingSets != null and #lists.contains(missingSets, set)}"
+                                  class="badge text-bg-success"
+                                  style="font-size:0.6rem;">Vorhanden</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Set Detail Modal -->
+<div class="modal fade" id="setDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <div class="d-flex align-items-center gap-2">
+                    <img id="modalSetIcon" src="" alt="" style="width:20px;height:20px;object-fit:contain;">
+                    <h5 class="modal-title mb-0" id="modalSetName">-</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <!-- Left: image + wish price -->
+                    <div class="col-12 col-md-4 text-center">
+                        <img id="modalSetImage" src="" alt="Booster Box"
+                             style="max-width:100%;max-height:160px;object-fit:contain;" class="mb-3">
+                        <div id="wishPriceSection" style="display:none;">
+                            <hr class="my-2">
+                            <div class="small text-muted mb-1">Wunschpreis</div>
+                            <div id="currentWishPrice" class="fw-bold mb-2" style="font-size:0.9rem;"></div>
+                            <div class="input-group input-group-sm">
+                                <input type="number" id="wishPriceInput" class="form-control"
+                                       placeholder="z.B. 89.99" step="0.01" min="0">
+                                <span class="input-group-text">€</span>
+                                <button class="btn btn-outline-primary" type="button"
+                                        id="saveWishPrice">Speichern</button>
+                            </div>
+                            <button class="btn btn-outline-secondary btn-sm mt-1 w-100"
+                                    type="button" id="clearWishPrice">Wunschpreis löschen</button>
+                        </div>
+                    </div>
+                    <!-- Right: price history chart -->
+                    <div class="col-12 col-md-8">
+                        <div class="small text-muted mb-1">Preisverlauf (MTGStocks Marktpreis)</div>
+                        <div id="chartNoData" class="text-muted small" style="display:none;">
+                            Noch keine Preisdaten vorhanden. Bitte WishPriceJob ausführen.
+                        </div>
+                        <canvas id="priceHistoryChart" style="max-height:220px;"></canvas>
                     </div>
                 </div>
             </div>
@@ -151,12 +212,127 @@
 </div>
 
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
-    // Sync btn-check toggles to the hidden setType input before submit
+    // Filter form sync
     document.getElementById('filterForm').addEventListener('submit', function () {
         const checked = Array.from(document.querySelectorAll('.filter-toggle:checked'))
             .map(cb => cb.value);
         document.getElementById('setType').value = checked.join(',');
+    });
+
+    // Set detail modal logic
+    let priceChart = null;
+    let currentSetCode = null;
+
+    document.querySelectorAll('.set-card').forEach(card => {
+        card.addEventListener('click', function () {
+            const code = this.dataset.code;
+            const name = this.dataset.name;
+            const imageUrl = this.dataset.imageUrl;
+            const iconUrl = this.dataset.iconUrl;
+            const isMissing = this.dataset.missing === 'true';
+            const wishPrice = this.dataset.wishPrice;
+
+            currentSetCode = code;
+
+            // Populate header
+            document.getElementById('modalSetName').textContent = name;
+            const iconEl = document.getElementById('modalSetIcon');
+            iconEl.src = iconUrl || '';
+
+            // Populate image
+            const imgEl = document.getElementById('modalSetImage');
+            imgEl.src = (imageUrl && imageUrl !== 'null') ? imageUrl : iconUrl;
+
+            // Wish price section (only for missing sets)
+            const wpSection = document.getElementById('wishPriceSection');
+            wpSection.style.display = isMissing ? 'block' : 'none';
+            if (isMissing) {
+                document.getElementById('wishPriceInput').value = wishPrice || '';
+                const cwp = document.getElementById('currentWishPrice');
+                cwp.textContent = (wishPrice && wishPrice !== '')
+                    ? 'Aktuell: ' + parseFloat(wishPrice).toFixed(2) + ' €'
+                    : 'Noch kein Wunschpreis gesetzt';
+            }
+
+            // Load price history chart
+            fetch('/api/sets/' + code + '/priceHistory')
+                .then(r => r.json())
+                .then(data => renderChart(data))
+                .catch(() => renderChart([]));
+
+            new bootstrap.Modal(document.getElementById('setDetailModal')).show();
+        });
+    });
+
+    function renderChart(data) {
+        const canvas = document.getElementById('priceHistoryChart');
+        const noData = document.getElementById('chartNoData');
+
+        if (priceChart) {
+            priceChart.destroy();
+            priceChart = null;
+        }
+
+        if (!data || data.length === 0) {
+            canvas.style.display = 'none';
+            noData.style.display = 'block';
+            return;
+        }
+
+        canvas.style.display = 'block';
+        noData.style.display = 'none';
+
+        priceChart = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: data.map(d => d.date),
+                datasets: [{
+                    label: 'Marktpreis (€)',
+                    data: data.map(d => d.price),
+                    borderColor: 'rgba(13,110,253,0.9)',
+                    backgroundColor: 'rgba(13,110,253,0.08)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: data.length > 30 ? 2 : 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {legend: {display: false}},
+                scales: {
+                    y: {ticks: {callback: v => v.toFixed(2) + ' €'}},
+                    x: {ticks: {maxTicksLimit: 8}}
+                }
+            }
+        });
+    }
+
+    // Save wish price
+    document.getElementById('saveWishPrice').addEventListener('click', function () {
+        const price = parseFloat(document.getElementById('wishPriceInput').value);
+        if (isNaN(price) || price < 0) return;
+        fetch('/api/sets/' + currentSetCode + '/wishPrice?price=' + price, {method: 'POST'})
+            .then(r => {
+                if (r.ok) {
+                    document.getElementById('currentWishPrice').textContent =
+                        'Aktuell: ' + price.toFixed(2) + ' €';
+                    bootstrap.Modal.getInstance(document.getElementById('setDetailModal')).hide();
+                    location.reload();
+                }
+            });
+    });
+
+    // Clear wish price
+    document.getElementById('clearWishPrice').addEventListener('click', function () {
+        fetch('/api/sets/' + currentSetCode + '/wishPrice?price=0', {method: 'POST'})
+            .then(r => {
+                if (r.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('setDetailModal')).hide();
+                    location.reload();
+                }
+            });
     });
 </script>
 </body>

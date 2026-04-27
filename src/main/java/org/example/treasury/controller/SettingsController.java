@@ -71,23 +71,28 @@ public class SettingsController {
       @RequestParam(name = "priceScraperEnabled", defaultValue = "false") boolean priceScraperEnabled,
       @RequestParam(name = "magicSetEnabled", defaultValue = "false") boolean magicSetEnabled,
       @RequestParam(name = "metalPriceScraperEnabled", defaultValue = "false") boolean metalPriceScraperEnabled,
+      @RequestParam(name = "wishPriceCheckerEnabled", defaultValue = "false") boolean wishPriceCheckerEnabled,
       @RequestParam(name = "sellCron", defaultValue = "") String sellCron,
       @RequestParam(name = "priceScraperCron", defaultValue = "") String priceScraperCron,
       @RequestParam(name = "magicSetCron", defaultValue = "") String magicSetCron,
       @RequestParam(name = "metalPriceScraperCron", defaultValue = "") String metalPriceScraperCron,
+      @RequestParam(name = "wishPriceCheckerCron", defaultValue = "") String wishPriceCheckerCron,
       @RequestParam(name = "triggerJob", required = false) String triggerJob,
       RedirectAttributes redirectAttributes) {
 
-    log.info("SettingsController.updateJobs called: sellEnabled={}, priceScraperEnabled={}, magicSetEnabled={}, metalPriceScraperEnabled={}, triggerJob={} ",
-        sellEnabled, priceScraperEnabled, magicSetEnabled, metalPriceScraperEnabled, triggerJob);
+    log.info("SettingsController.updateJobs called: sellEnabled={}, priceScraperEnabled={},"
+            + " magicSetEnabled={}, metalPriceScraperEnabled={}, wishPriceCheckerEnabled={},"
+            + " triggerJob={}",
+        sellEnabled, priceScraperEnabled, magicSetEnabled, metalPriceScraperEnabled,
+        wishPriceCheckerEnabled, triggerJob);
 
-    // Diff-Logik: wenn ein Job von false -> true wechselt, sofort triggern.
     var before = jobSettingsService.get();
     JobSettingsUpdateRequest req = new JobSettingsUpdateRequest(
-        sellEnabled, priceScraperEnabled, magicSetEnabled, metalPriceScraperEnabled);
+        sellEnabled, priceScraperEnabled, magicSetEnabled, metalPriceScraperEnabled,
+        wishPriceCheckerEnabled);
 
     jobSettingsService.update(req.sellEnabled(), req.priceScraperEnabled(), req.magicSetEnabled(),
-        req.metalPriceScraperEnabled());
+        req.metalPriceScraperEnabled(), req.wishPriceCheckerEnabled());
 
     // Cron Updates persistieren (in-memory, später DB)
     Instant now = Instant.now();
@@ -123,6 +128,14 @@ public class SettingsController {
       jobRuntimeSettingsService.upsert(new org.example.treasury.model.JobRuntimeSettings(JobKey.METAL_PRICE_SCRAPER,
           req.metalPriceScraperEnabled(), metalPriceScraperCron.trim(), old.zoneId(), now));
     }
+    if (wishPriceCheckerCron != null && !wishPriceCheckerCron.isBlank()) {
+      var old = jobRuntimeSettingsService.get(JobKey.WISH_PRICE_CHECKER);
+      if (old == null) {
+        old = new org.example.treasury.model.JobRuntimeSettings(JobKey.WISH_PRICE_CHECKER, req.wishPriceCheckerEnabled(), "0 0 8 * * MON", null, now);
+      }
+      jobRuntimeSettingsService.upsert(new org.example.treasury.model.JobRuntimeSettings(JobKey.WISH_PRICE_CHECKER,
+          req.wishPriceCheckerEnabled(), wishPriceCheckerCron.trim(), old.zoneId(), now));
+    }
 
     if (!before.isSellEnabled() && req.sellEnabled()) {
       jobTriggerService.trigger(JobKey.SELL);
@@ -135,6 +148,9 @@ public class SettingsController {
     }
     if (!before.isMetalPriceScraperEnabled() && req.metalPriceScraperEnabled()) {
       jobTriggerService.trigger(JobKey.METAL_PRICE_SCRAPER);
+    }
+    if (!before.isWishPriceCheckerEnabled() && req.wishPriceCheckerEnabled()) {
+      jobTriggerService.trigger(JobKey.WISH_PRICE_CHECKER);
     }
 
     // Manueller Sofort-Trigger via Button

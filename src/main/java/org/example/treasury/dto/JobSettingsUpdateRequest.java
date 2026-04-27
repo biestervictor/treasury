@@ -10,7 +10,8 @@ public record JobSettingsUpdateRequest(
     boolean sellEnabled,
     boolean priceScraperEnabled,
     boolean magicSetEnabled,
-    boolean metalPriceScraperEnabled
+    boolean metalPriceScraperEnabled,
+    boolean wishPriceCheckerEnabled
 ) {
 }
 
