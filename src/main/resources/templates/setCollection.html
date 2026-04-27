@@ -126,7 +126,7 @@
                             <span class="badge text-bg-secondary"
                                   style="font-size:0.62rem;"
                                   th:text="${set.setType}">Type</span>
-                            <span th:each="dtype : ${setCodeToTypes != null ? setCodeToTypes.getOrDefault(set.code.toUpperCase(), T(java.util.Collections).emptyList()) : T(java.util.Collections).emptyList()}"
+                            <span th:each="dtype : ${setCodeToTypes?.get(set.code.toUpperCase())}"
                                   class="badge text-bg-info"
                                   style="font-size:0.6rem;"
                                   th:text="${dtype}"></span>
