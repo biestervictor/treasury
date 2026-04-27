@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.example.treasury.dto.PriceSnapshotDto;
 import org.example.treasury.model.MagicSet;
+import org.example.treasury.service.CardMarketPriceHistoryService;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.MtgStocksService;
@@ -38,6 +39,7 @@ public class SetCollectionController {
   private final DisplayService displayService;
   private final MtgStocksService mtgStocksService;
   private final WishPriceService wishPriceService;
+  private final CardMarketPriceHistoryService priceHistoryService;
 
   /**
    * Constructor.
@@ -47,17 +49,20 @@ public class SetCollectionController {
    * @param displayService       the display service
    * @param mtgStocksService     the MTGStocks service
    * @param wishPriceService     the wish price service
+   * @param priceHistoryService  the price history service
    */
   public SetCollectionController(MagicSetService magicSetService,
                                  SetCollectionService setCollectionService,
                                  DisplayService displayService,
                                  MtgStocksService mtgStocksService,
-                                 WishPriceService wishPriceService) {
+                                 WishPriceService wishPriceService,
+                                 CardMarketPriceHistoryService priceHistoryService) {
     this.setCollectionService = setCollectionService;
     this.magicSetService = magicSetService;
     this.displayService = displayService;
     this.mtgStocksService = mtgStocksService;
     this.wishPriceService = wishPriceService;
+    this.priceHistoryService = priceHistoryService;
   }
 
   private static final String DEFAULT_FILTER =
@@ -85,6 +90,7 @@ public class SetCollectionController {
     model.addAttribute("setType", DEFAULT_FILTER);
     model.addAttribute("setCodeToTypes", buildSetCodeToTypes());
     model.addAttribute("wishPricesMap", buildWishPricesMap(allSets));
+    model.addAttribute("latestPricesMap", buildLatestPricesMap(allSets));
     return "setCollection";
   }
 
@@ -112,6 +118,7 @@ public class SetCollectionController {
     model.addAttribute("allSets", allSets);
     model.addAttribute("setCodeToTypes", buildSetCodeToTypes());
     model.addAttribute("wishPricesMap", buildWishPricesMap(allSets));
+    model.addAttribute("latestPricesMap", buildLatestPricesMap(allSets));
     return "setCollection";
   }
 
@@ -143,6 +150,22 @@ public class SetCollectionController {
         .collect(Collectors.toMap(
             s -> s.getCode().toUpperCase(),
             MagicSet::getWishPrices));
+  }
+
+  /**
+   * Builds a map from "CODE|TYPE" to the most recent Cardmarket price snapshot value,
+   * covering all set/type combinations that have a wish price configured.
+   *
+   * @param sets the list of MagicSets to inspect
+   * @return map of "CODE|TYPE" to latest scraped price
+   */
+  private Map<String, Double> buildLatestPricesMap(List<MagicSet> sets) {
+    List<String> itemIds = sets.stream()
+        .filter(s -> s.getWishPrices() != null)
+        .flatMap(s -> s.getWishPrices().keySet().stream()
+            .map(type -> s.getCode().toUpperCase() + "|" + type))
+        .toList();
+    return priceHistoryService.getLatestPricesByItemIds(itemIds);
   }
 
   /**

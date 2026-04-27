@@ -130,7 +130,7 @@
                              style="font-size:0.75rem;line-height:1.2;"
                              th:text="${set.name}">Name</div>
                     </div>
-                    <!-- Badges -->
+                    <!-- Badges: setType + inventory types + wish prices -->
                     <div class="d-flex flex-wrap gap-1 align-items-center mb-1">
                         <span class="badge text-bg-secondary"
                               style="font-size:0.6rem;"
@@ -139,17 +139,26 @@
                               class="badge text-bg-info"
                               style="font-size:0.6rem;"
                               th:text="${dtype}"></span>
+                        <!-- One badge per wish price: "DRAFT:300€ / 290€" -->
+                        <th:block th:each="entry : ${set.wishPrices}"
+                                  th:with="itemKey=${set.code.toUpperCase() + '|' + entry.key},
+                                           mktPrice=${latestPricesMap != null ? latestPricesMap.get(set.code.toUpperCase() + '|' + entry.key) : null}">
+                            <span class="badge"
+                                  style="font-size:0.6rem;white-space:nowrap;"
+                                  th:classappend="${mktPrice != null and mktPrice <= entry.value}
+                                                  ? 'text-bg-success'
+                                                  : 'text-bg-primary'"
+                                  th:text="${entry.key + ':' + #numbers.formatDecimal(entry.value, 1, 'COMMA', 0, 'POINT') + '€'
+                                            + (mktPrice != null ? ' / ' + #numbers.formatDecimal(mktPrice, 1, 'COMMA', 0, 'POINT') + '€' : '')}">
+                            </span>
+                        </th:block>
                     </div>
-                    <!-- Date + status + wish-price badge -->
+                    <!-- Date + status -->
                     <div class="d-flex align-items-center justify-content-between mt-auto">
                         <div class="text-muted"
                              style="font-size:0.65rem;"
                              th:text="${#temporals.format(set.releaseDate, 'MMM yyyy')}">Date</div>
                         <div class="d-flex gap-1 align-items-center">
-                            <span th:if="${set.wishPrices != null and not #maps.isEmpty(set.wishPrices)}"
-                                  class="badge text-bg-primary"
-                                  style="font-size:0.6rem;"
-                                  th:text="${#maps.size(set.wishPrices)} + ' WP'"></span>
                             <span th:if="${missingSets != null and #lists.contains(missingSets, set)}"
                                   class="badge text-bg-warning"
                                   style="font-size:0.6rem;">Fehlt</span>
