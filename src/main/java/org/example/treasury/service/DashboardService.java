@@ -286,7 +286,10 @@ public class DashboardService {
       Map<String, SecretLair> slById) {
 
     if ("DISPLAY".equals(c.itemType())) {
-      String name = displayNameByKey.getOrDefault(c.itemId(), c.itemId());
+      if (!displayNameByKey.containsKey(c.itemId())) {
+        return null;
+      }
+      String name = displayNameByKey.get(c.itemId());
       String histUrl = displayHistUrlByKey.get(c.itemId());
       return new DashboardDto.ItemHighlight(
           "MTG Display", name,
