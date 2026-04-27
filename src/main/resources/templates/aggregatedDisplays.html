@@ -47,7 +47,13 @@
                                    ? 'background-color:rgba(25,135,84,0.12)'
                                    : 'background-color:rgba(220,53,69,0.10)')">
                     <div class="card-body p-2 d-flex flex-column align-items-center">
-                        <img th:src="${entry.iconUri}" alt="Set-Icon"
+                        <img th:if="${entry.boosterBoxImageUrl != null}"
+                             th:src="${entry.boosterBoxImageUrl}"
+                             alt="Booster Box"
+                             style="width:100%;max-width:130px;height:75px;object-fit:contain;"
+                             class="mb-1">
+                        <img th:if="${entry.boosterBoxImageUrl == null}"
+                             th:src="${entry.iconUri}" alt="Set-Icon"
                              style="width:56px;height:56px;object-fit:contain;" class="mb-2">
                         <div class="fw-semibold small text-dark"
                              th:text="${entry.setCode}">XXX</div>
