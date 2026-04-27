@@ -2,6 +2,7 @@ package org.example.treasury.model;
 
 
 import java.time.LocalDate;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -31,7 +32,7 @@ public class MagicSet {
   private LocalDate releaseDate;
   private int cardCount;
   private String boosterBoxImageUrl;
-  private Double wishPrice;
+  private Map<String, Double> wishPrices;
 
   @Override
   public boolean equals(Object o) {

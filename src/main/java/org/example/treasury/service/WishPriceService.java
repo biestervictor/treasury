@@ -1,11 +1,14 @@
 package org.example.treasury.service;
 
+import com.microsoft.playwright.Playwright;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.example.treasury.dto.MailRequest;
 import org.example.treasury.model.CardMarketPriceSnapshot;
+import org.example.treasury.model.Display;
 import org.example.treasury.model.MagicSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,17 +17,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Manages wish prices for missing Magic sets and triggers email notifications
- * when the current market price falls at or below the configured wish price.
+ * Manages wish prices for Magic sets and triggers email notifications
+ * when the current Cardmarket price falls at or below a configured wish price.
+ * Prices are tracked per set code and display type (e.g. DRAFT, COLLECTOR).
  */
 @Service
 public class WishPriceService {
 
-  private static final String ITEM_TYPE = "MAGIC_SET_BOX";
   private static final Logger logger = LoggerFactory.getLogger(WishPriceService.class);
 
   private final MagicSetService magicSetService;
-  private final MtgStocksService mtgStocksService;
+  private final DisplayPriceCollectorService displayPriceCollectorService;
   private final CardMarketPriceHistoryService priceHistoryService;
 
   @Autowired(required = false)
@@ -36,96 +39,170 @@ public class WishPriceService {
   /**
    * Constructor for WishPriceService.
    *
-   * @param magicSetService      the magic set service
-   * @param mtgStocksService     the MTGStocks service
-   * @param priceHistoryService  the price history service
+   * @param magicSetService              the magic set service
+   * @param displayPriceCollectorService the Cardmarket scraper service
+   * @param priceHistoryService          the price history service
    */
   public WishPriceService(MagicSetService magicSetService,
-                          MtgStocksService mtgStocksService,
+                          DisplayPriceCollectorService displayPriceCollectorService,
                           CardMarketPriceHistoryService priceHistoryService) {
     this.magicSetService = magicSetService;
-    this.mtgStocksService = mtgStocksService;
+    this.displayPriceCollectorService = displayPriceCollectorService;
     this.priceHistoryService = priceHistoryService;
   }
 
   /**
-   * Persists a wish price for the given set code.
-   * A value of {@code 0} clears the wish price.
+   * Persists a wish price for the given set code and display type.
+   * A price of {@code 0} or negative removes the entry for that type.
    *
    * @param setCode   the set code (uppercase)
+   * @param type      the display type (e.g. "DRAFT", "COLLECTOR")
    * @param wishPrice the desired maximum purchase price in EUR
    */
-  public void setWishPrice(String setCode, double wishPrice) {
+  public void setWishPrice(String setCode, String type, double wishPrice) {
     List<MagicSet> sets = magicSetService.getMagicSetByCode(setCode);
     if (sets.isEmpty()) {
       logger.warn("setWishPrice: no set found for code {}", setCode);
       return;
     }
     MagicSet set = sets.getFirst();
-    set.setWishPrice(wishPrice <= 0 ? null : wishPrice);
+    Map<String, Double> wishPrices = set.getWishPrices();
+    if (wishPrices == null) {
+      wishPrices = new HashMap<>();
+    }
+    String normalizedType = type.toUpperCase();
+    if (wishPrice <= 0) {
+      wishPrices.remove(normalizedType);
+    } else {
+      wishPrices.put(normalizedType, wishPrice);
+    }
+    set.setWishPrices(wishPrices.isEmpty() ? null : wishPrices);
     magicSetService.saveMagicSet(set);
-    logger.info("Wish price for {} set to {}",
-        setCode, wishPrice <= 0 ? "null (cleared)" : wishPrice);
+    logger.info("Wish price for {}/{} set to {}",
+        setCode, type, wishPrice <= 0 ? "null (removed)" : wishPrice);
   }
 
   /**
-   * Fetches current booster box prices from MTGStocks, stores daily snapshots for all sets,
-   * and sends email notifications for sets whose current price is at or below the wish price.
+   * Removes the wish price for the given set code and display type.
+   *
+   * @param setCode the set code (uppercase)
+   * @param type    the display type (e.g. "DRAFT", "COLLECTOR")
+   */
+  public void removeWishPrice(String setCode, String type) {
+    List<MagicSet> sets = magicSetService.getMagicSetByCode(setCode);
+    if (sets.isEmpty()) {
+      logger.warn("removeWishPrice: no set found for code {}", setCode);
+      return;
+    }
+    MagicSet set = sets.getFirst();
+    Map<String, Double> wishPrices = set.getWishPrices();
+    if (wishPrices == null || wishPrices.isEmpty()) {
+      return;
+    }
+    wishPrices.remove(type.toUpperCase());
+    set.setWishPrices(wishPrices.isEmpty() ? null : wishPrices);
+    magicSetService.saveMagicSet(set);
+    logger.info("Wish price for {}/{} removed", setCode, type);
+  }
+
+  /**
+   * Returns the full price history for the given set code and display type,
+   * ordered by date ascending.
+   * The item key stored in the snapshot repository is {@code "setCode|type"}.
+   *
+   * @param setCode the set code (uppercase)
+   * @param type    the display type (e.g. "DRAFT", "COLLECTOR")
+   * @return list of price snapshots
+   */
+  public List<CardMarketPriceSnapshot> getPriceHistory(String setCode, String type) {
+    String itemId = setCode.toUpperCase() + "|" + type.toUpperCase();
+    return priceHistoryService.getHistory(itemId);
+  }
+
+  /**
+   * Scrapes current Cardmarket prices for all sets that have at least one wish price configured,
+   * saves price snapshots, and sends an email notification for each set/type whose scraped
+   * price is at or below the configured wish price.
    */
   public void checkPricesAndNotify() {
-    Map<String, Double> prices;
-    try {
-      prices = mtgStocksService.fetchBoosterBoxPrices();
-    } catch (Exception e) {
-      logger.error("WishPriceService: could not fetch prices from MTGStocks", e);
+    LocalDate today = LocalDate.now();
+
+    List<MagicSet> setsWithWishPrices = magicSetService.getAllMagicSets().stream()
+        .filter(s -> s.getWishPrices() != null && !s.getWishPrices().isEmpty())
+        .toList();
+
+    if (setsWithWishPrices.isEmpty()) {
+      logger.info("WishPriceService: keine Sets mit Wunschpreis konfiguriert – nichts zu tun");
       return;
     }
 
-    LocalDate today = LocalDate.now();
-    List<MagicSet> allSets = magicSetService.getAllMagicSets();
+    LocalDate znnReleaseDate;
+    try {
+      znnReleaseDate = magicSetService.getMagicSetByCode("ZNR").getFirst().getReleaseDate();
+    } catch (Exception e) {
+      logger.error("WishPriceService: ZNR-Set nicht gefunden – Legacy-Grenze unbekannt", e);
+      return;
+    }
+
     List<String> alerts = new ArrayList<>();
 
-    for (MagicSet set : allSets) {
-      String code = set.getCode().toUpperCase();
-      Double currentPrice = prices.get(code);
-      if (currentPrice == null || currentPrice <= 0) {
-        continue;
-      }
+    try (Playwright playwright = Playwright.create()) {
+      for (MagicSet set : setsWithWishPrices) {
+        for (Map.Entry<String, Double> entry : set.getWishPrices().entrySet()) {
+          String type = entry.getKey();
+          Double wishPrice = entry.getValue();
+          if (wishPrice == null || wishPrice <= 0) {
+            continue;
+          }
 
-      // Persist daily snapshot
-      priceHistoryService.saveSnapshot(code, ITEM_TYPE, currentPrice, today);
+          Display tempDisplay = new Display();
+          tempDisplay.setSetCode(set.getCode().toUpperCase());
+          tempDisplay.setName(set.getName());
+          tempDisplay.setType(type);
+          tempDisplay.setLanguage("EN");
 
-      // Check wish price
-      if (set.getWishPrice() != null && set.getWishPrice() > 0
-          && currentPrice <= set.getWishPrice()) {
-        String msg = String.format("%s (%s): %.2f € ≤ Wunschpreis %.2f €",
-            set.getName(), code, currentPrice, set.getWishPrice());
-        alerts.add(msg);
-        logger.info("WishPrice alert: {}", msg);
+          boolean isLegacy = set.getReleaseDate() != null
+              && set.getReleaseDate().isBefore(znnReleaseDate);
+
+          try {
+            displayPriceCollectorService.runScraper(playwright, tempDisplay, isLegacy);
+          } catch (Exception e) {
+            logger.error("WishPriceService: Scraping-Fehler für {}/{}", set.getCode(), type, e);
+            continue;
+          }
+
+          Double currentPrice = tempDisplay.getRelevantPreis();
+          if (currentPrice == null || currentPrice <= 0) {
+            logger.info("WishPriceService: kein Preis ermittelt für {}/{}", set.getCode(), type);
+            continue;
+          }
+
+          logger.info("WishPriceService: {}/{} aktuell {} € (Wunsch {} €)",
+              set.getCode(), type,
+              String.format("%.2f", currentPrice), String.format("%.2f", wishPrice));
+
+          if (currentPrice <= wishPrice) {
+            String msg = String.format("%s (%s/%s): %.2f \u20ac \u2264 Wunschpreis %.2f \u20ac",
+                set.getName(), set.getCode(), type, currentPrice, wishPrice);
+            alerts.add(msg);
+            logger.info("WishPrice alert: {}", msg);
+          }
+        }
       }
+    } catch (Exception e) {
+      logger.error("WishPriceService: Playwright-Session fehlgeschlagen", e);
     }
 
     if (!alerts.isEmpty()) {
       sendAlertMail(alerts, today);
     }
 
-    logger.info("WishPrice check done: {} prices saved, {} alerts",
-        prices.size(), alerts.size());
-  }
-
-  /**
-   * Returns the full price history for the given set code, ordered by date ascending.
-   *
-   * @param setCode the set code (uppercase)
-   * @return list of price snapshots
-   */
-  public List<CardMarketPriceSnapshot> getPriceHistory(String setCode) {
-    return priceHistoryService.getHistory(setCode.toUpperCase());
+    logger.info("WishPrice check beendet – {} Alarm(e)", alerts.size());
   }
 
   private void sendAlertMail(List<String> alerts, LocalDate date) {
     if (mailService == null) {
-      logger.info("MailService not available – skipping wish price notification");
+      logger.info("MailService nicht verfügbar – WishPrice-Benachrichtigung übersprungen");
       return;
     }
     String subject = "Treasury: Wunschpreis-Alarm " + date;
@@ -136,7 +213,7 @@ public class WishPriceService {
     try {
       mailService.send(new MailRequest(List.of(notificationTo), subject, body));
     } catch (Exception e) {
-      logger.warn("Could not send wish price alert mail: {}", e.getMessage());
+      logger.warn("Konnte Wunschpreis-Alarm-Mail nicht senden: {}", e.getMessage());
     }
   }
 }

@@ -11,8 +11,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Weekly job that fetches booster box prices from MTGStocks for all sets,
- * saves price snapshots, and sends email alerts when wish prices are reached.
+ * Weekly job that scrapes current Cardmarket prices for all sets with configured wish prices,
+ * saves price snapshots, and sends email alerts when a wish price is reached.
  * Default schedule: every Monday at 08:00.
  */
 @Component
