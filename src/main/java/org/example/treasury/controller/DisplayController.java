@@ -48,7 +48,6 @@ public class DisplayController {
   private final MagicSetService magicSetService;
   private final CardMarketPriceHistoryService priceHistoryService;
   private final DisplayPriceCollectorService displayPriceCollectorService;
-  private final List<MagicSet> magicSets;
   Logger logger = LoggerFactory.getLogger(this.getClass());
 
   /**
@@ -69,7 +68,6 @@ public class DisplayController {
     this.magicSetService = magicSetService;
     this.displayPriceCollectorService = displayPriceCollectorService;
     this.priceHistoryService = priceHistoryService;
-    magicSets = magicSetService.getAllMagicSets();
   }
 
   /**
@@ -122,7 +120,8 @@ public class DisplayController {
     } else {
       model.addAttribute("displays", displays);
     }
-    Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
+    Map<String, String> setCodeToIconUri = magicSetService.getAllMagicSets().stream()
+        .distinct().collect(
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
     model.addAttribute("setCodeToIconUri", setCodeToIconUri);
     model.addAttribute("display", new Display());
@@ -141,6 +140,7 @@ public class DisplayController {
     Map<String, Map<String, Map<String, Object>>> aggregatedValues =
         displayService.getAggregatedValues();
     List<AggregatedDisplay> aggregatedData = new ArrayList<>();
+    List<MagicSet> currentMagicSets = magicSetService.getAllMagicSets();
     aggregatedValues.forEach((setCode, typeMap) -> typeMap.forEach((type, data) -> {
       AggregatedDisplay entry = new AggregatedDisplay();
       entry.setSetCode(setCode);
@@ -148,7 +148,7 @@ public class DisplayController {
       entry.setCount((Long) data.get("count"));
       entry.setAveragePrice((Double) data.get("averagePrice"));
       entry.setSanitizedMarketPrice((Double) data.get("relevantPreis"));
-      magicSets.stream()
+      currentMagicSets.stream()
           .filter(magicSet -> magicSet.getCode().equals(setCode))
           .findFirst()
           .ifPresent(magicSet -> {
@@ -160,7 +160,7 @@ public class DisplayController {
     }));
 
     model.addAttribute("types", Arrays.stream(DisplayType.values()).toList());
-    model.addAttribute("magicSets", magicSets);
+    model.addAttribute("magicSets", currentMagicSets);
     aggregatedData.sort(Comparator.comparing(AggregatedDisplay::getSetCode));
     model.addAttribute("aggregatedData", aggregatedData);
     model.addAttribute("display", new Display());
@@ -430,7 +430,8 @@ public class DisplayController {
           .toList();
     }
 
-    Map<String, String> setCodeToIconUri = magicSets.stream().distinct().collect(
+    List<MagicSet> currentMagicSets = magicSetService.getAllMagicSets();
+    Map<String, String> setCodeToIconUri = currentMagicSets.stream().distinct().collect(
         Collectors.toMap(MagicSet::getCode, MagicSet::getIconUri));
 
     model.addAttribute("highProfitOnly", filterHighProfitOnly);
@@ -441,7 +442,7 @@ public class DisplayController {
     model.addAttribute("sumAktuellerPreis", sumAktuellerPreis);
     model.addAttribute("setCodeToIconUri", setCodeToIconUri);
     model.addAttribute("types", Arrays.stream(DisplayType.values()).toList());
-    model.addAttribute("magicSets", magicSets);
+    model.addAttribute("magicSets", currentMagicSets);
     model.addAttribute("display", new Display());
     model.addAttribute("displays", displays);
     return "display";
