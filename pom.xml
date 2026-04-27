@@ -10,7 +10,7 @@
     </parent>
     <groupId>org.example</groupId>
     <artifactId>treasury</artifactId>
-    <version>0.0.25</version>
+    <version>0.0.26</version>
     <name>treasury</name>
     <description>treasury</description>
     <url/>
