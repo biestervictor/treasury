@@ -36,52 +36,50 @@
     </div>
 
     <!-- Card grid -->
-    <div class="row g-3">
-        <div th:each="entry : ${aggregatedData}" class="col-12 col-sm-6 col-md-4 col-lg-3">
+    <div class="row g-2">
+        <div th:each="entry : ${aggregatedData}" class="col-4 col-sm-3 col-md-2 col-lg-1">
             <a th:href="@{/api/display/list(setCode=${entry.setCode},type=${entry.type})}"
                class="text-decoration-none">
-                <div class="card border-0 shadow-sm h-100"
+                <div class="card border-0 shadow-sm h-100 text-center"
                      th:style="${entry.sanitizedMarketPrice >= entry.averagePrice * 1.5}
                                 ? 'background-color:rgba(13,110,253,0.12)'
                                 : (${entry.sanitizedMarketPrice > entry.averagePrice}
                                    ? 'background-color:rgba(25,135,84,0.12)'
                                    : 'background-color:rgba(220,53,69,0.10)')">
-                    <div class="card-body p-2 d-flex flex-row align-items-center gap-2">
-                        <!-- Left: booster box image or set icon -->
-                        <div style="flex-shrink:0;width:80px;text-align:center;">
+                    <div class="card-body p-1 d-flex flex-column align-items-center">
+                        <!-- Image -->
+                        <div style="width:100%;height:130px;display:flex;align-items:center;justify-content:center;">
                             <img th:if="${entry.boosterBoxImageUrl != null}"
                                  th:src="${entry.boosterBoxImageUrl}"
                                  alt="Booster Box"
-                                 style="width:80px;height:110px;object-fit:contain;">
+                                 style="max-width:100%;max-height:130px;object-fit:contain;">
                             <img th:if="${entry.boosterBoxImageUrl == null}"
                                  th:src="${entry.iconUri}" alt="Set-Icon"
                                  style="width:48px;height:48px;object-fit:contain;">
                         </div>
-                        <!-- Right: set icon + info -->
-                        <div class="d-flex flex-column justify-content-center flex-grow-1 min-width-0">
-                            <div class="d-flex align-items-center gap-1 mb-1">
-                                <img th:src="${entry.iconUri}" alt="Set-Icon"
-                                     style="width:14px;height:14px;object-fit:contain;flex-shrink:0;">
-                                <div class="fw-semibold text-dark text-truncate"
-                                     style="font-size:0.8rem;"
-                                     th:text="${entry.setCode}">XXX</div>
-                            </div>
-                            <div class="text-muted mb-1"
-                                 style="font-size:0.72rem;"
-                                 th:text="${entry.type}">Type</div>
-                            <span class="badge text-bg-secondary mb-2"
-                                  style="width:fit-content;"
-                                  th:text="${entry.count} + ' Stk'">0 Stk</span>
-                            <div class="fw-bold"
-                                 style="font-size:0.85rem;"
-                                 th:classappend="${entry.sanitizedMarketPrice >= entry.averagePrice * 1.5}
-                                                 ? 'text-primary'
-                                                 : (${entry.sanitizedMarketPrice > entry.averagePrice}
-                                                    ? 'text-success'
-                                                    : 'text-danger')"
-                                 th:text="${#numbers.formatDecimal(entry.sanitizedMarketPrice, 1, 'COMMA', 2, 'POINT')} + ' €'">
-                                0,00 €
-                            </div>
+                        <!-- Info -->
+                        <div class="d-flex align-items-center gap-1 mt-1">
+                            <img th:src="${entry.iconUri}" alt="Set-Icon"
+                                 style="width:12px;height:12px;object-fit:contain;flex-shrink:0;">
+                            <span class="fw-semibold text-dark text-truncate"
+                                  style="font-size:0.7rem;"
+                                  th:text="${entry.setCode}">XXX</span>
+                        </div>
+                        <div class="text-muted"
+                             style="font-size:0.65rem;"
+                             th:text="${entry.type}">Type</div>
+                        <span class="badge text-bg-secondary my-1"
+                              style="font-size:0.6rem;"
+                              th:text="${entry.count} + ' Stk'">0 Stk</span>
+                        <div class="fw-bold mt-auto"
+                             style="font-size:0.75rem;"
+                             th:classappend="${entry.sanitizedMarketPrice >= entry.averagePrice * 1.5}
+                                             ? 'text-primary'
+                                             : (${entry.sanitizedMarketPrice > entry.averagePrice}
+                                                ? 'text-success'
+                                                : 'text-danger')"
+                             th:text="${#numbers.formatDecimal(entry.sanitizedMarketPrice, 1, 'COMMA', 2, 'POINT')} + ' €'">
+                            0,00 €
                         </div>
                     </div>
                 </div>
