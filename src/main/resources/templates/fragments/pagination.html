@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Pagination controls bar – include once per table, pass the table's HTML id as tableId -->
+<div th:fragment="paginationBar(tableId)"
+     class="d-flex flex-wrap align-items-center gap-3 px-2 py-2 mb-2">
+    <div class="d-flex align-items-center gap-2">
+        <label class="form-label mb-0 text-muted small">Einträge pro Seite:</label>
+        <select class="form-select form-select-sm w-auto"
+                th:attr="data-table=${tableId}"
+                onchange="paginationOnSizeChange(this)">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="999999">Alle</option>
+        </select>
+    </div>
+    <span class="text-muted small" th:id="${tableId + 'PaginationInfo'}"></span>
+    <nav aria-label="Seitennavigation">
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item"
+                th:id="${tableId + 'PaginationPrev'}"
+                th:attr="data-table=${tableId}">
+                <a class="page-link" href="#"
+                   onclick="paginationPrev(this.closest('li').dataset.table); return false;">&#8249;</a>
+            </li>
+            <li class="page-item"
+                th:id="${tableId + 'PaginationNext'}"
+                th:attr="data-table=${tableId}">
+                <a class="page-link" href="#"
+                   onclick="paginationNext(this.closest('li').dataset.table); return false;">&#8250;</a>
+            </li>
+        </ul>
+    </nav>
+</div>
+
+<!-- Shared pagination JS – include once per page after the pagination bar -->
+<th:block th:fragment="paginationScript">
+    <script>
+        const _paginationState = {};
+
+        function initPagination(tableId) {
+            _paginationState[tableId] = {currentPage: 1, pageSize: 25};
+            _renderPage(tableId);
+        }
+
+        function _getRows(tableId) {
+            return Array.from(document.getElementById(tableId).tBodies[0].rows);
+        }
+
+        function _renderPage(tableId) {
+            const state = _paginationState[tableId];
+            if (!state) return;
+            const rows = _getRows(tableId);
+            const total = rows.length;
+            const pageSize = state.pageSize;
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            if (state.currentPage > totalPages) state.currentPage = totalPages;
+            const start = (state.currentPage - 1) * pageSize;
+            const end = Math.min(start + pageSize, total);
+
+            rows.forEach(function (row, i) {
+                row.style.display = (i >= start && i < end) ? '' : 'none';
+            });
+
+            const info = document.getElementById(tableId + 'PaginationInfo');
+            if (info) {
+                info.textContent = total === 0
+                    ? 'Keine Einträge'
+                    : 'Zeige ' + (start + 1) + '\u2013' + end + ' von ' + total + ' Einträgen';
+            }
+            const prev = document.getElementById(tableId + 'PaginationPrev');
+            const next = document.getElementById(tableId + 'PaginationNext');
+            if (prev) prev.classList.toggle('disabled', state.currentPage <= 1);
+            if (next) next.classList.toggle('disabled', state.currentPage >= totalPages);
+        }
+
+        function paginationPrev(tableId) {
+            const state = _paginationState[tableId];
+            if (state && state.currentPage > 1) {
+                state.currentPage--;
+                _renderPage(tableId);
+            }
+        }
+
+        function paginationNext(tableId) {
+            const state = _paginationState[tableId];
+            if (!state) return;
+            const total = _getRows(tableId).length;
+            const totalPages = Math.ceil(total / state.pageSize);
+            if (state.currentPage < totalPages) {
+                state.currentPage++;
+                _renderPage(tableId);
+            }
+        }
+
+        function paginationOnSizeChange(select) {
+            const tableId = select.dataset.table;
+            const state = _paginationState[tableId];
+            if (!state) return;
+            state.pageSize = parseInt(select.value, 10);
+            state.currentPage = 1;
+            _renderPage(tableId);
+        }
+    </script>
+</th:block>
+
+</body>
+</html>
