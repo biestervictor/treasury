@@ -1,7 +1,9 @@
 package org.example.treasury.service;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.example.treasury.model.CardMarketPriceSnapshot;
 import org.example.treasury.repository.CardMarketPriceSnapshotRepository;
@@ -59,6 +61,22 @@ public class CardMarketPriceHistoryService {
    */
   public List<CardMarketPriceSnapshot> getHistory(String itemId) {
     return repository.findByItemIdOrderByDateAsc(itemId);
+  }
+
+  /**
+   * Returns the most recent price for each of the given item IDs.
+   * Items without any snapshot are omitted from the result map.
+   *
+   * @param itemIds list of item keys (e.g. "ZNR|DRAFT")
+   * @return map of itemId to its latest scraped price
+   */
+  public Map<String, Double> getLatestPricesByItemIds(List<String> itemIds) {
+    Map<String, Double> result = new HashMap<>();
+    for (String itemId : itemIds) {
+      repository.findTopByItemIdOrderByDateDesc(itemId)
+          .ifPresent(s -> result.put(itemId, s.getPrice()));
+    }
+    return result;
   }
 
   /**

@@ -46,4 +46,12 @@ public interface CardMarketPriceSnapshotRepository
    */
   Optional<CardMarketPriceSnapshot> findTopByItemIdAndDateBeforeOrderByDateDesc(
       String itemId, LocalDate date);
+
+  /**
+   * Finds the most recent snapshot for an item across all dates.
+   *
+   * @param itemId the item key
+   * @return the most recent snapshot, if any
+   */
+  Optional<CardMarketPriceSnapshot> findTopByItemIdOrderByDateDesc(String itemId);
 }
