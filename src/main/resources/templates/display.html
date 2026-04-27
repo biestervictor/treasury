@@ -83,6 +83,7 @@
     </tr>
     </tbody>
 </table>
+<div th:replace="fragments/pagination :: paginationBar('displayTable')"></div>
 
 <!-- Edit-Modal -->
 <div class="modal fade" id="editModal" tabindex="-1">
@@ -180,6 +181,7 @@
         });
         rows.forEach(row => table.tBodies[0].appendChild(row));
         table.setAttribute("data-sort-order", isAscending ? "desc" : "asc");
+        _renderPage('displayTable');
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -202,10 +204,12 @@
                 new bootstrap.Modal(document.getElementById('editModal')).show();
             });
         });
+        initPagination('displayTable');
     });
 </script>
 
 <div th:replace="fragments/scripts :: toggleScripts"></div>
+<th:block th:replace="fragments/pagination :: paginationScript"></th:block>
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
