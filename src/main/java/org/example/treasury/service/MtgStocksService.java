@@ -78,12 +78,46 @@ public class MtgStocksService {
       int finalId = boosterBoxId != null ? boosterBoxId
           : (fallbackId != null ? fallbackId : -1);
       if (finalId > 0) {
-        result.put(setCode, IMAGE_BASE + finalId + ".png");
+        String imageUrl = resolveImageUrl(finalId);
+        if (imageUrl != null) {
+          result.put(setCode, imageUrl);
+        }
       }
     }
 
     logger.info("Fetched booster box images for {} sets from MTGStocks", result.size());
     return result;
+  }
+
+  /**
+   * Probes the MTGStocks CDN for a product image, trying .webp first then .png.
+   * Returns the URL of the first format that exists, or null if neither is available.
+   *
+   * @param productId the MTGStocks product ID
+   * @return the image URL or null
+   */
+  String resolveImageUrl(int productId) {
+    for (String ext : new String[]{"webp", "png"}) {
+      String url = IMAGE_BASE + productId + "." + ext;
+      if (probeUrl(url)) {
+        return url;
+      }
+    }
+    return null;
+  }
+
+  private boolean probeUrl(String urlToProbe) {
+    try {
+      URL url = new URL(urlToProbe);
+      HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+      conn.setRequestMethod("HEAD");
+      conn.setConnectTimeout(5000);
+      conn.setReadTimeout(5000);
+      conn.setInstanceFollowRedirects(false);
+      return conn.getResponseCode() == 200;
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   private String fetch(String urlToRead) throws Exception {
