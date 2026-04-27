@@ -4,19 +4,24 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.example.treasury.dto.PriceSnapshotDto;
 import org.example.treasury.model.MagicSet;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.MtgStocksService;
 import org.example.treasury.service.SetCollectionService;
+import org.example.treasury.service.WishPriceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
  * Controller for the set collection overview.
@@ -31,6 +36,7 @@ public class SetCollectionController {
   private final SetCollectionService setCollectionService;
   private final DisplayService displayService;
   private final MtgStocksService mtgStocksService;
+  private final WishPriceService wishPriceService;
 
   /**
    * Constructor.
@@ -39,15 +45,18 @@ public class SetCollectionController {
    * @param setCollectionService the set collection service
    * @param displayService       the display service
    * @param mtgStocksService     the MTGStocks service
+   * @param wishPriceService     the wish price service
    */
   public SetCollectionController(MagicSetService magicSetService,
                                  SetCollectionService setCollectionService,
                                  DisplayService displayService,
-                                 MtgStocksService mtgStocksService) {
+                                 MtgStocksService mtgStocksService,
+                                 WishPriceService wishPriceService) {
     this.setCollectionService = setCollectionService;
     this.magicSetService = magicSetService;
     this.displayService = displayService;
     this.mtgStocksService = mtgStocksService;
+    this.wishPriceService = wishPriceService;
   }
 
   private static final String DEFAULT_FILTER =
@@ -116,6 +125,35 @@ public class SetCollectionController {
             Collectors.mapping(d -> d.getType().toUpperCase(),
                 Collectors.collectingAndThen(Collectors.toList(),
                     list -> list.stream().distinct().sorted().toList()))));
+  }
+
+  /**
+   * Sets the wish price for a given set code. A price of 0 clears the wish price.
+   *
+   * @param code  the set code (case-insensitive)
+   * @param price the desired maximum price in EUR
+   * @return 200 OK
+   */
+  @PostMapping("/{code}/wishPrice")
+  @ResponseBody
+  public ResponseEntity<Void> setWishPrice(@PathVariable String code,
+                                           @RequestParam double price) {
+    wishPriceService.setWishPrice(code.toUpperCase(), price);
+    return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Returns the price history for a set as a JSON array for Chart.js.
+   *
+   * @param code the set code (case-insensitive)
+   * @return list of date/price data points
+   */
+  @GetMapping("/{code}/priceHistory")
+  @ResponseBody
+  public List<PriceSnapshotDto> getPriceHistory(@PathVariable String code) {
+    return wishPriceService.getPriceHistory(code.toUpperCase()).stream()
+        .map(s -> new PriceSnapshotDto(s.getDate().toString(), s.getPrice()))
+        .toList();
   }
 
   /**

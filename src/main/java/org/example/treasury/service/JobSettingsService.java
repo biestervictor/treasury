@@ -34,11 +34,15 @@ public class JobSettingsService {
         JobKey.MAGIC_SET, defaults.isMagicSetEnabled(), "0 0 0 * * *", null, Instant.now()));
     jobRuntimeSettingsService.upsert(new org.example.treasury.model.JobRuntimeSettings(
         JobKey.METAL_PRICE_SCRAPER, defaults.isMetalPriceScraperEnabled(), "0 0 */6 * * *", null, Instant.now()));
+    jobRuntimeSettingsService.upsert(new org.example.treasury.model.JobRuntimeSettings(
+        JobKey.WISH_PRICE_CHECKER, defaults.isWishPriceCheckerEnabled(), "0 0 8 * * MON", null,
+        Instant.now()));
 
     copy.setSellEnabled(jobRuntimeSettingsService.get(JobKey.SELL).enabled());
     copy.setPriceScraperEnabled(jobRuntimeSettingsService.get(JobKey.PRICE_SCRAPER).enabled());
     copy.setMagicSetEnabled(jobRuntimeSettingsService.get(JobKey.MAGIC_SET).enabled());
     copy.setMetalPriceScraperEnabled(jobRuntimeSettingsService.get(JobKey.METAL_PRICE_SCRAPER).enabled());
+    copy.setWishPriceCheckerEnabled(jobRuntimeSettingsService.get(JobKey.WISH_PRICE_CHECKER).enabled());
     this.settings = new AtomicReference<>(copy);
   }
 
@@ -49,6 +53,7 @@ public class JobSettingsService {
     copy.setPriceScraperEnabled(jobRuntimeSettingsService.get(JobKey.PRICE_SCRAPER).enabled());
     copy.setMagicSetEnabled(jobRuntimeSettingsService.get(JobKey.MAGIC_SET).enabled());
     copy.setMetalPriceScraperEnabled(jobRuntimeSettingsService.get(JobKey.METAL_PRICE_SCRAPER).enabled());
+    copy.setWishPriceCheckerEnabled(jobRuntimeSettingsService.get(JobKey.WISH_PRICE_CHECKER).enabled());
     return copy;
   }
 
@@ -57,7 +62,7 @@ public class JobSettingsService {
   }
 
   public void update(boolean sellEnabled, boolean priceScraperEnabled, boolean magicSetEnabled,
-                     boolean metalPriceScraperEnabled) {
+                     boolean metalPriceScraperEnabled, boolean wishPriceCheckerEnabled) {
     Instant now = Instant.now();
     jobRuntimeSettingsService.upsert(new org.example.treasury.model.JobRuntimeSettings(
         JobKey.SELL, sellEnabled, jobRuntimeSettingsService.get(JobKey.SELL).cron(),
@@ -72,6 +77,10 @@ public class JobSettingsService {
         JobKey.METAL_PRICE_SCRAPER, metalPriceScraperEnabled,
         jobRuntimeSettingsService.get(JobKey.METAL_PRICE_SCRAPER).cron(),
         jobRuntimeSettingsService.get(JobKey.METAL_PRICE_SCRAPER).zoneId(), now));
+    jobRuntimeSettingsService.upsert(new org.example.treasury.model.JobRuntimeSettings(
+        JobKey.WISH_PRICE_CHECKER, wishPriceCheckerEnabled,
+        jobRuntimeSettingsService.get(JobKey.WISH_PRICE_CHECKER).cron(),
+        jobRuntimeSettingsService.get(JobKey.WISH_PRICE_CHECKER).zoneId(), now));
 
     // legacy ref update
     settings.set(get());

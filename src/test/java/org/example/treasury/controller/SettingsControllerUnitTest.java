@@ -56,13 +56,13 @@ class SettingsControllerUnitTest {
 
     RedirectAttributes redirectAttributes = new RedirectAttributesModelMap();
 
-    String view = controller.updateJobs(true, false, true, true,
-        "0 0 0 * * *", "0 0 0 * * *", "0 0 0 * * *", "0 0 */6 * * *",
+    String view = controller.updateJobs(true, false, true, true, false,
+        "0 0 0 * * *", "0 0 0 * * *", "0 0 0 * * *", "0 0 */6 * * *", "0 0 8 * * MON",
         null,
         redirectAttributes);
 
     assertEquals("redirect:/api/settings", view);
     assertEquals("Job-Einstellungen gespeichert.", redirectAttributes.getFlashAttributes().get("success"));
-    verify(service).update(true, false, true, true);
+    verify(service).update(true, false, true, true, false);
   }
 }

@@ -5,6 +5,7 @@ import org.example.treasury.job.MagicSetJob;
 import org.example.treasury.job.MetalPriceScraperJob;
 import org.example.treasury.job.PriceScraperJob;
 import org.example.treasury.job.SellJob;
+import org.example.treasury.job.WishPriceJob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -23,15 +24,18 @@ public class JobTriggerService {
   private final PriceScraperJob priceScraperJob;
   private final MagicSetJob magicSetJob;
   private final MetalPriceScraperJob metalPriceScraperJob;
+  private final WishPriceJob wishPriceJob;
 
   public JobTriggerService(SellJob sellJob,
                            PriceScraperJob priceScraperJob,
                            MagicSetJob magicSetJob,
-                           MetalPriceScraperJob metalPriceScraperJob) {
+                           MetalPriceScraperJob metalPriceScraperJob,
+                           WishPriceJob wishPriceJob) {
     this.sellJob = sellJob;
     this.priceScraperJob = priceScraperJob;
     this.magicSetJob = magicSetJob;
     this.metalPriceScraperJob = metalPriceScraperJob;
+    this.wishPriceJob = wishPriceJob;
   }
 
   @Async
@@ -43,6 +47,7 @@ public class JobTriggerService {
         case PRICE_SCRAPER -> priceScraperJob.triggerNow();
         case MAGIC_SET -> magicSetJob.triggerNow();
         case METAL_PRICE_SCRAPER -> metalPriceScraperJob.triggerNow();
+        case WISH_PRICE_CHECKER -> wishPriceJob.triggerNow();
       }
     } catch (Exception e) {
       log.warn("Trigger job {} failed: {}", key, e.getMessage());

@@ -168,9 +168,8 @@ public class DisplayService {
                       double totalValue = list.stream().mapToDouble(Display::getValueBought).sum();
                       long count = list.size();
                       double avgRelevantPreis = list.stream()
-                          .map(this::getRelevantPreis)
-                          .filter(Objects::nonNull)
-                          .mapToDouble(Double::doubleValue)
+                          .mapToDouble(Display::getCurrentValue)
+                          .filter(v -> v > 0)
                           .average()
                           .orElse(0.0);
                       double averagePrice = count > 0 ? totalValue / count : 0;

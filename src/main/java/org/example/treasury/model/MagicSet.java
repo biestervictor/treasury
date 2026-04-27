@@ -31,6 +31,7 @@ public class MagicSet {
   private LocalDate releaseDate;
   private int cardCount;
   private String boosterBoxImageUrl;
+  private Double wishPrice;
 
   @Override
   public boolean equals(Object o) {

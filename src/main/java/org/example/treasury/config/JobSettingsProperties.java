@@ -15,6 +15,7 @@ public class JobSettingsProperties {
   private boolean priceScraperEnabled = true;
   private boolean magicSetEnabled = true;
   private boolean metalPriceScraperEnabled = true;
+  private boolean wishPriceCheckerEnabled = false;
 
   public boolean isSellEnabled() {
     return sellEnabled;
@@ -46,5 +47,23 @@ public class JobSettingsProperties {
 
   public void setMetalPriceScraperEnabled(boolean metalPriceScraperEnabled) {
     this.metalPriceScraperEnabled = metalPriceScraperEnabled;
+  }
+
+  /**
+   * Returns whether the WishPriceCheckerJob is enabled.
+   *
+   * @return true if enabled
+   */
+  public boolean isWishPriceCheckerEnabled() {
+    return wishPriceCheckerEnabled;
+  }
+
+  /**
+   * Sets the enabled flag for the WishPriceCheckerJob.
+   *
+   * @param wishPriceCheckerEnabled true to enable
+   */
+  public void setWishPriceCheckerEnabled(boolean wishPriceCheckerEnabled) {
+    this.wishPriceCheckerEnabled = wishPriceCheckerEnabled;
   }
 }

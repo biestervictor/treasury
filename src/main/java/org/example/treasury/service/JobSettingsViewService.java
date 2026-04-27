@@ -37,6 +37,7 @@ public class JobSettingsViewService {
     var price = jobRuntimeSettingsService.get(JobKey.PRICE_SCRAPER);
     var magic = jobRuntimeSettingsService.get(JobKey.MAGIC_SET);
     var metal = jobRuntimeSettingsService.get(JobKey.METAL_PRICE_SCRAPER);
+    var wishPrice = jobRuntimeSettingsService.get(JobKey.WISH_PRICE_CHECKER);
 
     List<JobSetting> jobs = new ArrayList<>();
     jobs.add(new JobSetting(JobKey.SELL, "SellJob", sell.enabled(),
@@ -47,6 +48,9 @@ public class JobSettingsViewService {
         JobSchedule.cron(magic.cron(), "täglich 00:00"), null, updatedAt));
     jobs.add(new JobSetting(JobKey.METAL_PRICE_SCRAPER, "EdelmetallPreisScraperJob",
         metal.enabled(), JobSchedule.cron(metal.cron(), "alle 6 Stunden"), null, updatedAt));
+    jobs.add(new JobSetting(JobKey.WISH_PRICE_CHECKER, "WishPriceJob",
+        wishPrice.enabled(), JobSchedule.cron(wishPrice.cron(), "wöchentlich montags 08:00"),
+        null, updatedAt));
 
     // order stable
     jobs.sort(Comparator.comparing(j -> j.key().ordinal()));
