@@ -151,7 +151,10 @@ public class DisplayController {
       magicSets.stream()
           .filter(magicSet -> magicSet.getCode().equals(setCode))
           .findFirst()
-          .ifPresent(magicSet -> entry.setIconUri(magicSet.getIconUri()));
+          .ifPresent(magicSet -> {
+            entry.setIconUri(magicSet.getIconUri());
+            entry.setBoosterBoxImageUrl(magicSet.getBoosterBoxImageUrl());
+          });
 
       aggregatedData.add(entry);
     }));

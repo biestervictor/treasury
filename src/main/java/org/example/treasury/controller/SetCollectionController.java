@@ -7,10 +7,14 @@ import java.util.stream.Collectors;
 import org.example.treasury.model.MagicSet;
 import org.example.treasury.service.DisplayService;
 import org.example.treasury.service.MagicSetService;
+import org.example.treasury.service.MtgStocksService;
 import org.example.treasury.service.SetCollectionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -21,9 +25,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 @RequestMapping("/api/sets")
 public class SetCollectionController {
 
+  private static final Logger logger = LoggerFactory.getLogger(SetCollectionController.class);
+
   private final MagicSetService magicSetService;
   private final SetCollectionService setCollectionService;
   private final DisplayService displayService;
+  private final MtgStocksService mtgStocksService;
 
   /**
    * Constructor.
@@ -31,13 +38,16 @@ public class SetCollectionController {
    * @param magicSetService      the magic set service
    * @param setCollectionService the set collection service
    * @param displayService       the display service
+   * @param mtgStocksService     the MTGStocks service
    */
   public SetCollectionController(MagicSetService magicSetService,
                                  SetCollectionService setCollectionService,
-                                 DisplayService displayService) {
+                                 DisplayService displayService,
+                                 MtgStocksService mtgStocksService) {
     this.setCollectionService = setCollectionService;
     this.magicSetService = magicSetService;
     this.displayService = displayService;
+    this.mtgStocksService = mtgStocksService;
   }
 
   private static final String DEFAULT_FILTER =
@@ -106,5 +116,21 @@ public class SetCollectionController {
             Collectors.mapping(d -> d.getType().toUpperCase(),
                 Collectors.collectingAndThen(Collectors.toList(),
                     list -> list.stream().distinct().sorted().toList()))));
+  }
+
+  /**
+   * Fetches booster box image URLs from MTGStocks and persists them on all MagicSets.
+   *
+   * @return redirect to the set list
+   */
+  @PostMapping("/updateBoosterImages")
+  public String updateBoosterImages() {
+    try {
+      Map<String, String> imageUrls = mtgStocksService.fetchBoosterBoxImageUrls();
+      magicSetService.updateBoosterBoxImages(imageUrls);
+    } catch (Exception e) {
+      logger.warn("Booster-Box-Bilder konnten nicht aktualisiert werden: {}", e.getMessage());
+    }
+    return "redirect:/api/sets/list";
   }
 }

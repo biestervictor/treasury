@@ -1,6 +1,7 @@
 package org.example.treasury.service;
 
 import java.util.List;
+import java.util.Map;
 import org.example.treasury.model.MagicSet;
 import org.example.treasury.repository.MagicSetRepository;
 import org.springframework.stereotype.Service;
@@ -54,7 +55,7 @@ public class MagicSetService {
   }
 
   /**
-   * save a list of MagicSets.
+   * Saves a list of MagicSets.
    *
    * @param magicSets set of MagicSets to save
    * @return the saved MagicSets
@@ -63,5 +64,21 @@ public class MagicSetService {
     return magicSetRepository.saveAll(magicSets);
   }
 
+  /**
+   * Updates the boosterBoxImageUrl for all MagicSets using the provided image map.
+   * Only sets that have an entry in the map are updated; others are left unchanged.
+   *
+   * @param imageUrlBySetCode map of setCode (uppercase) to booster box image URL
+   */
+  public void updateBoosterBoxImages(Map<String, String> imageUrlBySetCode) {
+    List<MagicSet> all = magicSetRepository.findAll();
+    all.forEach(set -> {
+      String url = imageUrlBySetCode.get(set.getCode().toUpperCase());
+      if (url != null) {
+        set.setBoosterBoxImageUrl(url);
+      }
+    });
+    magicSetRepository.saveAll(all);
+  }
 
 }

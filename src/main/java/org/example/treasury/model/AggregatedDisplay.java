@@ -5,7 +5,8 @@ import lombok.Setter;
 
 /**
  * AggregatedDisplay is a class that represents the aggregated display of a set of cards.
- * It contains information about the set code, type, count, average price, and icon URI.
+ * It contains information about the set code, type, count, average price, icon URI,
+ * and booster box image URL.
  */
 
 @Getter
@@ -17,4 +18,5 @@ public class AggregatedDisplay {
   private double averagePrice;
   private String iconUri;
   private double sanitizedMarketPrice;
+  private String boosterBoxImageUrl;
 }
