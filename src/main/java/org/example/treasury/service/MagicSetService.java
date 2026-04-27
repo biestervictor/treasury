@@ -3,6 +3,7 @@ package org.example.treasury.service;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.example.treasury.model.MagicSet;
 import org.example.treasury.repository.MagicSetRepository;
 import org.springframework.stereotype.Service;
@@ -59,12 +60,28 @@ public class MagicSetService {
   }
 
   /**
-   * Saves a list of MagicSets.
+   * Saves a list of MagicSets, preserving {@code boosterBoxImageUrl} and {@code wishPrices}
+   * from existing documents so that a full Scryfall re-import does not erase manually
+   * maintained data.
    *
    * @param magicSets set of MagicSets to save
    * @return the saved MagicSets
    */
   public List<MagicSet> saveAllMagicSets(List<MagicSet> magicSets) {
+    Map<String, MagicSet> existing = magicSetRepository.findAll().stream()
+        .collect(Collectors.toMap(MagicSet::getCode, s -> s));
+
+    for (MagicSet set : magicSets) {
+      MagicSet existingSet = existing.get(set.getCode());
+      if (existingSet != null) {
+        if (existingSet.getBoosterBoxImageUrl() != null) {
+          set.setBoosterBoxImageUrl(existingSet.getBoosterBoxImageUrl());
+        }
+        if (existingSet.getWishPrices() != null && !existingSet.getWishPrices().isEmpty()) {
+          set.setWishPrices(existingSet.getWishPrices());
+        }
+      }
+    }
     return magicSetRepository.saveAll(magicSets);
   }
 

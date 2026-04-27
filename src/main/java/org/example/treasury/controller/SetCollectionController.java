@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -83,6 +84,7 @@ public class SetCollectionController {
     model.addAttribute("allSets", allSets);
     model.addAttribute("setType", DEFAULT_FILTER);
     model.addAttribute("setCodeToTypes", buildSetCodeToTypes());
+    model.addAttribute("wishPricesMap", buildWishPricesMap(allSets));
     return "setCollection";
   }
 
@@ -109,6 +111,7 @@ public class SetCollectionController {
     model.addAttribute("setType", setType);
     model.addAttribute("allSets", allSets);
     model.addAttribute("setCodeToTypes", buildSetCodeToTypes());
+    model.addAttribute("wishPricesMap", buildWishPricesMap(allSets));
     return "setCollection";
   }
 
@@ -128,30 +131,65 @@ public class SetCollectionController {
   }
 
   /**
-   * Sets the wish price for a given set code. A price of 0 clears the wish price.
+   * Builds a map from setCode (uppercase) to its {@code wishPrices} map,
+   * including only sets that have at least one wish price configured.
+   *
+   * @param sets the list of MagicSets to inspect
+   * @return map of setCode to wish-price map (type → price)
+   */
+  private Map<String, Map<String, Double>> buildWishPricesMap(List<MagicSet> sets) {
+    return sets.stream()
+        .filter(s -> s.getWishPrices() != null && !s.getWishPrices().isEmpty())
+        .collect(Collectors.toMap(
+            s -> s.getCode().toUpperCase(),
+            MagicSet::getWishPrices));
+  }
+
+  /**
+   * Sets or removes the wish price for a given set code and display type.
+   * A price of {@code 0} removes the entry for that type.
    *
    * @param code  the set code (case-insensitive)
-   * @param price the desired maximum price in EUR
+   * @param type  the display type (e.g. DRAFT, COLLECTOR)
+   * @param price the desired maximum price in EUR; {@code 0} to remove
    * @return 200 OK
    */
   @PostMapping("/{code}/wishPrice")
   @ResponseBody
   public ResponseEntity<Void> setWishPrice(@PathVariable String code,
+                                           @RequestParam String type,
                                            @RequestParam double price) {
-    wishPriceService.setWishPrice(code.toUpperCase(), price);
+    wishPriceService.setWishPrice(code.toUpperCase(), type.toUpperCase(), price);
     return ResponseEntity.ok().build();
   }
 
   /**
-   * Returns the price history for a set as a JSON array for Chart.js.
+   * Removes the wish price entry for a given set code and display type.
    *
    * @param code the set code (case-insensitive)
+   * @param type the display type to remove
+   * @return 200 OK
+   */
+  @DeleteMapping("/{code}/wishPrice")
+  @ResponseBody
+  public ResponseEntity<Void> removeWishPrice(@PathVariable String code,
+                                              @RequestParam String type) {
+    wishPriceService.removeWishPrice(code.toUpperCase(), type.toUpperCase());
+    return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Returns the Cardmarket price history for a set and display type as a JSON array for Chart.js.
+   *
+   * @param code the set code (case-insensitive)
+   * @param type the display type (e.g. DRAFT, COLLECTOR)
    * @return list of date/price data points
    */
-  @GetMapping("/{code}/priceHistory")
+  @GetMapping("/{code}/{type}/priceHistory")
   @ResponseBody
-  public List<PriceSnapshotDto> getPriceHistory(@PathVariable String code) {
-    return wishPriceService.getPriceHistory(code.toUpperCase()).stream()
+  public List<PriceSnapshotDto> getPriceHistory(@PathVariable String code,
+                                                @PathVariable String type) {
+    return wishPriceService.getPriceHistory(code.toUpperCase(), type.toUpperCase()).stream()
         .map(s -> new PriceSnapshotDto(s.getDate().toString(), s.getPrice()))
         .toList();
   }
