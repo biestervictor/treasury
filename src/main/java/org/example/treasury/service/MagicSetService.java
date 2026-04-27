@@ -1,5 +1,6 @@
 package org.example.treasury.service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import org.example.treasury.model.MagicSet;
@@ -31,7 +32,10 @@ public class MagicSetService {
    * @return a list of all MagicSets
    */
   public List<MagicSet> getAllMagicSets() {
-    return magicSetRepository.findAll();
+    return magicSetRepository.findAll().stream()
+        .sorted(Comparator.comparing(MagicSet::getReleaseDate,
+            Comparator.nullsLast(Comparator.reverseOrder())))
+        .toList();
   }
 
   /**

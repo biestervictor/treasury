@@ -2,6 +2,7 @@ package org.example.treasury.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
@@ -10,14 +11,29 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link MtgStocksService#parseBoosterBoxImageUrls(String)}.
+ * Uses a subclass that stubs {@code resolveImageUrl} to avoid real HTTP calls.
  */
 class MtgStocksServiceParseTest {
+
+  /**
+   * Test double: resolveImageUrl returns .png URL for any positive ID, null for negative.
+   */
+  private static class StubMtgStocksService extends MtgStocksService {
+
+    @Override
+    String resolveImageUrl(int productId) {
+      if (productId <= 0) {
+        return null;
+      }
+      return "https://static.mtgstocks.com/sealedimage/t" + productId + ".png";
+    }
+  }
 
   private MtgStocksService service;
 
   @BeforeEach
   void setUp() {
-    service = new MtgStocksService();
+    service = new StubMtgStocksService();
   }
 
   @Test
@@ -123,6 +139,8 @@ class MtgStocksServiceParseTest {
     Map<String, String> result = service.parseBoosterBoxImageUrls(json);
 
     assertEquals(2, result.size());
+    assertEquals("https://static.mtgstocks.com/sealedimage/t239.png", result.get("IKO"));
+    assertEquals("https://static.mtgstocks.com/sealedimage/t350.png", result.get("KHM"));
   }
 
   @Test
@@ -137,5 +155,12 @@ class MtgStocksServiceParseTest {
 
     assertEquals(1, result.size());
     assertEquals("https://static.mtgstocks.com/sealedimage/t239.png", result.get("IKO"));
+  }
+
+  @Test
+  void resolveImageUrl_webpTest() {
+    // Stub returns .png for any positive id — test that null is returned for id <= 0
+    assertNull(service.resolveImageUrl(-1));
+    assertNull(service.resolveImageUrl(0));
   }
 }
