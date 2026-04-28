@@ -92,6 +92,24 @@
       </div>
     </div>
   </div>
+
+  <!-- Dev-only: Test Mail -->
+  <div th:if="${devMode}" class="card mt-4 border-warning">
+    <div class="card-header bg-warning text-dark">
+      Dev-Features
+    </div>
+    <div class="card-body">
+      <p class="mb-2 text-muted small">
+        Nur in der Dev-Stage sichtbar (<code>treasury.dev-mode=true</code>).
+      </p>
+      <form method="post" th:action="@{/api/settings/sendTestMail}">
+        <button class="btn btn-warning btn-sm" type="submit">
+          Testmail senden
+        </button>
+      </form>
+    </div>
+  </div>
+
 </div>
 
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
