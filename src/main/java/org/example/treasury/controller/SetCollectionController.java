@@ -66,7 +66,7 @@ public class SetCollectionController {
   }
 
   private static final String DEFAULT_FILTER =
-      "funny,core,masters,commander,draft_innovation";
+      "funny,core,masters,commander,draft_innovation,ub";
 
   /**
    * Shows all sets with collection status, hiding the default set types by default.
@@ -76,15 +76,15 @@ public class SetCollectionController {
    */
   @GetMapping("/list")
   public String getSets(Model model) {
-    List<String> filters = Arrays.stream(DEFAULT_FILTER.split(",")).toList();
-    List<MagicSet> missingSets = setCollectionService.getMissingSets(filters);
-    List<MagicSet> allSets = magicSetService.getAllMagicSets().stream()
-        .filter(set ->
-            !set.getName().equalsIgnoreCase("Time Spiral Timeshifted")
-                && !set.getName().equalsIgnoreCase("The Big Score")
-                && filters.stream()
-                .noneMatch(f -> set.getSetType().equalsIgnoreCase(f)))
-        .toList();
+    List<String> allFilters = Arrays.stream(DEFAULT_FILTER.split(",")).toList();
+    boolean hideUb = allFilters.contains("ub");
+    List<String> typeFilters = allFilters.stream()
+        .filter(f -> !f.equals("ub")).toList();
+    List<MagicSet> missingSets = setCollectionService.getMissingSets(typeFilters);
+    if (hideUb) {
+      missingSets = missingSets.stream().filter(s -> !s.isUniverseBeyond()).toList();
+    }
+    List<MagicSet> allSets = buildFilteredSets(typeFilters, hideUb);
     model.addAttribute("missingSets", missingSets);
     model.addAttribute("allSets", allSets);
     model.addAttribute("setType", DEFAULT_FILTER);
@@ -97,22 +97,23 @@ public class SetCollectionController {
   /**
    * Filters sets by type.
    *
-   * @param setType comma-separated list of set types to exclude
+   * @param setType comma-separated list of set types to exclude (use "ub" for Universe Beyond)
    * @param model   the Spring MVC model
    * @return view name
    */
   @GetMapping("/filter")
   public String filter(@RequestParam(required = false) String setType, Model model) {
-    List<MagicSet> missingSets =
-        setCollectionService.getMissingSets(Arrays.stream(setType.split(",")).toList());
-    List<MagicSet> allSets = magicSetService.getAllMagicSets().stream()
-        .filter(set ->
-            !set.getName().equalsIgnoreCase("Time Spiral Timeshifted")
-                && !set.getName().equalsIgnoreCase("The Big Score")
-                && Arrays.stream(setType.split(",")).toList().stream()
-                .noneMatch(filter -> set.getSetType().equalsIgnoreCase(filter)))
-        .toList();
-
+    List<String> allFilters = setType != null
+        ? Arrays.stream(setType.split(",")).filter(s -> !s.isBlank()).toList()
+        : List.of();
+    boolean hideUb = allFilters.contains("ub");
+    List<String> typeFilters = allFilters.stream()
+        .filter(f -> !f.equals("ub")).toList();
+    List<MagicSet> missingSets = setCollectionService.getMissingSets(typeFilters);
+    if (hideUb) {
+      missingSets = missingSets.stream().filter(s -> !s.isUniverseBeyond()).toList();
+    }
+    List<MagicSet> allSets = buildFilteredSets(typeFilters, hideUb);
     model.addAttribute("missingSets", missingSets);
     model.addAttribute("setType", setType);
     model.addAttribute("allSets", allSets);
@@ -120,6 +121,24 @@ public class SetCollectionController {
     model.addAttribute("wishPricesMap", buildWishPricesMap(allSets));
     model.addAttribute("latestPricesMap", buildLatestPricesMap(allSets));
     return "setCollection";
+  }
+
+  /**
+   * Returns all MagicSets that pass the given type filter and the Universe Beyond flag.
+   *
+   * @param typeFilters list of setType strings to exclude
+   * @param hideUb      whether to exclude Universe Beyond sets
+   * @return filtered list of MagicSets
+   */
+  private List<MagicSet> buildFilteredSets(List<String> typeFilters, boolean hideUb) {
+    return magicSetService.getAllMagicSets().stream()
+        .filter(set ->
+            !set.getName().equalsIgnoreCase("Time Spiral Timeshifted")
+                && !set.getName().equalsIgnoreCase("The Big Score")
+                && typeFilters.stream()
+                .noneMatch(f -> set.getSetType().equalsIgnoreCase(f))
+                && (!hideUb || !set.isUniverseBeyond()))
+        .toList();
   }
 
   /**
