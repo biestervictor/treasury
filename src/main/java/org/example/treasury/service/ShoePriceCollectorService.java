@@ -197,7 +197,8 @@ public class ShoePriceCollectorService {
   }
 
   /**
-   * Calls the Klekt bids (buy-orders) API filtered by size and returns the highest Bid price.
+   * Calls the Klekt buy-orders (Gebote) API filtered by size and returns the highest Bid price.
+   * Tries the {@code buy_orders} endpoint first; falls back to {@code bids} on failure.
    * Returns empty on any error so callers can degrade gracefully.
    *
    * @param productVariantId the product-variant UUID
@@ -206,31 +207,45 @@ public class ShoePriceCollectorService {
    */
   private Optional<Double> fetchMaxBidPrice(
       String productVariantId, String sizeItemId) {
-    try {
-      String url = API_BASE + "/api/v1/product_variants/" + productVariantId
-          + "/bids?sizeItemId=" + sizeItemId;
-      String json = getApi(url);
+    // Klekt API: versuche buy_orders-Endpoint (gängiger Name für Gebote)
+    String[] endpoints = {
+        "/api/v1/product_variants/" + productVariantId + "/buy_orders?sizeItemId=" + sizeItemId,
+        "/api/v1/product_variants/" + productVariantId + "/bids?sizeItemId=" + sizeItemId
+    };
+    // Gängige Feldnamen für den Gebotspreise bei Sneaker-Marktplätzen
+    String[] priceFields = {"bid_price", "offer_price", "price", "sale_price"};
 
-      JsonNode root = objectMapper.readTree(json);
-      double max = 0;
-      boolean found = false;
-      // Versuche gängige Feldnamen für den Gebotspreise
-      for (JsonNode bid : root.path("data")) {
-        JsonNode attrs = bid.path("attributes");
-        double price = attrs.path("bid_price").asDouble(-1);
-        if (price <= 0) {
-          price = attrs.path("offer_price").asDouble(-1);
+    for (String endpoint : endpoints) {
+      try {
+        String json = getApi(API_BASE + endpoint);
+        JsonNode root = objectMapper.readTree(json);
+        JsonNode data = root.path("data");
+        if (!data.isArray() || !data.elements().hasNext()) {
+          continue;
         }
-        if (price > 0 && price > max) {
-          max = price;
-          found = true;
+        double max = 0;
+        boolean found = false;
+        for (JsonNode entry : data) {
+          JsonNode attrs = entry.path("attributes");
+          for (String field : priceFields) {
+            double price = attrs.path(field).asDouble(-1);
+            if (price > 0 && price > max) {
+              max = price;
+              found = true;
+              break;
+            }
+          }
         }
+        if (found) {
+          logger.debug("Bid gefunden via {}: {} €", endpoint, max);
+          return Optional.of(max);
+        }
+      } catch (Exception e) {
+        logger.warn("Bid-Abfrage fehlgeschlagen ({}): {}", endpoint, e.getMessage());
       }
-      return found ? Optional.of(max) : Optional.empty();
-    } catch (Exception e) {
-      logger.debug("Bid-Abfrage fehlgeschlagen für {}: {}", productVariantId, e.getMessage());
-      return Optional.empty();
     }
+    logger.debug("Kein Bid für productVariantId={}", productVariantId);
+    return Optional.empty();
   }
 
   /**

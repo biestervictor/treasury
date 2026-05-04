@@ -1,5 +1,6 @@
 package org.example.treasury.controller;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -170,10 +171,13 @@ public class ShoeController {
     int updated = 0;
     int skipped = 0;
     int errors = 0;
+    List<String> details = new ArrayList<>();
 
     for (Shoe shoe : shoes) {
+      String label = shoe.getName() + " US " + shoe.getUsSize();
       if (shoe.getKlektSlug() == null || shoe.getKlektSlug().isBlank()) {
         skipped++;
+        details.add("– " + label + ": kein Slug gesetzt");
         continue;
       }
       try {
@@ -183,8 +187,13 @@ public class ShoeController {
           ShoePriceCollectorService.KlektPriceData p = prices.get();
           shoeService.updateKlektPrices(shoe.getId(), p.ask(), p.bid());
           updated++;
+          String bidInfo = p.bid() > 0
+              ? String.format(" | Bid %.2f €", p.bid())
+              : " | kein Bid";
+          details.add(String.format("✓ %s: Ask %.2f €%s", label, p.ask(), bidInfo));
         } else {
           skipped++;
+          details.add("– " + label + ": kein Angebot gefunden");
         }
         // Polite delay between requests
         Thread.sleep(1500);
@@ -194,12 +203,14 @@ public class ShoeController {
       } catch (Exception e) {
         logger.error("Scraping-Fehler für {}: {}", shoe.getName(), e.getMessage());
         errors++;
+        details.add("✗ " + label + ": Fehler – " + e.getMessage());
       }
     }
 
     redirectAttributes.addFlashAttribute("message",
-        String.format("Klekt Scraping abgeschlossen: %d aktualisiert, %d übersprungen, %d Fehler",
+        String.format("Klekt Scraping: %d aktualisiert, %d übersprungen, %d Fehler",
             updated, skipped, errors));
+    redirectAttributes.addFlashAttribute("scrapeDetails", details);
     return "redirect:/api/shoe/list";
   }
 
