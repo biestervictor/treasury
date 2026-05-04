@@ -10,6 +10,7 @@ import org.example.treasury.service.JobSettingsViewService;
 import org.example.treasury.service.JobTriggerService;
 import org.example.treasury.service.JobSettingsService;
 import org.example.treasury.service.JobRuntimeSettingsService;
+import org.example.treasury.service.AppConfigService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.ui.ExtendedModelMap;
@@ -28,12 +29,14 @@ class SettingsControllerUnitTest {
 
     JobSettingsProperties props = new JobSettingsProperties();
     Instant updatedAt = Instant.parse("2026-01-28T12:34:56Z");
+    AppConfigService appConfigService = Mockito.mock(AppConfigService.class);
+    when(appConfigService.get(Mockito.anyString())).thenReturn("");
 
     when(service.get()).thenReturn(props);
     when(service.getUpdatedAt()).thenReturn(updatedAt);
 
     when(viewService.list()).thenReturn(java.util.List.of());
-    SettingsController controller = new SettingsController(service, viewService, triggerService, runtime);
+    SettingsController controller = new SettingsController(service, viewService, triggerService, runtime, appConfigService);
     Model model = new ExtendedModelMap();
 
     String view = controller.settings(model);
@@ -50,9 +53,10 @@ class SettingsControllerUnitTest {
     JobSettingsViewService viewService = Mockito.mock(JobSettingsViewService.class);
     JobTriggerService triggerService = Mockito.mock(JobTriggerService.class);
     JobRuntimeSettingsService runtime = Mockito.mock(JobRuntimeSettingsService.class);
+    AppConfigService appConfigService = Mockito.mock(AppConfigService.class);
     when(service.get()).thenReturn(new JobSettingsProperties());
     when(runtime.get(Mockito.any())).thenReturn(null);
-    SettingsController controller = new SettingsController(service, viewService, triggerService, runtime);
+    SettingsController controller = new SettingsController(service, viewService, triggerService, runtime, appConfigService);
 
     RedirectAttributes redirectAttributes = new RedirectAttributesModelMap();
 

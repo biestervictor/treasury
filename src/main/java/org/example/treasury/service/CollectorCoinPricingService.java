@@ -29,7 +29,6 @@ import org.example.treasury.repository.PreciousMetalRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -56,27 +55,29 @@ public class CollectorCoinPricingService {
   private final PreciousMetalRepository preciousMetalRepository;
   private final CollectorCoinPriceRepository collectorCoinPriceRepository;
   private final Clock clock;
-
-  @Value("${treasury.numista.api-key:}")
-  private String numistaApiKey;
+  private final AppConfigService appConfigService;
 
   /**
    * Konstruktor.
    *
    * @param preciousMetalRepository      Münz-Repository
    * @param collectorCoinPriceRepository Preisverlauf-Repository
+   * @param appConfigService             App-Konfigurationsservice (für Numista-API-Key)
    */
   @Autowired
   public CollectorCoinPricingService(PreciousMetalRepository preciousMetalRepository,
-                                     CollectorCoinPriceRepository collectorCoinPriceRepository) {
-    this(preciousMetalRepository, collectorCoinPriceRepository, Clock.systemUTC());
+                                     CollectorCoinPriceRepository collectorCoinPriceRepository,
+                                     AppConfigService appConfigService) {
+    this(preciousMetalRepository, collectorCoinPriceRepository, appConfigService, Clock.systemUTC());
   }
 
   CollectorCoinPricingService(PreciousMetalRepository preciousMetalRepository,
                                CollectorCoinPriceRepository collectorCoinPriceRepository,
+                               AppConfigService appConfigService,
                                Clock clock) {
     this.preciousMetalRepository = preciousMetalRepository;
     this.collectorCoinPriceRepository = collectorCoinPriceRepository;
+    this.appConfigService = appConfigService;
     this.clock = clock;
   }
 
@@ -116,7 +117,9 @@ public class CollectorCoinPricingService {
       Browser browser = playwright.chromium().launch(
           new BrowserType.LaunchOptions().setHeadless(true));
       BrowserContext context = browser.newContext(
-          new Browser.NewContextOptions().setUserAgent(USER_AGENT));
+          new Browser.NewContextOptions()
+              .setUserAgent(USER_AGENT)
+              .setIgnoreHTTPSErrors(true));
       try {
         for (PreciousMetal metal : metals) {
           String term = effectiveSearchTerm(metal);
@@ -124,7 +127,8 @@ public class CollectorCoinPricingService {
             CollectorCoinPrice entry = scrapeWithPlaywright(source, context, metal, term);
             if (entry != null) {
               results.add(collectorCoinPriceRepository.save(entry));
-              log.info("  {} – {}: {:.2f} EUR", source, metal.getName(), entry.getPriceEur());
+              log.info("  {} – {}: {} EUR", source, metal.getName(),
+                  String.format("%.2f", entry.getPriceEur()));
             }
           } catch (Exception e) {
             log.warn("  {} – {} Scrape fehlgeschlagen: {}", source, metal.getName(), e.getMessage());
@@ -167,38 +171,40 @@ public class CollectorCoinPricingService {
   // MA-Shops ──────────────────────────────────────────────────────────────
 
   private CollectorCoinPrice scrapeMaShops(BrowserContext context,
-                                            PreciousMetal metal,
-                                            String term) {
-    String url = "https://www.ma-shops.de/search/?q=" + encode(term) + "&l=de";
+                                             PreciousMetal metal,
+                                             String term) {
+    // Korrekte Such-URL für ma-shops.de (die /search/?q= Variante liefert 404)
+    String url = "https://www.ma-shops.de/shops/search.php?l=de&s=" + encode(term);
     Page page = context.newPage();
     try {
       page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
       page.waitForTimeout(2000);
 
-      // Versuche mehrere Selektoren für den Preis
-      String[] selectors = {
+      // Primärer Selektor: echte Angebotspreise in der Trefferliste
+      List<ElementHandle> priceSpans = page.querySelectorAll("td.spx-price span.price");
+      OptionalDouble price = extractLowestPrice(priceSpans);
+      if (price.isPresent()) {
+        return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
+            price.getAsDouble(), url, "günstigstes Angebot");
+      }
+
+      // Fallback-Selektoren
+      String[] fallbackSelectors = {
+          ".spx-price .price",
           ".col-price .text-success",
           ".col-price",
-          ".artikel-preis",
-          ".price",
-          "[class*='price']"
+          ".artikel-preis"
       };
-
-      for (String sel : selectors) {
+      for (String sel : fallbackSelectors) {
         List<ElementHandle> els = page.querySelectorAll(sel);
-        OptionalDouble price = extractLowestPrice(els);
-        if (price.isPresent()) {
+        OptionalDouble p = extractLowestPrice(els);
+        if (p.isPresent()) {
           return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
-              price.getAsDouble(), url, "günstigstes Angebot");
+              p.getAsDouble(), url, "günstigstes Angebot (fallback)");
         }
       }
 
-      // Fallback: parse Seitentext nach EUR-Mustern
-      OptionalDouble price = parseFirstEurFromText(page.innerText("body"));
-      if (price.isPresent()) {
-        return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
-            price.getAsDouble(), url, "Textextraktion");
-      }
+      log.debug("MA-Shops: keine Treffer für '{}'", term);
       return null;
     } finally {
       closePage(page);
@@ -217,6 +223,9 @@ public class CollectorCoinPricingService {
     try {
       page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
       page.waitForTimeout(2000);
+
+      // GDPR-Consent-Wand akzeptieren falls vorhanden (eBay EU)
+      dismissEbayConsent(page);
 
       List<ElementHandle> priceEls = page.querySelectorAll(".s-item__price");
       List<Double> prices = new ArrayList<>();
@@ -296,8 +305,9 @@ public class CollectorCoinPricingService {
   // ─── Numista REST-API ────────────────────────────────────────────────────
 
   private List<CollectorCoinPrice> updateFromNumista(List<PreciousMetal> metals) {
-    if (numistaApiKey == null || numistaApiKey.isBlank()) {
-      log.warn("Numista-API-Key nicht konfiguriert (treasury.numista.api-key). Überspringe Numista.");
+    String numistaApiKey = appConfigService.get(AppConfigService.KEY_NUMISTA_API_KEY);
+    if (numistaApiKey.isBlank()) {
+      log.warn("Numista-API-Key nicht konfiguriert (Settings → API-Keys). Überspringe Numista.");
       return List.of();
     }
 
@@ -309,10 +319,11 @@ public class CollectorCoinPricingService {
     for (PreciousMetal metal : metals) {
       String term = effectiveSearchTerm(metal);
       try {
-        CollectorCoinPrice entry = fetchNumistaPrice(http, metal, term);
+        CollectorCoinPrice entry = fetchNumistaPrice(http, metal, term, numistaApiKey);
         if (entry != null) {
           results.add(collectorCoinPriceRepository.save(entry));
-          log.info("  NUMISTA – {}: {:.2f} EUR", metal.getName(), entry.getPriceEur());
+          log.info("  NUMISTA – {}: {} EUR", metal.getName(),
+                  String.format("%.2f", entry.getPriceEur()));
         }
         sleepMs(500);
       } catch (Exception e) {
@@ -324,7 +335,8 @@ public class CollectorCoinPricingService {
 
   private CollectorCoinPrice fetchNumistaPrice(HttpClient http,
                                                 PreciousMetal metal,
-                                                String term)
+                                                String term,
+                                                String numistaApiKey)
       throws IOException, InterruptedException {
     // 1) Münze suchen
     String searchUrl = "https://numista.com/api/v3/find_coins?q="
@@ -481,6 +493,31 @@ public class CollectorCoinPricingService {
 
   private static String encode(String term) {
     return URLEncoder.encode(term, StandardCharsets.UTF_8);
+  }
+
+  /**
+   * Versucht die eBay GDPR-Consent-Wand wegzuklicken (EU-Pflichtbannerr).
+   * Fehler werden ignoriert, da der Banner nicht immer vorhanden ist.
+   */
+  private static void dismissEbayConsent(Page page) {
+    try {
+      // Primärer Selector für "Alle akzeptieren"-Button
+      ElementHandle btn = page.querySelector("button[id='gdpr-banner-accept']");
+      if (btn == null) {
+        btn = page.querySelector(".gh-oa-btn-accept");
+      }
+      if (btn == null) {
+        // Fallback: Button-Text-Suche
+        btn = page.querySelector("button:has-text('Alle akzeptieren')");
+      }
+      if (btn != null) {
+        btn.click();
+        page.waitForTimeout(1500);
+        log.debug("eBay GDPR-Consent akzeptiert");
+      }
+    } catch (Exception e) {
+      log.debug("eBay GDPR-Consent-Dismiss übersprungen: {}", e.getMessage());
+    }
   }
 
   private static void closePage(Page page) {

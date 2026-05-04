@@ -93,6 +93,25 @@
     </div>
   </div>
 
+  <!-- API-Keys -->
+  <div class="card mt-4">
+    <div class="card-header">API-Keys</div>
+    <div class="card-body">
+      <form method="post" th:action="@{/api/settings/config}">
+        <div class="mb-3">
+          <label class="form-label" for="numistaApiKey">Numista API-Key</label>
+          <input class="form-control" type="text" id="numistaApiKey" name="numistaApiKey"
+                 th:value="${numistaApiKey}" placeholder="Numista API-Key eingeben" />
+          <div class="form-text">
+            Key unter <a href="https://numista.com/api/doc/" target="_blank">numista.com/api/doc</a> beantragen.
+            Wird für die Numista-Preiaquelle beim Collector-Münz-Scraper benötigt.
+          </div>
+        </div>
+        <button class="btn btn-outline-primary" type="submit">Speichern</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Dev-only: Test Mail -->
   <div th:if="${devMode}" class="card mt-4 border-warning">
     <div class="card-header bg-warning text-dark">

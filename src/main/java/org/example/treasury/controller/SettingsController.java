@@ -9,6 +9,7 @@ import java.util.Locale;
 import org.example.treasury.dto.JobSettingsUpdateRequest;
 import org.example.treasury.dto.MailRequest;
 import org.example.treasury.model.JobKey;
+import org.example.treasury.service.AppConfigService;
 import org.example.treasury.service.JobSettingsService;
 import org.example.treasury.service.JobSettingsViewService;
 import org.example.treasury.service.JobTriggerService;
@@ -39,6 +40,7 @@ public class SettingsController {
   private final JobSettingsViewService jobSettingsViewService;
   private final JobTriggerService jobTriggerService;
   private final JobRuntimeSettingsService jobRuntimeSettingsService;
+  private final AppConfigService appConfigService;
 
   @Autowired(required = false)
   private MailService mailService;
@@ -56,15 +58,18 @@ public class SettingsController {
    * @param jobSettingsViewService    the job settings view service
    * @param jobTriggerService         the job trigger service
    * @param jobRuntimeSettingsService the runtime settings service
+   * @param appConfigService          the app config service
    */
   public SettingsController(JobSettingsService jobSettingsService,
                             JobSettingsViewService jobSettingsViewService,
                             JobTriggerService jobTriggerService,
-                            JobRuntimeSettingsService jobRuntimeSettingsService) {
+                            JobRuntimeSettingsService jobRuntimeSettingsService,
+                            AppConfigService appConfigService) {
     this.jobSettingsService = jobSettingsService;
     this.jobSettingsViewService = jobSettingsViewService;
     this.jobTriggerService = jobTriggerService;
     this.jobRuntimeSettingsService = jobRuntimeSettingsService;
+    this.appConfigService = appConfigService;
   }
 
   /**
@@ -78,6 +83,7 @@ public class SettingsController {
     model.addAttribute("settings", jobSettingsService.get());
     model.addAttribute("updatedAt", jobSettingsService.getUpdatedAt());
     model.addAttribute("devMode", devMode);
+    model.addAttribute("numistaApiKey", appConfigService.get(AppConfigService.KEY_NUMISTA_API_KEY));
 
     var jobs = jobSettingsViewService.list();
     model.addAttribute("jobs", jobs);
@@ -252,6 +258,23 @@ public class SettingsController {
     }
 
     redirectAttributes.addFlashAttribute("success", "Job-Einstellungen gespeichert.");
+    return "redirect:/api/settings";
+  }
+
+  /**
+   * Speichert applikationsweite Konfigurationswerte (z.B. API-Keys).
+   *
+   * @param numistaApiKey  der Numista-API-Key
+   * @param redirectAttributes flash attributes for the redirect
+   * @return redirect to settings page
+   */
+  @PostMapping("/config")
+  public String updateConfig(
+      @RequestParam(name = "numistaApiKey", defaultValue = "") String numistaApiKey,
+      RedirectAttributes redirectAttributes) {
+    appConfigService.set(AppConfigService.KEY_NUMISTA_API_KEY, numistaApiKey.trim());
+    log.info("Numista-API-Key aktualisiert (Länge: {})", numistaApiKey.trim().length());
+    redirectAttributes.addFlashAttribute("success", "API-Keys gespeichert.");
     return "redirect:/api/settings";
   }
 }
