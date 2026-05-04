@@ -37,6 +37,8 @@ spec:
               value: "{{ .Values.treasury.build.version | default 0 }}"
             - name: TREASURY_BUILD_TIME
               value: '{{ .Values.treasury.build.time | default "unknown" }}'
+            - name: TREASURY_DEV_MODE
+              value: "{{ .Values.treasury.devMode | default false }}"
             {{- if .Values.mongodb.app.auth }}
             # Prod: SPRING_MONGODB_URI überschreibt den in application-kubitos.properties
             # hardcodierten In-Cluster-Service. URI kommt aus ExternalSecret (mongodb-credentials).

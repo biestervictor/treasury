@@ -36,8 +36,14 @@
     </div>
 
     <!-- Card grid -->
+    <div class="d-flex justify-content-end mb-2">
+        <button id="ubToggle" class="btn btn-sm btn-outline-secondary"
+                onclick="toggleUB()">Universe Beyond anzeigen</button>
+    </div>
     <div class="row g-2">
-        <div th:each="entry : ${aggregatedData}" class="col-4 col-sm-3 col-md-2 col-lg-1">
+        <div th:each="entry : ${aggregatedData}"
+             class="col-4 col-sm-3 col-md-2 col-lg-1 ub-card"
+             th:attr="data-ub=${entry.universeBeyond}">
             <a th:href="@{/api/display/list(setCode=${entry.setCode},type=${entry.type})}"
                class="text-decoration-none">
                 <div class="card border-0 shadow-sm h-100 text-center"
@@ -90,5 +96,24 @@
 </div>
 
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
+<script>
+    let showUB = false;
+    function applyUBFilter() {
+        document.querySelectorAll('.ub-card').forEach(function(card) {
+            if (card.dataset.ub === 'true' && !showUB) {
+                card.style.display = 'none';
+            } else {
+                card.style.display = '';
+            }
+        });
+        document.getElementById('ubToggle').textContent =
+            showUB ? 'Universe Beyond ausblenden' : 'Universe Beyond anzeigen';
+    }
+    function toggleUB() {
+        showUB = !showUB;
+        applyUBFilter();
+    }
+    document.addEventListener('DOMContentLoaded', applyUBFilter);
+</script>
 </body>
 </html>

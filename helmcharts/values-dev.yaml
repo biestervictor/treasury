@@ -38,6 +38,7 @@ hedgedoc:
       testPassword: hedgedoc
 
 treasury:
+  devMode: true
   nodeSelector:
   ingress:
     host: treasury-dev.biester.vip

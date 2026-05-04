@@ -33,6 +33,7 @@ public class MagicSet {
   private int cardCount;
   private String boosterBoxImageUrl;
   private Map<String, Double> wishPrices;
+  private boolean universeBeyond;
 
   @Override
   public boolean equals(Object o) {

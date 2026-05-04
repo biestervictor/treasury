@@ -56,6 +56,11 @@
                            value="expansion" autocomplete="off"
                            th:checked="${setType != null and #strings.contains(setType,'expansion')}">
                     <label class="btn btn-outline-secondary btn-sm" for="toggle-expansion">expansion</label>
+
+                    <input type="checkbox" class="btn-check filter-toggle" id="toggle-ub"
+                           value="ub" autocomplete="off"
+                           th:checked="${setType != null and #strings.contains(setType,'ub')}">
+                    <label class="btn btn-outline-secondary btn-sm" for="toggle-ub">Universe Beyond</label>
                 </div>
 
                 <input type="hidden" id="setType" name="setType" th:value="${setType}">
