@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.example.treasury.model.Shoe;
 import org.example.treasury.service.CsvImporter;
-import org.example.treasury.service.EbayPriceCollectorService;
 import org.example.treasury.service.ShoePriceCollectorService;
 import org.example.treasury.service.ShoeService;
 import org.example.treasury.service.StockxPriceCollectorService;
@@ -27,7 +26,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * ShoeController is a Spring MVC controller that handles requests related to shoes.
- * It provides endpoints for inserting, listing, scraping Klekt prices, and managing shoes.
+ * It provides endpoints for inserting, listing, scraping Klekt/StockX prices,
+ * and managing shoes.
  */
 
 @Controller
@@ -40,7 +40,6 @@ public class ShoeController {
   private final CsvImporter csvImporter;
   private final ShoeService shoeService;
   private final ShoePriceCollectorService shoePriceCollectorService;
-  private final EbayPriceCollectorService ebayPriceCollectorService;
   private final StockxPriceCollectorService stockxPriceCollectorService;
 
   /**
@@ -49,17 +48,14 @@ public class ShoeController {
    * @param csvImporter                 the CsvImporter instance
    * @param shoeService                 the ShoeService instance
    * @param shoePriceCollectorService   the ShoePriceCollectorService instance
-   * @param ebayPriceCollectorService   the EbayPriceCollectorService instance
    * @param stockxPriceCollectorService the StockxPriceCollectorService instance
    */
   public ShoeController(CsvImporter csvImporter, ShoeService shoeService,
                         ShoePriceCollectorService shoePriceCollectorService,
-                        EbayPriceCollectorService ebayPriceCollectorService,
                         StockxPriceCollectorService stockxPriceCollectorService) {
     this.csvImporter = csvImporter;
     this.shoeService = shoeService;
     this.shoePriceCollectorService = shoePriceCollectorService;
-    this.ebayPriceCollectorService = ebayPriceCollectorService;
     this.stockxPriceCollectorService = stockxPriceCollectorService;
   }
 
@@ -79,9 +75,7 @@ public class ShoeController {
       model.addAttribute("shoe", shoeService.getAllShoes());
     }
     return "shoe";
-
   }
-
 
   /**
    * Update the sold value for a shoe.
@@ -269,104 +263,10 @@ public class ShoeController {
     model.addAttribute("shoe", shoes);
     model.addAttribute("totalValueBought", formattedTotalValueBought);
     model.addAttribute("totalValueStockX", formattedTotalValueStockX);
-
-    // Gewinn/Verlust bei Verkäufen
     model.addAttribute("totalWinSold", formattedTotalWinSold);
     model.addAttribute("totalWinSoldValue", totalWinSold);
-    model.addAttribute("ebayConfigured", ebayPriceCollectorService.isConfigured());
-    // StockX braucht keinen API-Key – Scraping ist immer aktiv
-    model.addAttribute("stockxEnabled", true);
 
     return "shoe";
-  }
-
-  /**
-   * Scrapt den aktuellen eBay-Preis für einen einzelnen Schuh.
-   *
-   * @param id                 shoe id
-   * @param redirectAttributes for flash messages
-   * @return redirect to list
-   */
-  @PostMapping("/{id}/scrapeEbay")
-  public String scrapeEbay(
-      @PathVariable String id,
-      RedirectAttributes redirectAttributes) {
-    Shoe shoe = shoeService.getAllShoes().stream()
-        .filter(s -> id.equals(s.getId()))
-        .findFirst()
-        .orElse(null);
-
-    if (shoe == null) {
-      redirectAttributes.addFlashAttribute("error", "Schuh nicht gefunden: " + id);
-      return "redirect:/api/shoe/list";
-    }
-
-    try {
-      Optional<Double> price = ebayPriceCollectorService.fetchLowestPrice(shoe);
-      if (price.isPresent()) {
-        shoeService.updateEbayPrice(id, price.get());
-        redirectAttributes.addFlashAttribute("message",
-            String.format("eBay-Preis aktualisiert: %.2f €  (%s US %s)",
-                price.get(), shoe.getName(), shoe.getUsSize()));
-      } else {
-        redirectAttributes.addFlashAttribute("error",
-            "Kein eBay-Angebot gefunden für: " + shoe.getName() + " US " + shoe.getUsSize());
-      }
-    } catch (Exception e) {
-      logger.error("eBay-Fehler für {}: {}", shoe.getName(), e.getMessage());
-      redirectAttributes.addFlashAttribute("error", "eBay-Fehler: " + e.getMessage());
-    }
-    return "redirect:/api/shoe/list";
-  }
-
-  /**
-   * Scrapt eBay-Preise für alle Schuhe.
-   *
-   * @param redirectAttributes for flash messages
-   * @return redirect to list
-   */
-  @PostMapping("/scrapeAllEbay")
-  public String scrapeAllEbay(RedirectAttributes redirectAttributes) {
-    if (!ebayPriceCollectorService.isConfigured()) {
-      redirectAttributes.addFlashAttribute("error",
-          "eBay App-ID nicht konfiguriert. Bitte ebay.app.id in application.properties setzen.");
-      return "redirect:/api/shoe/list";
-    }
-
-    List<Shoe> shoes = shoeService.getAllShoes();
-    int updated = 0;
-    int skipped = 0;
-    int errors = 0;
-    List<String> details = new ArrayList<>();
-
-    for (Shoe shoe : shoes) {
-      String label = shoe.getName() + " US " + shoe.getUsSize();
-      try {
-        Optional<Double> price = ebayPriceCollectorService.fetchLowestPrice(shoe);
-        if (price.isPresent()) {
-          shoeService.updateEbayPrice(shoe.getId(), price.get());
-          updated++;
-          details.add(String.format("✓ %s: %.2f €", label, price.get()));
-        } else {
-          skipped++;
-          details.add("– " + label + ": kein Angebot gefunden");
-        }
-        Thread.sleep(500);
-      } catch (InterruptedException ie) {
-        Thread.currentThread().interrupt();
-        break;
-      } catch (Exception e) {
-        errors++;
-        logger.error("eBay-Fehler für {}: {}", shoe.getName(), e.getMessage());
-        details.add("✗ " + label + ": Fehler – " + e.getMessage());
-      }
-    }
-
-    redirectAttributes.addFlashAttribute("message",
-        String.format("eBay Scraping: %d aktualisiert, %d übersprungen, %d Fehler",
-            updated, skipped, errors));
-    redirectAttributes.addFlashAttribute("scrapeDetails", details);
-    return "redirect:/api/shoe/list";
   }
 
   /**
@@ -466,6 +366,107 @@ public class ShoeController {
     redirectAttributes.addFlashAttribute("message",
         String.format("StockX Scraping: %d aktualisiert, %d übersprungen, %d Fehler",
             updated, skipped, errors));
+    redirectAttributes.addFlashAttribute("scrapeDetails", details);
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Versucht den Klekt-Slug als StockX-Slug zu nutzen: scrapt StockX mit dem Klekt-Slug,
+   * und speichert ihn als stockxSlug wenn Preisdaten zurückkommen.
+   *
+   * @param id                 shoe id
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/{id}/deriveStockxSlug")
+  public String deriveStockxSlug(
+      @PathVariable String id,
+      RedirectAttributes redirectAttributes) {
+    Shoe shoe = shoeService.getAllShoes().stream()
+        .filter(s -> id.equals(s.getId()))
+        .findFirst()
+        .orElse(null);
+
+    if (shoe == null) {
+      redirectAttributes.addFlashAttribute("error", "Schuh nicht gefunden: " + id);
+      return "redirect:/api/shoe/list";
+    }
+
+    if (shoe.getKlektSlug() == null || shoe.getKlektSlug().isBlank()) {
+      redirectAttributes.addFlashAttribute("error",
+          "Kein Klekt-Slug gesetzt – kann StockX-Slug nicht ableiten für: " + shoe.getName());
+      return "redirect:/api/shoe/list";
+    }
+
+    String detectedSlug = stockxPriceCollectorService.detectSlug(shoe);
+    if (detectedSlug != null) {
+      shoeService.updateStockxSlug(id, detectedSlug);
+      redirectAttributes.addFlashAttribute("message",
+          "StockX-Slug gefunden: \"" + detectedSlug + "\"  (" + shoe.getName() + ")");
+    } else {
+      redirectAttributes.addFlashAttribute("error",
+          "StockX-Slug konnte nicht ermittelt werden für: " + shoe.getName()
+              + " (Klekt-Slug \"" + shoe.getKlektSlug() + "\" funktioniert auf StockX nicht)");
+    }
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Leitet StockX-Slugs für alle Schuhe ab, die einen Klekt-Slug aber noch keinen
+   * StockX-Slug haben. Überspringt Schuhe, die bereits einen StockX-Slug haben.
+   *
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/deriveAllStockxSlugs")
+  public String deriveAllStockxSlugs(RedirectAttributes redirectAttributes) {
+    List<Shoe> shoes = shoeService.getAllShoes();
+    int found = 0;
+    int notFound = 0;
+    int skipped = 0;
+    List<String> details = new ArrayList<>();
+
+    for (Shoe shoe : shoes) {
+      String label = shoe.getName() + " US " + shoe.getUsSize();
+
+      // Überspringe wenn bereits ein StockX-Slug gesetzt ist
+      if (shoe.getStockxSlug() != null && !shoe.getStockxSlug().isBlank()) {
+        skipped++;
+        details.add("– " + label + ": bereits gesetzt (" + shoe.getStockxSlug() + ")");
+        continue;
+      }
+
+      // Überspringe wenn kein Klekt-Slug vorhanden
+      if (shoe.getKlektSlug() == null || shoe.getKlektSlug().isBlank()) {
+        skipped++;
+        details.add("– " + label + ": kein Klekt-Slug vorhanden");
+        continue;
+      }
+
+      try {
+        String detectedSlug = stockxPriceCollectorService.detectSlug(shoe);
+        if (detectedSlug != null) {
+          shoeService.updateStockxSlug(shoe.getId(), detectedSlug);
+          found++;
+          details.add("✓ " + label + ": Slug = \"" + detectedSlug + "\"");
+        } else {
+          notFound++;
+          details.add("✗ " + label + ": nicht gefunden (Klekt-Slug: " + shoe.getKlektSlug() + ")");
+        }
+        Thread.sleep(2000);
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        break;
+      } catch (Exception e) {
+        notFound++;
+        logger.error("Slug-Ableitung fehlgeschlagen für {}: {}", shoe.getName(), e.getMessage());
+        details.add("✗ " + label + ": Fehler – " + e.getMessage());
+      }
+    }
+
+    redirectAttributes.addFlashAttribute("message",
+        String.format("StockX-Slug Ableitung: %d gefunden, %d nicht gefunden, %d übersprungen",
+            found, notFound, skipped));
     redirectAttributes.addFlashAttribute("scrapeDetails", details);
     return "redirect:/api/shoe/list";
   }

@@ -45,6 +45,54 @@ public class StockxPriceCollectorService {
   }
 
   /**
+   * Versucht den Klekt-Slug als StockX-Slug zu validieren, indem die StockX-Seite
+   * für diesen Slug via Playwright geladen und auf Preisdaten geprüft wird.
+   * Gibt den funktionierenden Slug zurück, oder {@code null} wenn keine Preisdaten
+   * gefunden wurden.
+   *
+   * <p>Strategie (in Reihenfolge):
+   * <ol>
+   *   <li>Klekt-Slug unverändert</li>
+   * </ol>
+   *
+   * @param shoe Schuh mit gesetztem klektSlug
+   * @return gefundener StockX-Slug oder null
+   */
+  public String detectSlug(Shoe shoe) {
+    String klektSlug = shoe.getKlektSlug();
+    if (klektSlug == null || klektSlug.isBlank()) {
+      return null;
+    }
+
+    // Direkt mit Klekt-Slug versuchen
+    Shoe candidate = buildCandidateShoe(shoe, klektSlug);
+    if (fetchPrices(candidate).isPresent()) {
+      logger.info("StockX-Slug ermittelt (direkt): {}", klektSlug);
+      return klektSlug;
+    }
+
+    logger.info("StockX-Slug nicht gefunden für Klekt-Slug: {}", klektSlug);
+    return null;
+  }
+
+  /**
+   * Erstellt eine temporäre Kopie des Schuhs mit dem angegebenen StockX-Slug
+   * für den Validierungs-Scrape.
+   *
+   * @param original   Originalschuh
+   * @param stockxSlug zu testender Slug
+   * @return Schuh-Kopie mit gesetztem stockxSlug
+   */
+  private Shoe buildCandidateShoe(Shoe original, String stockxSlug) {
+    Shoe candidate = new Shoe();
+    candidate.setId(original.getId());
+    candidate.setName(original.getName());
+    candidate.setUsSize(original.getUsSize());
+    candidate.setStockxSlug(stockxSlug);
+    return candidate;
+  }
+
+  /**
    * Scrapt StockX-Preisdaten für den angegebenen Schuh via Playwright.
    * Gibt empty zurück wenn kein stockxSlug gesetzt ist oder die Seite nicht ausgewertet
    * werden kann.

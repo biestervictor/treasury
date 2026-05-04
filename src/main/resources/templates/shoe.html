@@ -38,25 +38,21 @@
 
 <!-- Hauptinhalt -->
 <div class="container-fluid mt-4 px-4">
-    <div class="d-flex justify-content-end mb-3 gap-2">
+    <div class="d-flex justify-content-end mb-3 gap-2 flex-wrap">
         <form method="post" th:action="@{/api/shoe/scrapeAllKlekt}">
             <button type="submit" class="btn btn-outline-success btn-sm">
                 <i class="bi bi-arrow-repeat"></i> Alle Klekt-Preise
             </button>
         </form>
-        <form th:if="${ebayConfigured}" method="post" th:action="@{/api/shoe/scrapeAllEbay}">
-            <button type="submit" class="btn btn-outline-warning btn-sm text-dark">
-                <i class="bi bi-arrow-repeat"></i> Alle eBay-Preise
-            </button>
-        </form>
-        <span th:if="${!ebayConfigured}"
-              class="btn btn-outline-secondary btn-sm disabled"
-              title="ebay.app.id in application.properties setzen">
-            <i class="bi bi-lock"></i> eBay (nicht konfiguriert)
-        </span>
-        <form th:if="${stockxEnabled}" method="post" th:action="@{/api/shoe/scrapeAllStockx}">
+        <form method="post" th:action="@{/api/shoe/scrapeAllStockx}">
             <button type="submit" class="btn btn-outline-danger btn-sm">
                 <i class="bi bi-arrow-repeat"></i> Alle StockX-Preise
+            </button>
+        </form>
+        <form method="post" th:action="@{/api/shoe/deriveAllStockxSlugs}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                    title="Klekt-Slug als StockX-Slug testen (nur Schuhe ohne StockX-Slug)">
+                <i class="bi bi-magic"></i> StockX-Slugs ableiten
             </button>
         </form>
         <form method="get" th:action="@{/api/shoe/insert}">
@@ -137,15 +133,12 @@
                     Klekt Bid &#x25B2;&#x25BC;
                 </th>
                 <th onclick="sortTable(7)" style="cursor:pointer;" title="Sortieren">
-                    eBay &#x25B2;&#x25BC;
-                </th>
-                <th onclick="sortTable(8)" style="cursor:pointer;" title="Sortieren">
                     StockX Ask &#x25B2;&#x25BC;
                 </th>
-                <th onclick="sortTable(9)" style="cursor:pointer;" title="Sortieren">
+                <th onclick="sortTable(8)" style="cursor:pointer;" title="Sortieren">
                     StockX Bid &#x25B2;&#x25BC;
                 </th>
-                <th onclick="sortTable(10)" style="cursor:pointer;" title="Sortieren">
+                <th onclick="sortTable(9)" style="cursor:pointer;" title="Sortieren">
                     Gewinn Ask &#x25B2;&#x25BC;
                 </th>
                 <th>Verkaufspreis</th>
@@ -176,14 +169,6 @@
                           class="fw-semibold"
                           th:text="${#numbers.formatDecimal(shoe.klektBid, 1, 2)} + ' €'"></span>
                     <span th:if="${shoe.klektBid == 0}" class="text-muted">—</span>
-                </td>
-
-                <!-- eBay Ask -->
-                <td>
-                    <span th:if="${shoe.ebayAsk > 0}"
-                          class="text-warning-emphasis fw-semibold"
-                          th:text="${#numbers.formatDecimal(shoe.ebayAsk, 1, 2)} + ' €'"></span>
-                    <span th:if="${shoe.ebayAsk == 0}" class="text-muted">—</span>
                 </td>
 
                 <!-- StockX Ask -->
@@ -242,16 +227,6 @@
                             </button>
                         </form>
 
-                        <!-- eBay-Preis scrapen -->
-                        <form th:if="${ebayConfigured}"
-                              th:action="@{'/api/shoe/' + ${shoe.id} + '/scrapeEbay'}" method="post"
-                              class="d-inline">
-                            <button type="submit" class="btn btn-outline-warning btn-sm text-dark"
-                                    title="eBay-Preis abrufen">
-                                <i class="bi bi-cart"></i>
-                            </button>
-                        </form>
-
                         <!-- Verkaufspreis bearbeiten -->
                         <button class="btn btn-outline-secondary btn-sm"
                                 data-bs-toggle="modal"
@@ -264,7 +239,7 @@
                         <button class="btn btn-outline-info btn-sm"
                                 data-bs-toggle="modal"
                                 th:attr="data-bs-target='#klektSlugModal__' + ${shoe.id}"
-                                th:title="'Slug: ' + (${shoe.klektSlug != null and !#strings.isEmpty(shoe.klektSlug)} ? shoe.klektSlug : 'nicht gesetzt')">
+                                th:title="'Klekt-Slug: ' + (${shoe.klektSlug != null and !#strings.isEmpty(shoe.klektSlug)} ? shoe.klektSlug : 'nicht gesetzt')">
                             <i class="bi bi-tag"></i>
                         </button>
 
@@ -284,6 +259,17 @@
                                     th:disabled="${shoe.stockxSlug == null or #strings.isEmpty(shoe.stockxSlug)}"
                                     title="StockX-Preis abrufen">
                                 <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        </form>
+
+                        <!-- StockX-Slug ableiten (nur wenn Klekt-Slug gesetzt, aber StockX-Slug fehlt) -->
+                        <form th:if="${shoe.klektSlug != null and !#strings.isEmpty(shoe.klektSlug)
+                                       and (shoe.stockxSlug == null or #strings.isEmpty(shoe.stockxSlug))}"
+                              th:action="@{'/api/shoe/' + ${shoe.id} + '/deriveStockxSlug'}" method="post"
+                              class="d-inline">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                    title="StockX-Slug aus Klekt-Slug ableiten">
+                                <i class="bi bi-magic"></i>
                             </button>
                         </form>
 
@@ -406,12 +392,10 @@
             const resetBtn = document.getElementById('btnFilterReset');
 
             if (activeFilterClass === cls) {
-                // Filter aufheben
                 resetFilter();
                 return;
             }
 
-            // Anderen Filter-Button deaktivieren
             document.querySelectorAll('[data-filter-class]').forEach(b => b.classList.remove('active'));
 
             activeFilterClass = cls;

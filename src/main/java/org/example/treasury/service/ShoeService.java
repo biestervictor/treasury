@@ -27,19 +27,6 @@ public class ShoeService {
   }
 
   /**
-   * Updates the eBay lowest listing price for a shoe.
-   *
-   * @param shoeId   the shoe ID
-   * @param ebayAsk  the lowest current eBay listing price in EUR
-   */
-  public void updateEbayPrice(String shoeId, double ebayAsk) {
-    Shoe shoe = shoeRepository.findById(shoeId)
-        .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
-    shoe.setEbayAsk(ebayAsk);
-    shoeRepository.save(shoe);
-  }
-
-  /**
    * Updates the Klekt Ask price (lowest listing) and Bid price (highest buy-order) for a shoe.
    *
    * @param shoeId   the shoe ID
