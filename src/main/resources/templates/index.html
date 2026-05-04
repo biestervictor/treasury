@@ -1,55 +1,8 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="fragments/layout :: head('Hauptmenü')"></head>
-<body class="bg-light">
-<!-- Navigation -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#">Treasury</a>
-        <button aria-controls="navbarNav" aria-expanded="false" aria-label="Navigation umschalten"
-                class="navbar-toggler"
-                data-bs-target="#navbarNav" data-bs-toggle="collapse" type="button">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/api/shoe/list}">Schuh-Liste</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/api/display/insert}">Display-Liste</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/api/edelmetall/dashboard/view}">Edelmetalle</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link active" th:href="@{/api/menue/index}">Hauptmenü</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/api/settings}">
-                        Settings
-                        <span class="badge bg-success" th:if="${jobsAllEnabled}">Jobs: ON</span>
-                        <span class="badge bg-danger" th:if="${jobsAnyDisabled}">Jobs: OFF</span>
-                    </a>
-                </li>
-            </ul>
-
-            <th:block th:replace="fragments/buildDbBadges :: badges"></th:block>
-        </div>
-    </div>
-</nav>
-
-<!-- Hauptinhalt -->
-<div class="container mt-5">
-    <h1 class="text-center mb-4">Willkommen im Hauptmenü</h1>
-    <div class="text-center">
-        <a class="btn btn-outline-primary btn-lg m-2" href="/api/menue/displayMenue">Zur Displayverwaltung</a>
-        <a class="btn btn-outline-success btn-lg m-2" href="/api/secretlair/insert">Zur SecretLairverwaltung</a>
-        <a class="btn btn-outline-success btn-lg m-2" href="/api/menue/shoeMenue">Zur Schuhverwaltung</a>
-        <a class="btn btn-outline-warning btn-lg m-2" href="/api/edelmetall/dashboard/view">Edelmetalle</a>
-    </div>
-</div>
-
-<th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
-</body>
+<head>
+    <meta http-equiv="refresh" content="0; url=/api/dashboard">
+    <title>Treasury</title>
+</head>
+<body></body>
 </html>
