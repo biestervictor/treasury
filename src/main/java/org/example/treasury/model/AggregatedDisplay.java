@@ -19,4 +19,5 @@ public class AggregatedDisplay {
   private String iconUri;
   private double sanitizedMarketPrice;
   private String boosterBoxImageUrl;
+  private boolean universeBeyond;
 }

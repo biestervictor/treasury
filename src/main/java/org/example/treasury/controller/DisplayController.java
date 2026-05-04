@@ -154,6 +154,7 @@ public class DisplayController {
           .ifPresent(magicSet -> {
             entry.setIconUri(magicSet.getIconUri());
             entry.setBoosterBoxImageUrl(magicSet.getBoosterBoxImageUrl());
+            entry.setUniverseBeyond(magicSet.isUniverseBeyond());
           });
 
       aggregatedData.add(entry);

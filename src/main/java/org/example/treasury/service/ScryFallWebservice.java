@@ -6,7 +6,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.example.treasury.model.MagicSet;
 import org.example.treasury.model.SetType;
 import org.json.JSONArray;
@@ -49,6 +51,13 @@ public class ScryFallWebservice {
     boolean newSet = false;
     List<MagicSet> magicSets = new ArrayList<>();
 
+    Set<String> ubSetCodes;
+    try {
+      ubSetCodes = getUniverseBeyondSetCodes();
+    } catch (Exception e) {
+      logger.warn("Universe-Beyond-SetCodes konnten nicht ermittelt werden", e);
+      ubSetCodes = new HashSet<>();
+    }
 
     String scryfallURL = "https://api.scryfall.com/sets";
     do {
@@ -82,7 +91,9 @@ public class ScryFallWebservice {
               .uri(jsonCard.getString("uri"))
               .iconUri(jsonCard.getString("icon_svg_uri"))
               .releaseDate(LocalDate.parse(jsonCard.getString("released_at")))
-              .cardCount(jsonCard.getInt("card_count")).setType(setType).build());
+              .cardCount(jsonCard.getInt("card_count")).setType(setType)
+              .universeBeyond(ubSetCodes.contains(setCode.toUpperCase()))
+              .build());
 
 
         }
@@ -91,6 +102,35 @@ public class ScryFallWebservice {
 
 
     return magicSets;
+  }
+
+  /**
+   * Fetches the set codes of all Universe Beyond sets from the Scryfall cards search API.
+   * Uses {@code is:universesbeyond} with {@code unique=sets} to retrieve one card per UB set.
+   *
+   * @return a set of uppercase set codes that belong to Universe Beyond
+   * @throws Exception if an error occurs while fetching data from the API
+   */
+  @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+  public Set<String> getUniverseBeyondSetCodes() throws Exception {
+    Set<String> ubSetCodes = new HashSet<>();
+    String nextPage =
+        "https://api.scryfall.com/cards/search?q=is:universesbeyond&unique=sets";
+    boolean hasMore = true;
+    while (hasMore) {
+      String jsonString = getHTML(nextPage);
+      JSONObject obj = new JSONObject(jsonString);
+      hasMore = obj.optBoolean("has_more", false);
+      if (hasMore) {
+        nextPage = obj.getString("next_page");
+      }
+      JSONArray data = obj.getJSONArray("data");
+      for (int i = 0; i < data.length(); i++) {
+        JSONObject card = data.getJSONObject(i);
+        ubSetCodes.add(card.getString("set").toUpperCase());
+      }
+    }
+    return ubSetCodes;
   }
 
   @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
