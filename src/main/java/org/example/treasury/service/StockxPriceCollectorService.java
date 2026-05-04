@@ -132,9 +132,12 @@ public class StockxPriceCollectorService {
         logger.info("StockX: lade {} ...", url);
         page.navigate(url, new Page.NavigateOptions().setTimeout(30000));
 
-        // Warte bis Seite grundlegend geladen – StockX braucht JS-Rendering
-        page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE,
-            new Page.WaitForLoadStateOptions().setTimeout(15000));
+        // Warte bis DOM fertig geladen – NETWORKIDLE funktioniert nicht weil Cloudflare
+        // permanent Netzwerkanfragen offen hält und NETWORKIDLE nie erreicht wird.
+        // Nach LOAD kurz warten damit Cloudflare-JS durchläuft.
+        page.waitForLoadState(com.microsoft.playwright.options.LoadState.LOAD,
+            new Page.WaitForLoadStateOptions().setTimeout(30000));
+        page.waitForTimeout(3000);
 
         String pageUrl = page.url();
         logger.debug("StockX: final URL = {}", pageUrl);
