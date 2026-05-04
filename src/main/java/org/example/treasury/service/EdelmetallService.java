@@ -314,7 +314,9 @@ public class EdelmetallService {
               ? priceSnapshot.getGoldPriceEurPerOunce()
               : priceSnapshot.getSilverPriceEurPerOunce();
           double ounces = m.getWeightInGrams() / GRAMS_PER_TROY_OUNCE;
-          double currentUnitValue = ounces * pricePerOunce;
+          double spotUnitValue = ounces * pricePerOunce;
+          boolean usesMarketValue = m.getMarketValue() > 0;
+          double currentUnitValue = usesMarketValue ? m.getMarketValue() : spotUnitValue;
           double currentTotalValue = currentUnitValue * m.getQuantity();
           double profit = m.getQuantity() * (currentUnitValue - m.getPurchasePrice());
 
@@ -329,6 +331,9 @@ public class EdelmetallService {
               .currentTotalValue(currentTotalValue)
               .purchasePrice(m.getPurchasePrice())
               .profit(profit)
+              .marketValue(m.getMarketValue())
+              .usesMarketValue(usesMarketValue)
+              .spotUnitValue(spotUnitValue)
               .build();
         })
         .toList();
@@ -342,6 +347,29 @@ public class EdelmetallService {
         .totalCurrentValue(totalCurrentValue)
         .totalProfit(totalProfit)
         .build();
+  }
+
+  /**
+   * Setzt den Sammlerwert (EUR/Stk) für eine Münze und speichert sofort einen neuen Valuation-Snapshot.
+   *
+   * @param id          MongoDB-ID der Münze (PreciousMetal.id)
+   * @param marketValue Sammlerwert pro Stück in EUR; 0.0 setzt den Wert zurück (Fallback auf Spot-Preis)
+   * @return der neu erstellte Valuation-Snapshot
+   */
+  public MetalValuationSnapshot updateMarketValue(String id, double marketValue) {
+    PreciousMetal metal = preciousMetalRepository.findById(id)
+        .orElseThrow(() -> new IllegalArgumentException("Münze nicht gefunden: " + id));
+    metal.setMarketValue(marketValue);
+    preciousMetalRepository.save(metal);
+
+    MetalPriceSnapshot latestPrice = metalPriceSnapshotRepository.findTopByOrderByTimestampDesc()
+        .orElseGet(() -> MetalPriceSnapshot.builder()
+            .timestamp(Instant.now(clock))
+            .goldPriceEurPerOunce(DEFAULT_GOLD_PRICE_PER_OUNCE)
+            .silverPriceEurPerOunce(DEFAULT_SILVER_PRICE_PER_OUNCE)
+            .build());
+
+    return storeValuationSnapshot(latestPrice);
   }
 
 }

@@ -51,5 +51,10 @@ public class PreciousMetal {
   /** Datum des Imports (für Gewinnverlauf/Timeline). */
   private LocalDate importedAt;
 
+  /**
+   * Manuell gesetzter Sammlerwert pro Stück (EUR).
+   * 0.0 bedeutet „nicht gesetzt" → Fallback auf Spot-basierten Wert.
+   */
+  private double marketValue;
 
 }

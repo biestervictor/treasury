@@ -6,7 +6,9 @@ import org.example.treasury.service.EdelmetallService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -79,6 +81,23 @@ public class EdelmetallController {
   @ResponseBody
   public MetalDashboardDto dashboard() {
     return edelmetallService.getDashboard();
+  }
+
+  /**
+   * Setzt den Sammlerwert (EUR/Stk) für eine einzelne Münze und löst sofort
+   * einen neuen Valuation-Snapshot aus. Redirect zum Dashboard.
+   *
+   * @param id          MongoDB-ID der Münze
+   * @param marketValue Sammlerwert pro Stück in EUR; 0.0 = zurücksetzen (Fallback auf Spot)
+   */
+  @PostMapping("/metals/{id}/marketValue")
+  public ResponseEntity<String> setMarketValue(
+      @PathVariable String id,
+      @RequestParam double marketValue) {
+    edelmetallService.updateMarketValue(id, marketValue);
+    return ResponseEntity.status(303)
+        .header("Location", "/api/edelmetall/dashboard/view")
+        .body("Market value updated");
   }
 
   /**

@@ -101,6 +101,7 @@
                                 <th class="text-end">Gewicht (g)</th>
                                 <th class="text-end">Anzahl</th>
                                 <th class="text-end">Kaufpreis / Stk (EUR)</th>
+                                <th class="text-end">Sammlerwert / Stk (EUR)</th>
                                 <th class="text-end">Aktueller Wert / Stk (EUR)</th>
                                 <th class="text-end">Aktueller Wert ges. (EUR)</th>
                                 <th class="text-end">Gewinn (EUR)</th>
@@ -113,7 +114,26 @@
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.weightInGrams, 1, 4)}"></td>
                                 <td class="text-end" th:text="${it.quantity}"></td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.purchasePrice, 1, 2)}"></td>
-                                <td class="text-end" th:text="${#numbers.formatDecimal(it.currentUnitValue, 1, 2)}"></td>
+                                <td class="text-end">
+                                    <span th:if="${it.marketValue > 0}"
+                                          th:text="${#numbers.formatDecimal(it.marketValue, 1, 2)}"></span>
+                                    <span th:if="${it.marketValue <= 0}" class="text-muted">—</span>
+                                    <button type="button"
+                                            class="btn btn-link btn-sm p-0 ms-1 edit-market-value-btn"
+                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-current=${it.marketValue}"
+                                            title="Sammlerwert bearbeiten">
+                                        &#9998;
+                                    </button>
+                                </td>
+                                <td class="text-end">
+                                    <span th:text="${#numbers.formatDecimal(it.currentUnitValue, 1, 2)}"></span>
+                                    <span th:if="${it.usesMarketValue}"
+                                          class="badge text-bg-info ms-1"
+                                          title="Sammlerwert aktiv">Sammlerwert</span>
+                                    <span th:if="${it.usesMarketValue}"
+                                          class="d-block small text-muted"
+                                          th:text="${'Spot: ' + #numbers.formatDecimal(it.spotUnitValue, 1, 2)}"></span>
+                                </td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.currentTotalValue, 1, 2)}"></td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.profit, 1, 2)}"></td>
                             </tr>
@@ -127,6 +147,30 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<!-- Modal: Sammlerwert setzen -->
+<div class="modal fade" id="marketValueModal" tabindex="-1" aria-labelledby="marketValueModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="marketValueModalLabel">Sammlerwert setzen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <form id="marketValueForm" method="post" action="#">
+                <div class="modal-body">
+                    <label for="marketValueInput" class="form-label">Sammlerwert pro Stück (EUR)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="marketValueInput"
+                           name="marketValue" placeholder="0.00 = zurücksetzen" required>
+                    <div class="form-text">0.00 setzt den Wert zurück → Fallback auf Spot-Preis.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script th:inline="javascript">
     // Wichtig: In th:inline="javascript" serialisiert Thymeleaf serverseitig via Jackson.
@@ -210,6 +254,20 @@
     document.getElementById('filterAllBtn')?.addEventListener('click', () => applyMetalTypeFilter(null));
     document.getElementById('filterGoldBtn')?.addEventListener('click', () => applyMetalTypeFilter('GOLD'));
     document.getElementById('filterSilverBtn')?.addEventListener('click', () => applyMetalTypeFilter('SILVER'));
+
+    // Sammlerwert bearbeiten
+    document.querySelectorAll('.edit-market-value-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            const current = parseFloat(btn.getAttribute('data-current')) || 0;
+            document.getElementById('marketValueModalLabel').textContent = 'Sammlerwert: ' + name;
+            document.getElementById('marketValueInput').value = current > 0 ? current : '';
+            document.getElementById('marketValueForm').setAttribute('action', '/api/edelmetall/metals/' + id + '/marketValue');
+            const modal = new bootstrap.Modal(document.getElementById('marketValueModal'));
+            modal.show();
+        });
+    });
 </script>
 <th:block th:replace="fragments/scripts :: scripts"></th:block>
 </body>
