@@ -41,7 +41,22 @@
     <div class="d-flex justify-content-end mb-3 gap-2">
         <form method="post" th:action="@{/api/shoe/scrapeAllKlekt}">
             <button type="submit" class="btn btn-outline-success btn-sm">
-                <i class="bi bi-arrow-repeat"></i> Alle Klekt-Preise aktualisieren
+                <i class="bi bi-arrow-repeat"></i> Alle Klekt-Preise
+            </button>
+        </form>
+        <form th:if="${ebayConfigured}" method="post" th:action="@{/api/shoe/scrapeAllEbay}">
+            <button type="submit" class="btn btn-outline-warning btn-sm text-dark">
+                <i class="bi bi-arrow-repeat"></i> Alle eBay-Preise
+            </button>
+        </form>
+        <span th:if="${!ebayConfigured}"
+              class="btn btn-outline-secondary btn-sm disabled"
+              title="ebay.app.id in application.properties setzen">
+            <i class="bi bi-lock"></i> eBay (nicht konfiguriert)
+        </span>
+        <form th:if="${stockxEnabled}" method="post" th:action="@{/api/shoe/scrapeAllStockx}">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-arrow-repeat"></i> Alle StockX-Preise
             </button>
         </form>
         <form method="get" th:action="@{/api/shoe/insert}">
@@ -122,6 +137,15 @@
                     Klekt Bid &#x25B2;&#x25BC;
                 </th>
                 <th onclick="sortTable(7)" style="cursor:pointer;" title="Sortieren">
+                    eBay &#x25B2;&#x25BC;
+                </th>
+                <th onclick="sortTable(8)" style="cursor:pointer;" title="Sortieren">
+                    StockX Ask &#x25B2;&#x25BC;
+                </th>
+                <th onclick="sortTable(9)" style="cursor:pointer;" title="Sortieren">
+                    StockX Bid &#x25B2;&#x25BC;
+                </th>
+                <th onclick="sortTable(10)" style="cursor:pointer;" title="Sortieren">
                     Gewinn Ask &#x25B2;&#x25BC;
                 </th>
                 <th>Verkaufspreis</th>
@@ -152,6 +176,30 @@
                           class="fw-semibold"
                           th:text="${#numbers.formatDecimal(shoe.klektBid, 1, 2)} + ' €'"></span>
                     <span th:if="${shoe.klektBid == 0}" class="text-muted">—</span>
+                </td>
+
+                <!-- eBay Ask -->
+                <td>
+                    <span th:if="${shoe.ebayAsk > 0}"
+                          class="text-warning-emphasis fw-semibold"
+                          th:text="${#numbers.formatDecimal(shoe.ebayAsk, 1, 2)} + ' €'"></span>
+                    <span th:if="${shoe.ebayAsk == 0}" class="text-muted">—</span>
+                </td>
+
+                <!-- StockX Ask -->
+                <td>
+                    <span th:if="${shoe.stockxAsk > 0}"
+                          class="text-danger fw-semibold"
+                          th:text="${#numbers.formatDecimal(shoe.stockxAsk, 1, 2)} + ' €'"></span>
+                    <span th:if="${shoe.stockxAsk == 0}" class="text-muted">—</span>
+                </td>
+
+                <!-- StockX Bid -->
+                <td>
+                    <span th:if="${shoe.stockxBid > 0}"
+                          class="text-danger"
+                          th:text="${#numbers.formatDecimal(shoe.stockxBid, 1, 2)} + ' €'"></span>
+                    <span th:if="${shoe.stockxBid == 0}" class="text-muted">—</span>
                 </td>
 
                 <!-- Gewinn Ask -->
@@ -194,6 +242,16 @@
                             </button>
                         </form>
 
+                        <!-- eBay-Preis scrapen -->
+                        <form th:if="${ebayConfigured}"
+                              th:action="@{'/api/shoe/' + ${shoe.id} + '/scrapeEbay'}" method="post"
+                              class="d-inline">
+                            <button type="submit" class="btn btn-outline-warning btn-sm text-dark"
+                                    title="eBay-Preis abrufen">
+                                <i class="bi bi-cart"></i>
+                            </button>
+                        </form>
+
                         <!-- Verkaufspreis bearbeiten -->
                         <button class="btn btn-outline-secondary btn-sm"
                                 data-bs-toggle="modal"
@@ -208,6 +266,33 @@
                                 th:attr="data-bs-target='#klektSlugModal__' + ${shoe.id}"
                                 th:title="'Slug: ' + (${shoe.klektSlug != null and !#strings.isEmpty(shoe.klektSlug)} ? shoe.klektSlug : 'nicht gesetzt')">
                             <i class="bi bi-tag"></i>
+                        </button>
+
+                        <!-- StockX-Link (nur wenn Slug gesetzt) -->
+                        <a th:if="${shoe.stockxSlug != null and !#strings.isEmpty(shoe.stockxSlug)}"
+                           th:href="'https://stockx.com/' + ${shoe.stockxSlug}"
+                           target="_blank" rel="noopener"
+                           class="btn btn-outline-danger btn-sm"
+                           th:title="'StockX: ' + ${shoe.stockxSlug}">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+
+                        <!-- StockX-Preis scrapen -->
+                        <form th:action="@{'/api/shoe/' + ${shoe.id} + '/scrapeStockx'}" method="post"
+                              class="d-inline">
+                            <button type="submit" class="btn btn-outline-danger btn-sm"
+                                    th:disabled="${shoe.stockxSlug == null or #strings.isEmpty(shoe.stockxSlug)}"
+                                    title="StockX-Preis abrufen">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        </form>
+
+                        <!-- StockX-Slug bearbeiten -->
+                        <button class="btn btn-outline-danger btn-sm"
+                                data-bs-toggle="modal"
+                                th:attr="data-bs-target='#stockxSlugModal__' + ${shoe.id}"
+                                th:title="'StockX-Slug: ' + (${shoe.stockxSlug != null and !#strings.isEmpty(shoe.stockxSlug)} ? shoe.stockxSlug : 'nicht gesetzt')">
+                            <i class="bi bi-tag-fill"></i>
                         </button>
                     </div>
 
@@ -264,6 +349,38 @@
                                                    th:id="'klektSlug__' + ${shoe.id}"
                                                    th:value="${shoe.klektSlug}"/>
                                             <div class="form-text">z.B. yeezy-boost-350-v2-zebra</div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="submit" class="btn btn-outline-success">Speichern</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal: StockX Slug -->
+                    <div class="modal fade" th:id="'stockxSlugModal__' + ${shoe.id}" tabindex="-1"
+                         aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form th:action="@{/api/shoe/updateStockxSlug}" method="post">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title"
+                                            th:text="'StockX-Slug — ' + ${shoe.name}">StockX-Slug</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                aria-label="Schließen"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <input type="hidden" name="id" th:value="${shoe.id}"/>
+                                        <div class="mb-3">
+                                            <label th:for="'stockxSlug__' + ${shoe.id}" class="form-label">
+                                                StockX-Slug
+                                            </label>
+                                            <input type="text" class="form-control" name="stockxSlug"
+                                                   th:id="'stockxSlug__' + ${shoe.id}"
+                                                   th:value="${shoe.stockxSlug}"/>
+                                            <div class="form-text">z.B. adidas-yeezy-boost-350-v2-zebra</div>
                                         </div>
                                     </div>
                                     <div class="modal-footer">

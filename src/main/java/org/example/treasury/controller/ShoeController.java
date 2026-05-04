@@ -7,8 +7,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.example.treasury.model.Shoe;
 import org.example.treasury.service.CsvImporter;
+import org.example.treasury.service.EbayPriceCollectorService;
 import org.example.treasury.service.ShoePriceCollectorService;
 import org.example.treasury.service.ShoeService;
+import org.example.treasury.service.StockxPriceCollectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -38,19 +40,27 @@ public class ShoeController {
   private final CsvImporter csvImporter;
   private final ShoeService shoeService;
   private final ShoePriceCollectorService shoePriceCollectorService;
+  private final EbayPriceCollectorService ebayPriceCollectorService;
+  private final StockxPriceCollectorService stockxPriceCollectorService;
 
   /**
    * Constructor for ShoeController.
    *
-   * @param csvImporter               the CsvImporter instance
-   * @param shoeService               the ShoeService instance
-   * @param shoePriceCollectorService the ShoePriceCollectorService instance
+   * @param csvImporter                 the CsvImporter instance
+   * @param shoeService                 the ShoeService instance
+   * @param shoePriceCollectorService   the ShoePriceCollectorService instance
+   * @param ebayPriceCollectorService   the EbayPriceCollectorService instance
+   * @param stockxPriceCollectorService the StockxPriceCollectorService instance
    */
   public ShoeController(CsvImporter csvImporter, ShoeService shoeService,
-                        ShoePriceCollectorService shoePriceCollectorService) {
+                        ShoePriceCollectorService shoePriceCollectorService,
+                        EbayPriceCollectorService ebayPriceCollectorService,
+                        StockxPriceCollectorService stockxPriceCollectorService) {
     this.csvImporter = csvImporter;
     this.shoeService = shoeService;
     this.shoePriceCollectorService = shoePriceCollectorService;
+    this.ebayPriceCollectorService = ebayPriceCollectorService;
+    this.stockxPriceCollectorService = stockxPriceCollectorService;
   }
 
   /**
@@ -106,6 +116,24 @@ public class ShoeController {
       RedirectAttributes redirectAttributes) {
     shoeService.updateKlektSlug(id, klektSlug);
     redirectAttributes.addFlashAttribute("message", "Klekt-Slug gespeichert!");
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Update the StockX slug for a shoe.
+   *
+   * @param id                 shoe id
+   * @param stockxSlug         the StockX product slug
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/updateStockxSlug")
+  public String updateStockxSlug(
+      @RequestParam String id,
+      @RequestParam String stockxSlug,
+      RedirectAttributes redirectAttributes) {
+    shoeService.updateStockxSlug(id, stockxSlug);
+    redirectAttributes.addFlashAttribute("message", "StockX-Slug gespeichert!");
     return "redirect:/api/shoe/list";
   }
 
@@ -245,8 +273,201 @@ public class ShoeController {
     // Gewinn/Verlust bei Verkäufen
     model.addAttribute("totalWinSold", formattedTotalWinSold);
     model.addAttribute("totalWinSoldValue", totalWinSold);
+    model.addAttribute("ebayConfigured", ebayPriceCollectorService.isConfigured());
+    // StockX braucht keinen API-Key – Scraping ist immer aktiv
+    model.addAttribute("stockxEnabled", true);
 
     return "shoe";
+  }
+
+  /**
+   * Scrapt den aktuellen eBay-Preis für einen einzelnen Schuh.
+   *
+   * @param id                 shoe id
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/{id}/scrapeEbay")
+  public String scrapeEbay(
+      @PathVariable String id,
+      RedirectAttributes redirectAttributes) {
+    Shoe shoe = shoeService.getAllShoes().stream()
+        .filter(s -> id.equals(s.getId()))
+        .findFirst()
+        .orElse(null);
+
+    if (shoe == null) {
+      redirectAttributes.addFlashAttribute("error", "Schuh nicht gefunden: " + id);
+      return "redirect:/api/shoe/list";
+    }
+
+    try {
+      Optional<Double> price = ebayPriceCollectorService.fetchLowestPrice(shoe);
+      if (price.isPresent()) {
+        shoeService.updateEbayPrice(id, price.get());
+        redirectAttributes.addFlashAttribute("message",
+            String.format("eBay-Preis aktualisiert: %.2f €  (%s US %s)",
+                price.get(), shoe.getName(), shoe.getUsSize()));
+      } else {
+        redirectAttributes.addFlashAttribute("error",
+            "Kein eBay-Angebot gefunden für: " + shoe.getName() + " US " + shoe.getUsSize());
+      }
+    } catch (Exception e) {
+      logger.error("eBay-Fehler für {}: {}", shoe.getName(), e.getMessage());
+      redirectAttributes.addFlashAttribute("error", "eBay-Fehler: " + e.getMessage());
+    }
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Scrapt eBay-Preise für alle Schuhe.
+   *
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/scrapeAllEbay")
+  public String scrapeAllEbay(RedirectAttributes redirectAttributes) {
+    if (!ebayPriceCollectorService.isConfigured()) {
+      redirectAttributes.addFlashAttribute("error",
+          "eBay App-ID nicht konfiguriert. Bitte ebay.app.id in application.properties setzen.");
+      return "redirect:/api/shoe/list";
+    }
+
+    List<Shoe> shoes = shoeService.getAllShoes();
+    int updated = 0;
+    int skipped = 0;
+    int errors = 0;
+    List<String> details = new ArrayList<>();
+
+    for (Shoe shoe : shoes) {
+      String label = shoe.getName() + " US " + shoe.getUsSize();
+      try {
+        Optional<Double> price = ebayPriceCollectorService.fetchLowestPrice(shoe);
+        if (price.isPresent()) {
+          shoeService.updateEbayPrice(shoe.getId(), price.get());
+          updated++;
+          details.add(String.format("✓ %s: %.2f €", label, price.get()));
+        } else {
+          skipped++;
+          details.add("– " + label + ": kein Angebot gefunden");
+        }
+        Thread.sleep(500);
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        break;
+      } catch (Exception e) {
+        errors++;
+        logger.error("eBay-Fehler für {}: {}", shoe.getName(), e.getMessage());
+        details.add("✗ " + label + ": Fehler – " + e.getMessage());
+      }
+    }
+
+    redirectAttributes.addFlashAttribute("message",
+        String.format("eBay Scraping: %d aktualisiert, %d übersprungen, %d Fehler",
+            updated, skipped, errors));
+    redirectAttributes.addFlashAttribute("scrapeDetails", details);
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Scrapt den aktuellen StockX-Ask/Bid für einen einzelnen Schuh.
+   *
+   * @param id                 shoe id
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/{id}/scrapeStockx")
+  public String scrapeStockx(
+      @PathVariable String id,
+      RedirectAttributes redirectAttributes) {
+    Shoe shoe = shoeService.getAllShoes().stream()
+        .filter(s -> id.equals(s.getId()))
+        .findFirst()
+        .orElse(null);
+
+    if (shoe == null) {
+      redirectAttributes.addFlashAttribute("error", "Schuh nicht gefunden: " + id);
+      return "redirect:/api/shoe/list";
+    }
+
+    if (shoe.getStockxSlug() == null || shoe.getStockxSlug().isBlank()) {
+      redirectAttributes.addFlashAttribute("error",
+          "Kein StockX-Slug gesetzt für: " + shoe.getName());
+      return "redirect:/api/shoe/list";
+    }
+
+    try {
+      Optional<StockxPriceCollectorService.StockxPriceData> prices =
+          stockxPriceCollectorService.fetchPrices(shoe);
+      if (prices.isPresent()) {
+        StockxPriceCollectorService.StockxPriceData p = prices.get();
+        shoeService.updateStockxPrices(id, p.lowestAsk(), p.highestBid());
+        redirectAttributes.addFlashAttribute("message",
+            String.format("StockX aktualisiert: Ask %.2f € / Bid %.2f €  (%s %s)",
+                p.lowestAsk(), p.highestBid(), shoe.getName(), shoe.getTyp()));
+      } else {
+        redirectAttributes.addFlashAttribute("error",
+            "Keine StockX-Daten gefunden für: " + shoe.getName() + " US " + shoe.getUsSize());
+      }
+    } catch (Exception e) {
+      logger.error("StockX-Fehler für {}: {}", shoe.getName(), e.getMessage());
+      redirectAttributes.addFlashAttribute("error", "StockX-Fehler: " + e.getMessage());
+    }
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Scrapt StockX-Preise für alle Schuhe mit gesetztem stockxSlug.
+   *
+   * @param redirectAttributes for flash messages
+   * @return redirect to list
+   */
+  @PostMapping("/scrapeAllStockx")
+  public String scrapeAllStockx(RedirectAttributes redirectAttributes) {
+    List<Shoe> shoes = shoeService.getAllShoes();
+    int updated = 0;
+    int skipped = 0;
+    int errors = 0;
+    List<String> details = new ArrayList<>();
+
+    for (Shoe shoe : shoes) {
+      String label = shoe.getName() + " US " + shoe.getUsSize();
+      if (shoe.getStockxSlug() == null || shoe.getStockxSlug().isBlank()) {
+        skipped++;
+        details.add("– " + label + ": kein Slug gesetzt");
+        continue;
+      }
+      try {
+        Optional<StockxPriceCollectorService.StockxPriceData> prices =
+            stockxPriceCollectorService.fetchPrices(shoe);
+        if (prices.isPresent()) {
+          StockxPriceCollectorService.StockxPriceData p = prices.get();
+          shoeService.updateStockxPrices(shoe.getId(), p.lowestAsk(), p.highestBid());
+          updated++;
+          String bidInfo = p.highestBid() > 0
+              ? String.format(" | Bid %.2f €", p.highestBid())
+              : " | kein Bid";
+          details.add(String.format("✓ %s: Ask %.2f €%s", label, p.lowestAsk(), bidInfo));
+        } else {
+          skipped++;
+          details.add("– " + label + ": keine Daten gefunden");
+        }
+        Thread.sleep(2000);
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        break;
+      } catch (Exception e) {
+        errors++;
+        logger.error("StockX-Fehler für {}: {}", shoe.getName(), e.getMessage());
+        details.add("✗ " + label + ": Fehler – " + e.getMessage());
+      }
+    }
+
+    redirectAttributes.addFlashAttribute("message",
+        String.format("StockX Scraping: %d aktualisiert, %d übersprungen, %d Fehler",
+            updated, skipped, errors));
+    redirectAttributes.addFlashAttribute("scrapeDetails", details);
+    return "redirect:/api/shoe/list";
   }
 
   /**
