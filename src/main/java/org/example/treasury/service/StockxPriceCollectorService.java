@@ -121,7 +121,16 @@ public class StockxPriceCollectorService {
               .setLocale("de-DE")
               .setTimezoneId("Europe/Berlin"));
 
-      // Acceptiere Cookies automatisch via extra HTTP headers
+      // Stealth-Skript: Cloudflare erkennt Playwright via navigator.webdriver=true
+      // und andere Headless-Marker. Diese vor jedem Seitenaufruf überschreiben.
+      context.addInitScript(""
+          + "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
+          + "Object.defineProperty(navigator,'plugins',{get:()=>[1,2,3,4,5]});"
+          + "Object.defineProperty(navigator,'languages',{get:()=>['de-DE','de','en-US','en']});"
+          + "window.chrome={runtime:{}};"
+          + "Object.defineProperty(navigator,'permissions',{"
+          + "  get:()=>({query:()=>Promise.resolve({state:'granted'})})});");
+
       context.setExtraHTTPHeaders(java.util.Map.of(
           "Accept-Language", "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
           "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
@@ -132,12 +141,24 @@ public class StockxPriceCollectorService {
         logger.info("StockX: lade {} ...", url);
         page.navigate(url, new Page.NavigateOptions().setTimeout(30000));
 
-        // Warte bis DOM fertig geladen – NETWORKIDLE funktioniert nicht weil Cloudflare
-        // permanent Netzwerkanfragen offen hält und NETWORKIDLE nie erreicht wird.
-        // Nach LOAD kurz warten damit Cloudflare-JS durchläuft.
+        // Warte auf LOAD, dann ggf. auf Cloudflare-Challenge-Redirect:
+        // Cloudflare Managed Challenge lädt kurz eine JS-Challenge, leitet dann
+        // automatisch weiter. Wir warten bis kein LOAD-Zustand mehr ausstehend ist.
         page.waitForLoadState(com.microsoft.playwright.options.LoadState.LOAD,
             new Page.WaitForLoadStateOptions().setTimeout(30000));
-        page.waitForTimeout(6000);
+
+        // Falls wir auf einer Cloudflare-Challenge-Seite gelandet sind, auf
+        // den automatischen Redirect warten (bis zu 15 weitere Sekunden).
+        if (page.title().contains("Moment")) {
+          logger.info("StockX: Cloudflare-Challenge erkannt, warte auf Redirect...");
+          try {
+            page.waitForLoadState(com.microsoft.playwright.options.LoadState.LOAD,
+                new Page.WaitForLoadStateOptions().setTimeout(15000));
+          } catch (Exception challengeTimeout) {
+            logger.warn("StockX: Cloudflare-Challenge Redirect nicht abgeschlossen: {}",
+                challengeTimeout.getMessage());
+          }
+        }
 
         String pageUrl = page.url();
         String pageTitle = page.title();
