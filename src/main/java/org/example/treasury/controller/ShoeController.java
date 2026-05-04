@@ -136,12 +136,14 @@ public class ShoeController {
     }
 
     try {
-      Optional<Double> price = shoePriceCollectorService.fetchLowestPrice(shoe);
-      if (price.isPresent()) {
-        shoeService.updateKlektPrice(id, price.get());
+      Optional<ShoePriceCollectorService.KlektPriceData> prices =
+          shoePriceCollectorService.fetchPrices(shoe);
+      if (prices.isPresent()) {
+        ShoePriceCollectorService.KlektPriceData p = prices.get();
+        shoeService.updateKlektPrices(id, p.ask(), p.bid());
         redirectAttributes.addFlashAttribute("message",
-            String.format("Klekt-Preis aktualisiert: %.2f €  (%s %s)",
-                price.get(), shoe.getName(), shoe.getTyp()));
+            String.format("Klekt aktualisiert: Ask %.2f € / Bid %.2f €  (%s %s)",
+                p.ask(), p.bid(), shoe.getName(), shoe.getTyp()));
       } else {
         redirectAttributes.addFlashAttribute("error",
             "Kein Angebot auf Klekt gefunden für: " + shoe.getName()
@@ -175,9 +177,11 @@ public class ShoeController {
         continue;
       }
       try {
-        Optional<Double> price = shoePriceCollectorService.fetchLowestPrice(shoe);
-        if (price.isPresent()) {
-          shoeService.updateKlektPrice(shoe.getId(), price.get());
+        Optional<ShoePriceCollectorService.KlektPriceData> prices =
+            shoePriceCollectorService.fetchPrices(shoe);
+        if (prices.isPresent()) {
+          ShoePriceCollectorService.KlektPriceData p = prices.get();
+          shoeService.updateKlektPrices(shoe.getId(), p.ask(), p.bid());
           updated++;
         } else {
           skipped++;

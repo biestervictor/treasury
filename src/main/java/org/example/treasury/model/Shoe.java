@@ -29,6 +29,7 @@ public class Shoe {
   private Date updatedAt;
   private double valueSold;
   private String klektSlug;
+  private double klektBid;
 
 
 }
