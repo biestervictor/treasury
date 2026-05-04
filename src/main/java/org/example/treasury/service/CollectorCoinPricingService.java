@@ -115,7 +115,14 @@ public class CollectorCoinPricingService {
     List<CollectorCoinPrice> results = new ArrayList<>();
     try (Playwright playwright = Playwright.create()) {
       Browser browser = playwright.chromium().launch(
-          new BrowserType.LaunchOptions().setHeadless(true));
+          new BrowserType.LaunchOptions()
+              .setHeadless(true)
+              // Pflicht-Args für Chromium in Docker/Kubernetes (kein /dev/shm)
+              .setArgs(java.util.List.of(
+                  "--disable-dev-shm-usage",
+                  "--no-sandbox",
+                  "--disable-gpu"
+              )));
       BrowserContext context = browser.newContext(
           new Browser.NewContextOptions()
               .setUserAgent(USER_AGENT)
@@ -180,28 +187,20 @@ public class CollectorCoinPricingService {
       page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
       page.waitForTimeout(2000);
 
-      // Primärer Selektor: echte Angebotspreise in der Trefferliste
-      List<ElementHandle> priceSpans = page.querySelectorAll("td.spx-price span.price");
-      OptionalDouble price = extractLowestPrice(priceSpans);
+      // Tabellen-Ansicht: direktes Kind von td.spx-price (verhindert Versandkosten-Spans)
+      List<ElementHandle> tableSpans = page.querySelectorAll("td.spx-price > span.price");
+      OptionalDouble price = extractLowestPrice(tableSpans);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot");
       }
 
-      // Fallback-Selektoren
-      String[] fallbackSelectors = {
-          ".spx-price .price",
-          ".col-price .text-success",
-          ".col-price",
-          ".artikel-preis"
-      };
-      for (String sel : fallbackSelectors) {
-        List<ElementHandle> els = page.querySelectorAll(sel);
-        OptionalDouble p = extractLowestPrice(els);
-        if (p.isPresent()) {
-          return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
-              p.getAsDouble(), url, "günstigstes Angebot (fallback)");
-        }
+      // Karten-Ansicht: span.curr1.price (Featured-Bereich oben auf der Suchergebnisseite)
+      List<ElementHandle> cardSpans = page.querySelectorAll("span.curr1.price");
+      price = extractLowestPrice(cardSpans);
+      if (price.isPresent()) {
+        return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
+            price.getAsDouble(), url, "günstigstes Angebot");
       }
 
       log.debug("MA-Shops: keine Treffer für '{}'", term);
