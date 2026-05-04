@@ -57,4 +57,10 @@ public class PreciousMetal {
    */
   private double marketValue;
 
+  /**
+   * Optionaler Suchbegriff für Sammlermünz-Preis-Scraper (MA-Shops, eBay, etc.).
+   * Wird er nicht gesetzt, verwendet der Scraper {@link #name} als Fallback.
+   */
+  private String collectorSearchTerm;
+
 }

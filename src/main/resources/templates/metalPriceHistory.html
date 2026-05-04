@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('Preisverlauf')"></head>
+<body class="bg-light">
+
+<th:block th:replace="navbarEdelmetall.html :: nav"></th:block>
+
+<div class="container mt-4">
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a th:href="@{/api/edelmetall/dashboard/view}">Edelmetalle Dashboard</a>
+            </li>
+            <li class="breadcrumb-item active" th:text="${metal.name}">Münze</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+        <h1 class="mb-0" th:text="${metal.name}">Münzname</h1>
+        <span class="badge text-bg-warning" th:if="${metal.type != null}" th:text="${metal.type}"></span>
+        <span class="badge text-bg-secondary"
+              th:text="${#numbers.formatDecimal(metal.weightInGrams, 1, 4) + ' g'}"></span>
+        <span th:if="${metal.marketValue > 0}" class="badge text-bg-info">
+            Sammlerwert aktiv: <span th:text="${#numbers.formatDecimal(metal.marketValue, 1, 2)}"></span> €
+        </span>
+    </div>
+
+    <!-- Scraper-Trigger Buttons -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="card-title mb-2">Preise jetzt abrufen:</h6>
+            <div class="d-flex flex-wrap gap-2">
+                <form th:each="src : ${sources}" method="post"
+                      th:action="@{/api/edelmetall/collector-prices/update}">
+                    <input type="hidden" name="source" th:value="${src}">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm"
+                            th:text="${src.displayName}">Quelle</button>
+                </form>
+                <form method="post" th:action="@{/api/edelmetall/collector-prices/update/all}">
+                    <button type="submit" class="btn btn-outline-dark btn-sm">Alle Quellen</button>
+                </form>
+            </div>
+            <div class="form-text mt-1">
+                Der Scraper läuft im Hintergrund. Seite nach ca. 1-2 Minuten neu laden.
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Preisverlauf</h5>
+            <div th:if="${#lists.isEmpty(history)}" class="text-muted">
+                Noch keine Preisdaten vorhanden. Bitte einen Scraper oben triggern.
+            </div>
+            <canvas id="historyChart" height="80" th:if="${!#lists.isEmpty(history)}"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabelle -->
+    <div class="card" th:if="${!#lists.isEmpty(history)}">
+        <div class="card-body">
+            <h5 class="card-title">Alle Einträge</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead class="table-dark">
+                    <tr>
+                        <th>Zeitpunkt</th>
+                        <th>Quelle</th>
+                        <th class="text-end">Preis (EUR)</th>
+                        <th>Anmerkung</th>
+                        <th>URL</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="entry : ${history}">
+                        <td th:text="${#temporals.format(entry.timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd HH:mm')}"></td>
+                        <td>
+                            <span th:text="${entry.source.displayName}"
+                                  th:classappend="${entry.source.name() == 'MA_SHOPS'} ? 'badge text-bg-primary' :
+                                                  (${entry.source.name() == 'EBAY'} ? 'badge text-bg-warning' :
+                                                  (${entry.source.name() == 'COININVEST'} ? 'badge text-bg-success' :
+                                                  'badge text-bg-secondary'))">
+                            </span>
+                        </td>
+                        <td class="text-end fw-bold"
+                            th:text="${#numbers.formatDecimal(entry.priceEur, 1, 2) + ' €'}"></td>
+                        <td class="small text-muted" th:text="${entry.notes}"></td>
+                        <td class="small">
+                            <a th:if="${entry.sourceUrl != null}"
+                               th:href="${entry.sourceUrl}"
+                               target="_blank" rel="noopener">Link</a>
+                        </td>
+                        <td>
+                            <form method="post"
+                                  th:action="@{/api/edelmetall/metals/{id}/marketValue(id=${metal.id})}">
+                                <input type="hidden" name="marketValue"
+                                       th:value="${entry.priceEur}">
+                                <button type="submit" class="btn btn-outline-info btn-sm"
+                                        title="Als Sammlerwert setzen">&#10003; Übernehmen</button>
+                            </form>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script th:inline="javascript" th:if="${!#lists.isEmpty(history)}">
+    const SOURCE_COLORS = {
+        'MA_SHOPS':   {border: 'rgb(13,110,253)',  bg: 'rgba(13,110,253,0.08)'},
+        'EBAY':       {border: 'rgb(255,193,7)',    bg: 'rgba(255,193,7,0.08)'},
+        'COININVEST': {border: 'rgb(25,135,84)',    bg: 'rgba(25,135,84,0.08)'},
+        'NUMISTA':    {border: 'rgb(111,66,193)',   bg: 'rgba(111,66,193,0.08)'}
+    };
+
+    const rawHistory = /*[[${history}]]*/ [];
+
+    // Gruppiere nach Quelle
+    const bySource = {};
+    rawHistory.forEach(e => {
+        if (!bySource[e.source]) bySource[e.source] = [];
+        bySource[e.source].push({x: e.timestamp, y: e.priceEur});
+    });
+
+    const datasets = Object.entries(bySource).map(([src, points]) => {
+        const col = SOURCE_COLORS[src] || {border: 'gray', bg: 'rgba(128,128,128,0.1)'};
+        const label = src === 'MA_SHOPS' ? 'MA-Shops'
+                    : src === 'EBAY' ? 'eBay'
+                    : src === 'COININVEST' ? 'Coininvest'
+                    : 'Numista';
+        return {
+            label,
+            data: points,
+            borderColor: col.border,
+            backgroundColor: col.bg,
+            borderWidth: 2,
+            tension: 0.2,
+            fill: false,
+            pointRadius: 4,
+        };
+    });
+
+    new Chart(document.getElementById('historyChart'), {
+        type: 'line',
+        data: { datasets },
+        options: {
+            responsive: true,
+            parsing: { xAxisKey: 'x', yAxisKey: 'y' },
+            scales: {
+                x: { type: 'category', title: { display: true, text: 'Zeitpunkt' } },
+                y: { beginAtZero: false, title: { display: true, text: 'EUR / Stk' } }
+            },
+            plugins: { legend: { display: true } }
+        }
+    });
+</script>
+<th:block th:replace="fragments/scripts :: scripts"></th:block>
+</body>
+</html>
