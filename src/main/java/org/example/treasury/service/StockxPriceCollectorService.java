@@ -137,10 +137,11 @@ public class StockxPriceCollectorService {
         // Nach LOAD kurz warten damit Cloudflare-JS durchläuft.
         page.waitForLoadState(com.microsoft.playwright.options.LoadState.LOAD,
             new Page.WaitForLoadStateOptions().setTimeout(30000));
-        page.waitForTimeout(3000);
+        page.waitForTimeout(6000);
 
         String pageUrl = page.url();
-        logger.debug("StockX: final URL = {}", pageUrl);
+        String pageTitle = page.title();
+        logger.info("StockX: final URL={} title={}", pageUrl, pageTitle);
 
         // Versuch 1: __NEXT_DATA__ aus script-Tag extrahieren
         Optional<StockxPriceData> fromNextData = extractFromNextData(page, usSize, slug);
@@ -155,10 +156,10 @@ public class StockxPriceCollectorService {
         }
 
         logger.warn("StockX: Keine Preisdaten gefunden für slug={}, size={}", slug, usSize);
-        // Debug: ersten 500 Zeichen des HTML loggen
+        // Ersten 800 Zeichen des HTML loggen um Cloudflare-Challenge zu erkennen
         String content = page.content();
-        logger.debug("StockX Seiteninhalt (Anfang): {}",
-            content.substring(0, Math.min(500, content.length())));
+        logger.info("StockX Seiteninhalt (Anfang): {}",
+            content.substring(0, Math.min(800, content.length())));
         return Optional.empty();
 
       } finally {
