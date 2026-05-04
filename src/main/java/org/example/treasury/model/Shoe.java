@@ -30,9 +30,6 @@ public class Shoe {
   private double valueSold;
   private String klektSlug;
   private double klektBid;
-  private String stockxSlug;
-  private double stockxAsk;
-  private double stockxBid;
 
 
 }

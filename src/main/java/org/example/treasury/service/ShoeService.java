@@ -53,34 +53,6 @@ public class ShoeService {
   }
 
   /**
-   * Updates the StockX Ask and Bid prices for a shoe.
-   *
-   * @param shoeId   the shoe ID
-   * @param ask      the lowest Ask price from StockX in EUR (0 if unavailable)
-   * @param bid      the highest Bid price from StockX in EUR (0 if unavailable)
-   */
-  public void updateStockxPrices(String shoeId, double ask, double bid) {
-    Shoe shoe = shoeRepository.findById(shoeId)
-        .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
-    shoe.setStockxAsk(ask);
-    shoe.setStockxBid(bid);
-    shoeRepository.save(shoe);
-  }
-
-  /**
-   * Updates the StockX product slug for a shoe.
-   *
-   * @param shoeId     the shoe ID
-   * @param stockxSlug the StockX product slug (e.g. "adidas-yeezy-boost-350-v2-zebra")
-   */
-  public void updateStockxSlug(String shoeId, String stockxSlug) {
-    Shoe shoe = shoeRepository.findById(shoeId)
-        .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
-    shoe.setStockxSlug(stockxSlug == null ? null : stockxSlug.trim());
-    shoeRepository.save(shoe);
-  }
-
-  /**
    * Updates the Klekt product slug for a shoe.
    *
    * @param shoeId    the shoe ID
