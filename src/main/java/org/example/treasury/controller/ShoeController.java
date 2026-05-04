@@ -1,20 +1,25 @@
 package org.example.treasury.controller;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.example.treasury.model.Shoe;
 import org.example.treasury.service.CsvImporter;
 import org.example.treasury.service.ShoePriceCollectorService;
 import org.example.treasury.service.ShoeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
@@ -227,6 +232,48 @@ public class ShoeController {
     model.addAttribute("totalWinSoldValue", totalWinSold);
 
     return "shoe";
+  }
+
+  /**
+   * Exportiert alle gesetzten Klekt-Slugs als JSON-Map (Name → Slug).
+   * Dient zum Übertragen der Slugs in andere Umgebungen (z.B. Prod).
+   *
+   * @return Map von Schuhname zu klektSlug
+   */
+  @GetMapping("/slugExport")
+  @ResponseBody
+  public Map<String, String> exportSlugs() {
+    return shoeService.getAllShoes().stream()
+        .filter(s -> s.getKlektSlug() != null && !s.getKlektSlug().isBlank())
+        .collect(Collectors.toMap(
+            Shoe::getName,
+            Shoe::getKlektSlug,
+            (a, b) -> a));
+  }
+
+  /**
+   * Importiert Klekt-Slugs aus einer JSON-Map (Name → Slug) und setzt sie
+   * auf allen Schuhen mit passendem Namen. Bestehende Slugs werden überschrieben.
+   *
+   * @param slugMap Map von Schuhname zu klektSlug
+   * @return Anzahl der aktualisierten Datensätze
+   */
+  @PostMapping("/slugImport")
+  @ResponseBody
+  public ResponseEntity<Map<String, Integer>> importSlugs(
+      @RequestBody Map<String, String> slugMap) {
+    List<Shoe> all = shoeService.getAllShoes();
+    int updated = 0;
+    for (Shoe shoe : all) {
+      String slug = slugMap.get(shoe.getName());
+      if (slug != null && !slug.isBlank()) {
+        shoe.setKlektSlug(slug.trim());
+        updated++;
+      }
+    }
+    shoeService.saveAllShoes(all);
+    logger.info("slugImport: {} Schuhe aktualisiert", updated);
+    return ResponseEntity.ok(Map.of("updated", updated));
   }
 
 }
