@@ -112,6 +112,10 @@ public class CollectorCoinPricingService {
       return updateFromNumista(metals);
     }
 
+    if (source == CollectorCoinPriceSource.EBAY) {
+      return updateFromEbay(metals);
+    }
+
     List<CollectorCoinPrice> results = new ArrayList<>();
     try (Playwright playwright = Playwright.create()) {
       Browser browser = playwright.chromium().launch(
@@ -169,7 +173,6 @@ public class CollectorCoinPricingService {
                                                    String term) {
     return switch (source) {
       case MA_SHOPS -> scrapeMaShops(context, metal, term);
-      case EBAY -> scrapeEbay(context, metal, term);
       case COININVEST -> scrapeCoininvest(context, metal, term);
       default -> null;
     };
@@ -210,56 +213,100 @@ public class CollectorCoinPricingService {
     }
   }
 
-  // eBay.de ──────────────────────────────────────────────────────────────
+  // eBay Finding API ─────────────────────────────────────────────────────
 
-  private CollectorCoinPrice scrapeEbay(BrowserContext context,
-                                         PreciousMetal metal,
-                                         String term) {
-    // Abgeschlossene Verkäufe, Kategorie 11116 = Münzen
-    String url = "https://www.ebay.de/sch/i.html?_nkw=" + encode(term)
-        + "&LH_Sold=1&LH_Complete=1&_sacat=11116&_ipg=10";
-    Page page = context.newPage();
-    try {
-      page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
-      page.waitForTimeout(2000);
-
-      // GDPR-Consent-Wand akzeptieren falls vorhanden (eBay EU)
-      dismissEbayConsent(page);
-
-      List<ElementHandle> priceEls = page.querySelectorAll(".s-item__price");
-      List<Double> prices = new ArrayList<>();
-      for (ElementHandle el : priceEls) {
-        String text = el.innerText().replace("EUR", "").trim();
-        // Bereichspreis "20,00 bis 35,00" → Mittelwert
-        if (text.contains(" bis ") || text.contains(" to ")) {
-          String[] parts = text.split("(?i)\\s+(?:bis|to)\\s+");
-          if (parts.length == 2) {
-            OptionalDouble a = parseEurValue(parts[0]);
-            OptionalDouble b = parseEurValue(parts[1]);
-            if (a.isPresent() && b.isPresent()) {
-              prices.add((a.getAsDouble() + b.getAsDouble()) / 2.0);
-            }
-          }
-        } else {
-          parseEurValue(text).ifPresent(prices::add);
-        }
-      }
-
-      if (prices.isEmpty()) {
-        return null;
-      }
-
-      // Durchschnitt der letzten max. 5 Verkäufe
-      int count = Math.min(5, prices.size());
-      double avg = prices.stream().limit(count).mapToDouble(d -> d).average().orElse(0);
-      if (avg <= 0) {
-        return null;
-      }
-      return buildEntry(metal, CollectorCoinPriceSource.EBAY, avg, url,
-          "Ø " + count + " abgeschlossene Verkäufe");
-    } finally {
-      closePage(page);
+  private List<CollectorCoinPrice> updateFromEbay(List<PreciousMetal> metals) {
+    String appId = appConfigService.get(AppConfigService.KEY_EBAY_APP_ID);
+    if (appId.isBlank()) {
+      log.warn("eBay App ID nicht konfiguriert (Settings → API-Keys). Überspringe eBay.");
+      return List.of();
     }
+
+    List<CollectorCoinPrice> results = new ArrayList<>();
+    HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .build();
+
+    for (PreciousMetal metal : metals) {
+      String term = effectiveSearchTerm(metal);
+      try {
+        CollectorCoinPrice entry = fetchEbayPrice(http, metal, term, appId);
+        if (entry != null) {
+          results.add(collectorCoinPriceRepository.save(entry));
+          log.info("  EBAY – {}: {} EUR", metal.getName(),
+              String.format("%.2f", entry.getPriceEur()));
+        }
+        sleepMs(500);
+      } catch (Exception e) {
+        log.warn("  EBAY – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
+      }
+    }
+    log.info("CollectorCoinPricingService: EBAY fertig – {} Einträge gespeichert", results.size());
+    return results;
+  }
+
+  private CollectorCoinPrice fetchEbayPrice(HttpClient http,
+                                             PreciousMetal metal,
+                                             String term,
+                                             String appId)
+      throws IOException, InterruptedException {
+    String apiUrl = "https://svcs.ebay.com/services/search/FindingService/v1"
+        + "?OPERATION-NAME=findCompletedItems"
+        + "&SERVICE-VERSION=1.0.0"
+        + "&SECURITY-APPNAME=" + encode(appId)
+        + "&RESPONSE-DATA-FORMAT=JSON"
+        + "&REST-PAYLOAD"
+        + "&keywords=" + encode(term)
+        + "&itemFilter%280%29.name=SoldItemsOnly"
+        + "&itemFilter%280%29.value=true"
+        + "&categoryId=11116"
+        + "&paginationInput.entriesPerPage=10"
+        + "&sortOrder=EndTimeSoonest";
+
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(apiUrl))
+        .header("User-Agent", "treasury-bot/1.0")
+        .GET()
+        .timeout(Duration.ofSeconds(15))
+        .build();
+
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() != 200) {
+      log.warn("eBay Finding API HTTP {}: {}", resp.statusCode(), term);
+      return null;
+    }
+
+    // Preise aus JSON extrahieren: "convertedCurrentPrice":[{"__value__":"45.00","@currencyId":"EUR"}]
+    Pattern pricePattern = Pattern.compile(
+        "\"convertedCurrentPrice\":\\[\\{\"__value__\":\"([\\d.]+)\",\"@currencyId\":\"EUR\"\\}\\]");
+    List<Double> prices = new ArrayList<>();
+    Matcher m = pricePattern.matcher(resp.body());
+    while (m.find()) {
+      try {
+        double price = Double.parseDouble(m.group(1));
+        if (price > 0) {
+          prices.add(price);
+        }
+      } catch (NumberFormatException ignored) {
+        // ignored
+      }
+    }
+
+    if (prices.isEmpty()) {
+      log.debug("eBay: keine abgeschlossenen Verkäufe für '{}'", term);
+      return null;
+    }
+
+    int count = Math.min(5, prices.size());
+    double avg = prices.stream().limit(count).mapToDouble(d -> d).average().orElse(0);
+    if (avg <= 0) {
+      return null;
+    }
+
+    String sourceUrl = "https://www.ebay.de/sch/i.html?_nkw=" + encode(term)
+        + "&LH_Sold=1&LH_Complete=1&_sacat=11116";
+    return buildEntry(metal, CollectorCoinPriceSource.EBAY, avg, sourceUrl,
+        "Ø " + count + " abgeschlossene Verkäufe (Finding API)");
   }
 
   // Coininvest.de ────────────────────────────────────────────────────────
@@ -492,31 +539,6 @@ public class CollectorCoinPricingService {
 
   private static String encode(String term) {
     return URLEncoder.encode(term, StandardCharsets.UTF_8);
-  }
-
-  /**
-   * Versucht die eBay GDPR-Consent-Wand wegzuklicken (EU-Pflichtbannerr).
-   * Fehler werden ignoriert, da der Banner nicht immer vorhanden ist.
-   */
-  private static void dismissEbayConsent(Page page) {
-    try {
-      // Primärer Selector für "Alle akzeptieren"-Button
-      ElementHandle btn = page.querySelector("button[id='gdpr-banner-accept']");
-      if (btn == null) {
-        btn = page.querySelector(".gh-oa-btn-accept");
-      }
-      if (btn == null) {
-        // Fallback: Button-Text-Suche
-        btn = page.querySelector("button:has-text('Alle akzeptieren')");
-      }
-      if (btn != null) {
-        btn.click();
-        page.waitForTimeout(1500);
-        log.debug("eBay GDPR-Consent akzeptiert");
-      }
-    } catch (Exception e) {
-      log.debug("eBay GDPR-Consent-Dismiss übersprungen: {}", e.getMessage());
-    }
   }
 
   private static void closePage(Page page) {

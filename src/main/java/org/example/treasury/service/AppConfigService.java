@@ -18,6 +18,9 @@ public class AppConfigService {
   /** Key für den Numista-API-Schlüssel. */
   public static final String KEY_NUMISTA_API_KEY = "numista.api-key";
 
+  /** Key für die eBay Finding-API App ID. */
+  public static final String KEY_EBAY_APP_ID = "ebay.app-id";
+
   private final AppConfigRepository repo;
   private final ConcurrentHashMap<String, String> cache;
 
