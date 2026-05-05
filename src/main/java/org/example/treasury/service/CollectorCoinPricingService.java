@@ -338,7 +338,7 @@ public class CollectorCoinPricingService {
                                                 String numistaApiKey)
       throws IOException, InterruptedException {
     // 1) Münze suchen
-    String searchUrl = "https://numista.com/api/v3/find_coins?q="
+    String searchUrl = "https://api.numista.com/api/v3/find_coins?q="
         + encode(term) + "&lang=de&page=0&rows=1";
 
     HttpRequest searchReq = HttpRequest.newBuilder()
@@ -366,7 +366,7 @@ public class CollectorCoinPricingService {
     String ref = refMatcher.group(1);
 
     // 2) Preise für diese Münze abrufen
-    String priceUrl = "https://numista.com/api/v3/coins/" + ref + "/prices";
+    String priceUrl = "https://api.numista.com/api/v3/coins/" + ref + "/prices";
     HttpRequest priceReq = HttpRequest.newBuilder()
         .uri(URI.create(priceUrl))
         .header("Numista-API-Key", numistaApiKey)
