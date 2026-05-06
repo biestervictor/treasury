@@ -808,6 +808,22 @@ public class CollectorCoinPricingService {
       return null;
     }
     String productUrl = urlMatcher.group(1);
+    log.debug("gold.de: Produkt-URL für '{}' → {}", term, productUrl);
+
+    // Metalltyp-Check: Silbermünze → keine Goldmünzen-/Goldbarren-Seite akzeptieren (und umgekehrt).
+    // Verhindert, dass nicht vorhandene Coins auf eine generische Gold- oder Silberseite fallen.
+    if (metal.getType() == PreciousMetalType.SILVER
+        && (productUrl.contains("goldmuenzen") || productUrl.contains("goldbarren"))) {
+      log.debug("gold.de: Silbermünze '{}' hätte Goldseite {} bekommen – verwerfe", term,
+          productUrl);
+      return null;
+    }
+    if (metal.getType() == PreciousMetalType.GOLD
+        && (productUrl.contains("silbermuenzen") || productUrl.contains("silberbarren"))) {
+      log.debug("gold.de: Goldmünze '{}' hätte Silberseite {} bekommen – verwerfe", term,
+          productUrl);
+      return null;
+    }
 
     sleepMs(500);
 
