@@ -142,6 +142,76 @@ public class ShoeController {
   }
 
   /**
+   * Scrapt Klekt-Preise (Ask + Bid) für alle Schuhe mit gesetztem Klekt-Slug.
+   *
+   * @param redirectAttributes für Flash-Nachrichten
+   * @return Redirect zur Schuh-Liste
+   */
+  @PostMapping("/scrapeAllKlekt")
+  public String scrapeAllKlekt(RedirectAttributes redirectAttributes) {
+    List<Shoe> shoes = shoeService.getAllShoes();
+    List<String> details = new ArrayList<>();
+    int updated = 0;
+    int failed = 0;
+
+    for (Shoe shoe : shoes) {
+      if (shoe.getKlektSlug() == null || shoe.getKlektSlug().isBlank()) {
+        details.add("– " + shoe.getName() + ": kein Klekt-Slug");
+        continue;
+      }
+      Optional<ShoePriceCollectorService.KlektPriceData> prices =
+          shoePriceCollectorService.fetchPrices(shoe);
+      if (prices.isPresent()) {
+        shoeService.updateKlektPrices(shoe.getId(), prices.get().ask(), prices.get().bid());
+        details.add(String.format("✓ %s: Ask %.2f €, Bid %.2f €",
+            shoe.getName(), prices.get().ask(), prices.get().bid()));
+        updated++;
+      } else {
+        details.add("✗ " + shoe.getName() + ": Fehler beim Abruf");
+        failed++;
+      }
+    }
+
+    redirectAttributes.addFlashAttribute("message",
+        String.format("%d Schuhe aktualisiert, %d fehlgeschlagen", updated, failed));
+    redirectAttributes.addFlashAttribute("scrapeDetails", details);
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
+   * Scrapt Klekt-Preise (Ask + Bid) für einen einzelnen Schuh.
+   *
+   * @param id                 Schuh-ID
+   * @param redirectAttributes für Flash-Nachrichten
+   * @return Redirect zur Schuh-Liste
+   */
+  @PostMapping("/{id}/scrapeKlekt")
+  public String scrapeKlekt(
+      @PathVariable String id,
+      RedirectAttributes redirectAttributes) {
+    Shoe shoe = shoeService.getAllShoes().stream()
+        .filter(s -> id.equals(s.getId()))
+        .findFirst()
+        .orElse(null);
+    if (shoe == null) {
+      redirectAttributes.addFlashAttribute("error", "Schuh nicht gefunden: " + id);
+      return "redirect:/api/shoe/list";
+    }
+    Optional<ShoePriceCollectorService.KlektPriceData> prices =
+        shoePriceCollectorService.fetchPrices(shoe);
+    if (prices.isPresent()) {
+      shoeService.updateKlektPrices(id, prices.get().ask(), prices.get().bid());
+      redirectAttributes.addFlashAttribute("message",
+          String.format("✓ %s: Ask %.2f €, Bid %.2f €",
+              shoe.getName(), prices.get().ask(), prices.get().bid()));
+    } else {
+      redirectAttributes.addFlashAttribute("error",
+          "Klekt-Preis konnte nicht abgerufen werden für: " + shoe.getName());
+    }
+    return "redirect:/api/shoe/list";
+  }
+
+  /**
    * Exportiert alle gesetzten Klekt-Slugs als JSON-Map (Name → Slug).
    * Dient zum Übertragen der Slugs in andere Umgebungen (z.B. Prod).
    *
