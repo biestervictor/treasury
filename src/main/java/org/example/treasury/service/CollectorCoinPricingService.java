@@ -402,6 +402,9 @@ public class CollectorCoinPricingService {
                   String.format("%.2f", entry.getPriceEur()));
         }
         sleepMs(500);
+      } catch (IllegalStateException e) {
+        log.warn("NUMISTA abgebrochen: {}", e.getMessage());
+        break;
       } catch (Exception e) {
         log.warn("  NUMISTA – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
       }
@@ -428,8 +431,15 @@ public class CollectorCoinPricingService {
 
     HttpResponse<String> searchResp = http.send(searchReq, HttpResponse.BodyHandlers.ofString());
     if (searchResp.statusCode() != 200) {
-      log.warn("Numista Suche HTTP {} für '{}': {}", searchResp.statusCode(), term,
-          searchResp.body().substring(0, Math.min(200, searchResp.body().length())));
+      String respBody = searchResp.body().substring(0, Math.min(200, searchResp.body().length()));
+      if (searchResp.statusCode() == 404 && respBody.contains("does not exist")) {
+        // v2-Key liefert 404 für alle v3-Endpunkte – sofort abbrechen mit klarer Meldung
+        throw new IllegalStateException(
+            "Numista API Key ist ein v2-Key – v3-Endpunkte nicht verfügbar. "
+            + "Bitte ein v3-Applikations-Key unter https://en.numista.com/api/ registrieren "
+            + "und in den Settings aktualisieren.");
+      }
+      log.warn("Numista Suche HTTP {} für '{}': {}", searchResp.statusCode(), term, respBody);
       return null;
     }
 
