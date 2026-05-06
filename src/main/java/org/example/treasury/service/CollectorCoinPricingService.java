@@ -153,7 +153,7 @@ public class CollectorCoinPricingService {
       return updateFromEbay(metals);
     }
     if (source == CollectorCoinPriceSource.EBAY_SOLD) {
-      return updateFromEbaySoldPlaywright(metals);
+      return updateFromEbaySoldHttp(metals);
     }
 
     // Playwright-basierte Quellen (MA-Shops, Coininvest)
@@ -314,14 +314,16 @@ public class CollectorCoinPricingService {
   private CollectorCoinPrice scrapeMaShops(BrowserContext context,
                                              PreciousMetal metal,
                                              String term) {
-    // catid=12 schränkt auf "Gold, Silber, Platin" ein – verhindert günstige Fremdmünzen
-    String url = "https://www.ma-shops.de/shops/search.php?l=de&s=" + encode(term) + "&catid=12";
+    // Ohne catid-Filter – catid=12 lieferte für nicht-spezifische Begriffe immer
+    // denselben günstigsten Silber-Coin (~27.95 EUR), unabhängig vom Suchbegriff.
+    // Stattdessen: Mindestpreis 25 EUR als Untergrenze gegen Fremdmünzen.
+    String url = "https://www.ma-shops.de/shops/search.php?l=de&s=" + encode(term);
     Page page = context.newPage();
     try {
       page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
       page.waitForTimeout(2000);
 
-      // "Keine Treffer"-Check: MA-Shops zeigt diese Meldung wenn nichts passt
+      // "Keine Treffer"-Check
       String bodyText = page.innerText("body");
       if (bodyText != null && (bodyText.contains("keine Treffer")
           || bodyText.contains("Kein Ergebnis")
@@ -338,14 +340,14 @@ public class CollectorCoinPricingService {
           firstPriceSpans.add(firstSpan);
         }
       }
-      OptionalDouble price = extractLowestPriceWithVariance(firstPriceSpans, 10.0);
+      OptionalDouble price = extractLowestPriceWithVariance(firstPriceSpans, 25.0);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot");
       }
 
       List<ElementHandle> cardSpans = page.querySelectorAll("span.itemPrice span.curr1.price");
-      price = extractLowestPriceWithVariance(cardSpans, 10.0);
+      price = extractLowestPriceWithVariance(cardSpans, 25.0);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot – Galerie");
@@ -555,130 +557,126 @@ public class CollectorCoinPricingService {
         "Ø " + count + " aktive Angebote (Browse API)");
   }
 
-  // eBay verkaufte Artikel – Playwright-Scraping ────────────────────────────
+  // eBay verkaufte Artikel – HTTP-Scraping (kein Playwright) ─────────────────
+
+  /** Regex zum Extrahieren des eBay-Preistexts aus dem Suchergebnis-HTML. */
+  private static final Pattern EBAY_SOLD_PRICE = Pattern.compile(
+      "s-item__price[^>]*>\\s*([\\d.,]+)\\s*(?:EUR|€)",
+      Pattern.CASE_INSENSITIVE);
 
   /**
-   * Scrapt verkaufte eBay-Angebote via Playwright (LH_Sold=1, LH_Complete=1).
-   * Keine API-Berechtigung erforderlich – reines HTML-Scraping der eBay-Suche.
+   * Scrapt verkaufte eBay-Angebote via einfachem HTTP-Request gegen die SSR-Suchergebnisseite.
+   * Kein Playwright, kein OAuth – eBay liefert Preise im initialen HTML.
    */
-  private List<CollectorCoinPrice> updateFromEbaySoldPlaywright(List<PreciousMetal> metals) {
+  private List<CollectorCoinPrice> updateFromEbaySoldHttp(List<PreciousMetal> metals) {
+    HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build();
+
     Map<String, Double> prevPrices =
         loadPreviousPrices(metals, CollectorCoinPriceSource.EBAY_SOLD);
     List<CollectorCoinPrice> results = new ArrayList<>();
     List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
 
-    try (Playwright playwright = Playwright.create()) {
-      Browser browser = playwright.chromium().launch(
-          new BrowserType.LaunchOptions()
-              .setHeadless(true)
-              .setArgs(java.util.List.of(
-                  "--disable-dev-shm-usage",
-                  "--no-sandbox",
-                  "--disable-gpu"
-              )));
-      BrowserContext context = browser.newContext(
-          new Browser.NewContextOptions()
-              .setUserAgent(USER_AGENT)
-              .setIgnoreHTTPSErrors(true));
+    for (PreciousMetal metal : metals) {
+      String term = effectiveEbaySearchTerm(metal);
+      CollectorCoinPrice entry = null;
       try {
-        for (PreciousMetal metal : metals) {
-          String term = effectiveEbaySearchTerm(metal);
-          CollectorCoinPrice entry = null;
-          try {
-            entry = scrapeEbaySoldPage(context, metal, term);
-            if (entry != null) {
-              results.add(collectorCoinPriceRepository.save(entry));
-              log.info("  EBAY_SOLD – {}: {} EUR", metal.getName(),
-                  String.format("%.2f", entry.getPriceEur()));
-            }
-          } catch (Exception e) {
-            log.warn("  EBAY_SOLD – {} Scrape fehlgeschlagen: {}", metal.getName(),
-                e.getMessage());
-          }
-          runEntries.add(CollectorScraperRun.Entry.builder()
-              .metalId(metal.getId())
-              .metalName(metal.getName())
-              .searchTerm(term)
-              .success(entry != null)
-              .priceEur(entry != null ? entry.getPriceEur() : null)
-              .previousPriceEur(prevPrices.get(metal.getId()))
-              .build());
-          sleepMs(1500);
+        entry = fetchEbaySoldHttp(http, metal, term);
+        if (entry != null) {
+          results.add(collectorCoinPriceRepository.save(entry));
+          log.info("  EBAY_SOLD – {}: {} EUR", metal.getName(),
+              String.format("%.2f", entry.getPriceEur()));
         }
-      } finally {
-        browser.close();
+        sleepMs(1500);
+      } catch (Exception e) {
+        log.warn("  EBAY_SOLD – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
       }
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(term)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
     }
 
-    saveScraperRun(CollectorCoinPriceSource.EBAY_SOLD, metals.size(), results.size(), runEntries);
+    saveScraperRun(CollectorCoinPriceSource.EBAY_SOLD,
+        metals.size(), results.size(), runEntries);
     log.info("CollectorCoinPricingService: EBAY_SOLD fertig – {} Einträge gespeichert",
         results.size());
     return results;
   }
 
   /**
-   * Scrapt die eBay-Suche nach verkauften Artikeln (Completed Items).
-   * URL-Muster: ebay.de/sch/i.html?LH_Sold=1&LH_Complete=1&_sacat=11116
-   * Extrahiert die günstigsten 5 Verkaufspreise und bildet den Durchschnitt.
+   * Fetcht die eBay-Verkaufspreise (Completed Items) via HTTP-GET gegen die eBay-Suchseite.
+   * eBay liefert die Preise im server-seitig gerendertem HTML ohne JavaScript.
    *
-   * @param context  Playwright-BrowserContext
-   * @param metal    die Münze
-   * @param term     der angereicherte Suchbegriff
-   * @return CollectorCoinPrice-Eintrag oder {@code null} wenn kein Treffer
+   * @param http  der HTTP-Client
+   * @param metal die Münze
+   * @param term  der angereicherte Suchbegriff
+   * @return CollectorCoinPrice oder {@code null} wenn kein Treffer
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
    */
-  private CollectorCoinPrice scrapeEbaySoldPage(BrowserContext context,
-                                                 PreciousMetal metal,
-                                                 String term) {
+  private CollectorCoinPrice fetchEbaySoldHttp(HttpClient http,
+                                                PreciousMetal metal,
+                                                String term)
+      throws IOException, InterruptedException {
     String url = "https://www.ebay.de/sch/i.html"
         + "?_nkw=" + encode(term)
         + "&_sacat=11116"
         + "&LH_Complete=1"
         + "&LH_Sold=1"
-        + "&_sop=13";   // neueste zuerst
-    Page page = context.newPage();
-    try {
-      page.navigate(url, new Page.NavigateOptions().setTimeout(25000));
-      page.waitForTimeout(2000);
+        + "&_sop=13";
 
-      // eBay-Preisselektor für Verkaufsergebnisse
-      List<ElementHandle> priceEls = page.querySelectorAll(
-          "span.s-item__price");
-      List<Double> prices = new ArrayList<>();
-      for (ElementHandle el : priceEls) {
-        try {
-          String txt = el.innerText();
-          // Ranges wie "25,00 € bis 30,00 €" → nur ersten Wert nehmen
-          if (txt.contains(" bis ") || txt.contains(" to ")) {
-            txt = txt.split("(?i) (bis|to) ")[0];
-          }
-          OptionalDouble p = parseEurValue(txt);
-          if (p.isPresent() && p.getAsDouble() > 1.0) {
-            prices.add(p.getAsDouble());
-          }
-        } catch (Exception ignored) {
-          // ignorieren
-        }
-        if (prices.size() >= 10) {
-          break;
-        }
-      }
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(url))
+        .header("User-Agent", USER_AGENT)
+        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+        .header("Accept-Language", "de-DE,de;q=0.9,en;q=0.5")
+        .header("Accept-Encoding", "identity")
+        .GET()
+        .timeout(Duration.ofSeconds(20))
+        .build();
 
-      if (prices.isEmpty()) {
-        log.debug("eBay Sold: keine Verkaufspreise für '{}'", term);
-        return null;
-      }
-
-      int count = Math.min(5, prices.size());
-      double avg = prices.stream().limit(count).mapToDouble(d -> d).average().orElse(0);
-      if (avg <= 0) {
-        return null;
-      }
-
-      return buildEntry(metal, CollectorCoinPriceSource.EBAY_SOLD, avg, url,
-          "Ø " + count + " verkaufte Angebote (eBay Scraping)");
-    } finally {
-      closePage(page);
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() != 200) {
+      log.debug("eBay Sold HTTP {} für '{}'", resp.statusCode(), term);
+      return null;
     }
+
+    Matcher m = EBAY_SOLD_PRICE.matcher(resp.body());
+    List<Double> prices = new ArrayList<>();
+    while (m.find() && prices.size() < 10) {
+      String raw = m.group(1);
+      // Ranges "25,00 bis 30,00" → ersten Wert
+      if (raw.contains(" bis ")) {
+        raw = raw.split(" bis ")[0];
+      }
+      OptionalDouble p = parseEurValue(raw);
+      if (p.isPresent() && p.getAsDouble() > 1.0) {
+        prices.add(p.getAsDouble());
+      }
+    }
+
+    if (prices.isEmpty()) {
+      log.debug("eBay Sold HTTP: keine Preise im HTML für '{}'", term);
+      return null;
+    }
+
+    int count = Math.min(5, prices.size());
+    double avg = prices.stream().limit(count).mapToDouble(d -> d).average().orElse(0);
+    if (avg <= 0) {
+      return null;
+    }
+
+    String sourceUrl = "https://www.ebay.de/sch/i.html?_nkw=" + encode(term)
+        + "&_sacat=11116&LH_Complete=1&LH_Sold=1";
+    return buildEntry(metal, CollectorCoinPriceSource.EBAY_SOLD, avg, sourceUrl,
+        "Ø " + count + " verkaufte Angebote (HTTP-Scraping)");
   }
 
   // Coininvest.de ────────────────────────────────────────────────────────
