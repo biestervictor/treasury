@@ -130,7 +130,7 @@
     </div>
   </div>
 
-  <!-- Dev-only: Test Mail -->
+  <!-- Dev-only: Test Mail + Sammelpreise löschen -->
   <div th:if="${devMode}" class="card mt-4 border-warning">
     <div class="card-header bg-warning text-dark">
       Dev-Features
@@ -139,11 +139,116 @@
       <p class="mb-2 text-muted small">
         Nur in der Dev-Stage sichtbar (<code>treasury.dev-mode=true</code>).
       </p>
-      <form method="post" th:action="@{/api/settings/sendTestMail}">
-        <button class="btn btn-warning btn-sm" type="submit">
-          Testmail senden
-        </button>
-      </form>
+      <div class="d-flex flex-wrap gap-2">
+        <form method="post" th:action="@{/api/settings/sendTestMail}">
+          <button class="btn btn-warning btn-sm" type="submit">
+            Testmail senden
+          </button>
+        </form>
+        <form method="post" th:action="@{/api/settings/deleteAllCollectorPrices}"
+              onsubmit="return confirm('Alle Sammelpreise und Scraper-Läufe unwiderruflich löschen?')">
+          <button class="btn btn-danger btn-sm" type="submit">
+            Alle Sammelpreise löschen
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collector Scraper-Verlauf -->
+  <div class="card mt-4">
+    <div class="card-header fw-semibold">
+      Collector Scraper-Verlauf
+      <a th:href="@{/api/edelmetall/scraper-history}" class="btn btn-outline-secondary btn-sm float-end">
+        Vollständiger Verlauf
+      </a>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>Quelle</th>
+            <th>Letzter Lauf</th>
+            <th class="text-end">Versuche</th>
+            <th class="text-end">Treffer</th>
+            <th class="text-end">Erfolgsquote</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="src : ${collectorSources}">
+            <td>
+              <span class="badge"
+                    th:classappend="${src.name() == 'EBAY'} ? 'text-bg-warning' :
+                                    (${src.name() == 'EBAY_SOLD'} ? 'text-bg-warning' :
+                                    (${src.name() == 'MA_SHOPS'} ? 'text-bg-primary' :
+                                    (${src.name() == 'COININVEST'} ? 'text-bg-success' :
+                                    'text-bg-secondary')))"
+                    th:text="${src.displayName}">Quelle</span>
+            </td>
+            <td>
+              <span th:if="${latestRunPerSource.containsKey(src)}"
+                    th:text="${#temporals.format(latestRunPerSource.get(src).timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'dd.MM.yyyy HH:mm')}"></span>
+              <span th:unless="${latestRunPerSource.containsKey(src)}"
+                    class="text-muted small">Noch kein Lauf</span>
+            </td>
+            <td class="text-end">
+              <span th:if="${latestRunPerSource.containsKey(src)}"
+                    th:text="${latestRunPerSource.get(src).attempted}"></span>
+              <span th:unless="${latestRunPerSource.containsKey(src)}" class="text-muted">—</span>
+            </td>
+            <td class="text-end">
+              <span th:if="${latestRunPerSource.containsKey(src)}"
+                    th:text="${latestRunPerSource.get(src).succeeded}"></span>
+              <span th:unless="${latestRunPerSource.containsKey(src)}" class="text-muted">—</span>
+            </td>
+            <td class="text-end">
+              <th:block th:if="${latestRunPerSource.containsKey(src)}">
+                <span th:with="run=${latestRunPerSource.get(src)},
+                              rate=${run.attempted > 0 ? run.succeeded * 100 / run.attempted : 0}"
+                      th:classappend="${rate >= 70} ? 'badge text-bg-success' :
+                                      (${rate >= 40} ? 'badge text-bg-warning' :
+                                      'badge text-bg-danger')"
+                      th:text="${rate + '%'}"></span>
+              </th:block>
+              <span th:unless="${latestRunPerSource.containsKey(src)}" class="text-muted">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Magic Set Läufe -->
+  <div class="card mt-4">
+    <div class="card-header fw-semibold">Magic Set Läufe (letzte 10)</div>
+    <div class="card-body p-0">
+      <div th:if="${#lists.isEmpty(magicSetRuns)}" class="p-3 text-muted small">
+        Noch keine Läufe vorhanden.
+      </div>
+      <table class="table table-sm mb-0 align-middle" th:if="${!#lists.isEmpty(magicSetRuns)}">
+        <thead class="table-dark">
+          <tr>
+            <th>Zeitpunkt</th>
+            <th class="text-end">Sets</th>
+            <th class="text-end">Dauer</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="run : ${magicSetRuns}"
+              th:classappend="${!run.success} ? 'table-danger' : ''">
+            <td th:text="${#temporals.format(run.timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'dd.MM.yyyy HH:mm')}"></td>
+            <td class="text-end" th:text="${run.setsTotal}"></td>
+            <td class="text-end text-muted small"
+                th:text="${run.durationMs + ' ms'}"></td>
+            <td>
+              <span th:if="${run.success}" class="badge text-bg-success">OK</span>
+              <span th:unless="${run.success}" class="badge text-bg-danger"
+                    th:title="${run.errorMessage}">Fehler</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 

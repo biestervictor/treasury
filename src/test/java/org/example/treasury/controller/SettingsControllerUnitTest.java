@@ -5,12 +5,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.Map;
 import org.example.treasury.config.JobSettingsProperties;
+import org.example.treasury.repository.MagicSetScraperRunRepository;
+import org.example.treasury.service.AppConfigService;
+import org.example.treasury.service.CollectorCoinPricingService;
+import org.example.treasury.service.JobRuntimeSettingsService;
+import org.example.treasury.service.JobSettingsService;
 import org.example.treasury.service.JobSettingsViewService;
 import org.example.treasury.service.JobTriggerService;
-import org.example.treasury.service.JobSettingsService;
-import org.example.treasury.service.JobRuntimeSettingsService;
-import org.example.treasury.service.AppConfigService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.ui.ExtendedModelMap;
@@ -19,6 +22,19 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
 class SettingsControllerUnitTest {
+
+  private SettingsController buildController(JobSettingsService service,
+                                             JobSettingsViewService viewService,
+                                             JobTriggerService triggerService,
+                                             JobRuntimeSettingsService runtime,
+                                             AppConfigService appConfigService) {
+    CollectorCoinPricingService pricingService = Mockito.mock(CollectorCoinPricingService.class);
+    when(pricingService.getLatestRunPerSource()).thenReturn(Map.of());
+    MagicSetScraperRunRepository magicRepo = Mockito.mock(MagicSetScraperRunRepository.class);
+    when(magicRepo.findAllByOrderByTimestampDesc()).thenReturn(java.util.List.of());
+    return new SettingsController(service, viewService, triggerService, runtime, appConfigService,
+        pricingService, magicRepo);
+  }
 
   @Test
   void settings_addsModelAttributes_andReturnsViewName() {
@@ -36,7 +52,7 @@ class SettingsControllerUnitTest {
     when(service.getUpdatedAt()).thenReturn(updatedAt);
 
     when(viewService.list()).thenReturn(java.util.List.of());
-    SettingsController controller = new SettingsController(service, viewService, triggerService, runtime, appConfigService);
+    SettingsController controller = buildController(service, viewService, triggerService, runtime, appConfigService);
     Model model = new ExtendedModelMap();
 
     String view = controller.settings(model);
@@ -56,7 +72,7 @@ class SettingsControllerUnitTest {
     AppConfigService appConfigService = Mockito.mock(AppConfigService.class);
     when(service.get()).thenReturn(new JobSettingsProperties());
     when(runtime.get(Mockito.any())).thenReturn(null);
-    SettingsController controller = new SettingsController(service, viewService, triggerService, runtime, appConfigService);
+    SettingsController controller = buildController(service, viewService, triggerService, runtime, appConfigService);
 
     RedirectAttributes redirectAttributes = new RedirectAttributesModelMap();
 

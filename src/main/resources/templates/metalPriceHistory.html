@@ -77,7 +77,7 @@
                     </thead>
                     <tbody>
                     <tr th:each="entry : ${history}">
-                        <td th:text="${#temporals.format(entry.timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${#temporals.format(entry.timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'dd.MM.yyyy HH:mm')}"></td>
                         <td>
                             <span th:text="${entry.source.displayName}"
                                   th:classappend="${entry.source.name() == 'MA_SHOPS'} ? 'badge text-bg-primary' :
@@ -153,7 +153,10 @@
     const bySource = {};
     rawHistory.forEach(e => {
         if (!bySource[e.source]) bySource[e.source] = [];
-        bySource[e.source].push({x: e.timestamp, y: e.priceEur});
+        const d = new Date(e.timestamp);
+        const label = d.toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit', year: 'numeric'})
+            + ' ' + d.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+        bySource[e.source].push({x: label, y: e.priceEur});
     });
 
     const datasets = Object.entries(bySource).map(([src, points]) => {

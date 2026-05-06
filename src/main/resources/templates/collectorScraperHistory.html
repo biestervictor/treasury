@@ -45,7 +45,7 @@
                         </td>
                         <td>
                             <span th:if="${latestRunPerSource.containsKey(src)}"
-                                  th:text="${#temporals.format(latestRunPerSource.get(src).timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd HH:mm')}"></span>
+                                  th:text="${#temporals.format(latestRunPerSource.get(src).timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'dd.MM.yyyy HH:mm')}"></span>
                             <span th:unless="${latestRunPerSource.containsKey(src)}"
                                   class="text-muted small">Noch kein Lauf</span>
                         </td>
@@ -100,7 +100,7 @@
                                            (${run.source.name() == 'COININVEST'} ? 'text-bg-success' :
                                            'text-bg-secondary')))"
                           th:text="${run.source.displayName}">Quelle</span>
-                    <span th:text="${#temporals.format(run.timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd HH:mm')}"></span>
+                     <span th:text="${#temporals.format(run.timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'dd.MM.yyyy HH:mm')}"></span>
                     <span class="ms-2 text-muted small"
                           th:text="${run.succeeded + ' / ' + run.attempted + ' Münzen'}"></span>
                     <span th:if="${run.succeeded == 0}"

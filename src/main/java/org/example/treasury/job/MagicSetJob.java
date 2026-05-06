@@ -1,5 +1,11 @@
 package org.example.treasury.job;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import org.example.treasury.model.MagicSet;
+import org.example.treasury.model.MagicSetScraperRun;
+import org.example.treasury.repository.MagicSetScraperRunRepository;
 import org.example.treasury.service.JobSettingsService;
 import org.example.treasury.service.MagicSetService;
 import org.example.treasury.service.ScryFallWebservice;
@@ -13,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * MagicSetJob is a class that contains a scheduled job to fetch data from the ScryFall web service.
+ * Jeder Lauf wird als {@link MagicSetScraperRun} in der Datenbank protokolliert.
  */
 @Component
 public class MagicSetJob {
@@ -20,6 +27,7 @@ public class MagicSetJob {
   private final ScryFallWebservice scryFallWebservice;
   private final MagicSetService magicSetService;
   private final JobSettingsService jobSettingsService;
+  private final MagicSetScraperRunRepository magicSetScraperRunRepository;
 
   @Value("${treasury.jobs.magicset.runOnStartup:true}")
   private boolean runOnStartup;
@@ -29,13 +37,18 @@ public class MagicSetJob {
   /**
    * Constructor for MagicSetJob.
    *
-   * @param scryFallWebservice the ScryFallWebservice instance
+   * @param scryFallWebservice            the ScryFallWebservice instance
+   * @param magicSetService               the MagicSetService instance
+   * @param jobSettingsService            the JobSettingsService instance
+   * @param magicSetScraperRunRepository  repository for run-history logging
    */
   public MagicSetJob(ScryFallWebservice scryFallWebservice, MagicSetService magicSetService,
-      JobSettingsService jobSettingsService) {
+      JobSettingsService jobSettingsService,
+      MagicSetScraperRunRepository magicSetScraperRunRepository) {
     this.scryFallWebservice = scryFallWebservice;
     this.magicSetService = magicSetService;
     this.jobSettingsService = jobSettingsService;
+    this.magicSetScraperRunRepository = magicSetScraperRunRepository;
   }
 
   /**
@@ -84,10 +97,28 @@ public class MagicSetJob {
   }
 
   private void processJob() {
+    Instant start = Instant.now();
     try {
-      magicSetService.saveAllMagicSets(scryFallWebservice.getSetList());
+      List<MagicSet> sets = scryFallWebservice.getSetList();
+      magicSetService.saveAllMagicSets(sets);
+      long durationMs = Duration.between(start, Instant.now()).toMillis();
+      logger.info("MagicSetJob: {} Sets gespeichert in {}ms", sets.size(), durationMs);
+      magicSetScraperRunRepository.save(MagicSetScraperRun.builder()
+          .timestamp(start)
+          .setsTotal(sets.size())
+          .success(true)
+          .durationMs(durationMs)
+          .build());
     } catch (Exception e) {
       logger.error("MagicSetJob fehlgeschlagen", e);
+      long durationMs = Duration.between(start, Instant.now()).toMillis();
+      magicSetScraperRunRepository.save(MagicSetScraperRun.builder()
+          .timestamp(start)
+          .setsTotal(0)
+          .success(false)
+          .errorMessage(e.getMessage())
+          .durationMs(durationMs)
+          .build());
     }
   }
 }

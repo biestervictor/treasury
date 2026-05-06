@@ -3,13 +3,16 @@ package org.example.treasury.controller;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 import java.util.List;
 import java.util.Locale;
 import org.example.treasury.dto.JobSettingsUpdateRequest;
 import org.example.treasury.dto.MailRequest;
+import org.example.treasury.model.CollectorCoinPriceSource;
 import org.example.treasury.model.JobKey;
+import org.example.treasury.model.MagicSetScraperRun;
+import org.example.treasury.repository.MagicSetScraperRunRepository;
 import org.example.treasury.service.AppConfigService;
+import org.example.treasury.service.CollectorCoinPricingService;
 import org.example.treasury.service.JobSettingsService;
 import org.example.treasury.service.JobSettingsViewService;
 import org.example.treasury.service.JobTriggerService;
@@ -41,6 +44,8 @@ public class SettingsController {
   private final JobTriggerService jobTriggerService;
   private final JobRuntimeSettingsService jobRuntimeSettingsService;
   private final AppConfigService appConfigService;
+  private final CollectorCoinPricingService collectorCoinPricingService;
+  private final MagicSetScraperRunRepository magicSetScraperRunRepository;
 
   @Autowired(required = false)
   private MailService mailService;
@@ -54,22 +59,28 @@ public class SettingsController {
   /**
    * Constructor.
    *
-   * @param jobSettingsService        the job settings service
-   * @param jobSettingsViewService    the job settings view service
-   * @param jobTriggerService         the job trigger service
-   * @param jobRuntimeSettingsService the runtime settings service
-   * @param appConfigService          the app config service
+   * @param jobSettingsService            the job settings service
+   * @param jobSettingsViewService        the job settings view service
+   * @param jobTriggerService             the job trigger service
+   * @param jobRuntimeSettingsService     the runtime settings service
+   * @param appConfigService              the app config service
+   * @param collectorCoinPricingService   the collector coin pricing service
+   * @param magicSetScraperRunRepository  the Magic Set run history repository
    */
   public SettingsController(JobSettingsService jobSettingsService,
                             JobSettingsViewService jobSettingsViewService,
                             JobTriggerService jobTriggerService,
                             JobRuntimeSettingsService jobRuntimeSettingsService,
-                            AppConfigService appConfigService) {
+                            AppConfigService appConfigService,
+                            CollectorCoinPricingService collectorCoinPricingService,
+                            MagicSetScraperRunRepository magicSetScraperRunRepository) {
     this.jobSettingsService = jobSettingsService;
     this.jobSettingsViewService = jobSettingsViewService;
     this.jobTriggerService = jobTriggerService;
     this.jobRuntimeSettingsService = jobRuntimeSettingsService;
     this.appConfigService = appConfigService;
+    this.collectorCoinPricingService = collectorCoinPricingService;
+    this.magicSetScraperRunRepository = magicSetScraperRunRepository;
   }
 
   /**
@@ -90,7 +101,7 @@ public class SettingsController {
     var jobs = jobSettingsViewService.list();
     model.addAttribute("jobs", jobs);
 
-    DateTimeFormatter fmt = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
+    DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
         .withLocale(Locale.GERMANY)
         .withZone(ZoneId.systemDefault());
 
@@ -101,6 +112,16 @@ public class SettingsController {
           return next != null ? fmt.format(next) : "-";
         }
     )));
+
+    // Collector-Scraper-Verlauf: letzter Lauf pro Quelle
+    model.addAttribute("latestRunPerSource", collectorCoinPricingService.getLatestRunPerSource());
+    model.addAttribute("collectorSources", CollectorCoinPriceSource.values());
+
+    // Magic Set Lauf-Verlauf: letzte 10 Läufe
+    List<MagicSetScraperRun> magicRuns =
+        magicSetScraperRunRepository.findAllByOrderByTimestampDesc();
+    model.addAttribute("magicSetRuns", magicRuns.stream().limit(10).toList());
+
     return "settings";
   }
 
@@ -260,6 +281,24 @@ public class SettingsController {
     }
 
     redirectAttributes.addFlashAttribute("success", "Job-Einstellungen gespeichert.");
+    return "redirect:/api/settings";
+  }
+
+  /**
+   * Löscht alle Sammelpreis-Einträge und Scraper-Läufe (DEV-only).
+   *
+   * @param redirectAttributes flash attributes for the redirect
+   * @return redirect to settings page
+   */
+  @PostMapping("/deleteAllCollectorPrices")
+  public String deleteAllCollectorPrices(RedirectAttributes redirectAttributes) {
+    if (!devMode) {
+      redirectAttributes.addFlashAttribute("success", "Löschen nicht verfügbar (kein Dev-Mode).");
+      return "redirect:/api/settings";
+    }
+    collectorCoinPricingService.deleteAllPricesAndRuns();
+    log.warn("DEV: Alle Sammelpreise und Scraper-Läufe wurden gelöscht.");
+    redirectAttributes.addFlashAttribute("success", "Alle Sammelpreise und Scraper-Läufe gelöscht.");
     return "redirect:/api/settings";
   }
 

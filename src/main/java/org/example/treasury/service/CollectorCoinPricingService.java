@@ -268,6 +268,18 @@ public class CollectorCoinPricingService {
   }
 
   /**
+   * Löscht alle gespeicherten Sammelpreis-Einträge und Scraper-Läufe.
+   * Nur im Dev-Modus verwenden.
+   */
+  public void deleteAllPricesAndRuns() {
+    collectorCoinPriceRepository.deleteAll();
+    if (scraperRunRepository != null) {
+      scraperRunRepository.deleteAll();
+    }
+    log.info("Alle CollectorCoinPrice-Einträge und CollectorScraperRun-Dokumente gelöscht (Dev-Reset).");
+  }
+
+  /**
    * Gibt alle gespeicherten Scraper-Läufe zurück, neueste zuerst.
    *
    * @return Liste der CollectorScraperRun-Einträge
