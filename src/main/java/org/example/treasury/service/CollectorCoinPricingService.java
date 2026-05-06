@@ -231,19 +231,27 @@ public class CollectorCoinPricingService {
       String term = effectiveSearchTerm(metal);
       try {
         CollectorCoinPrice entry = fetchEbayPrice(http, metal, term, appId);
+        if (entry == null && isEbayRateLimited) {
+          log.warn("eBay Rate-Limit erreicht – breche Batch ab");
+          break;
+        }
         if (entry != null) {
           results.add(collectorCoinPriceRepository.save(entry));
           log.info("  EBAY – {}: {} EUR", metal.getName(),
               String.format("%.2f", entry.getPriceEur()));
         }
-        sleepMs(500);
+        sleepMs(2000);
       } catch (Exception e) {
         log.warn("  EBAY – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
       }
     }
+    isEbayRateLimited = false;
     log.info("CollectorCoinPricingService: EBAY fertig – {} Einträge gespeichert", results.size());
     return results;
   }
+
+  /** Wird gesetzt wenn eBay einen Rate-Limit-Fehler zurückgibt, um den laufenden Batch abzubrechen. */
+  private volatile boolean isEbayRateLimited = false;
 
   private CollectorCoinPrice fetchEbayPrice(HttpClient http,
                                              PreciousMetal metal,
@@ -272,8 +280,15 @@ public class CollectorCoinPricingService {
 
     HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
     if (resp.statusCode() != 200) {
-      log.warn("eBay Finding API HTTP {} für '{}': {}", resp.statusCode(), term,
-          resp.body().substring(0, Math.min(300, resp.body().length())));
+      String body = resp.body();
+      // Rate-Limit-Fehler (errorId 10001) → Flag setzen und Batch abbrechen
+      if (body.contains("10001") || body.contains("RateLimiter")) {
+        log.warn("eBay Rate-Limit (10001) für '{}' – stoppe Batch", term);
+        isEbayRateLimited = true;
+      } else {
+        log.warn("eBay Finding API HTTP {} für '{}': {}", resp.statusCode(), term,
+            body.substring(0, Math.min(300, body.length())));
+      }
       return null;
     }
 
