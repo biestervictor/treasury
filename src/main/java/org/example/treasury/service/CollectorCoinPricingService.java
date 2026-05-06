@@ -287,16 +287,22 @@ public class CollectorCoinPricingService {
         .build();
 
     HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    String body = resp.body();
+
+    // Rate-Limit prüfen: eBay gibt HTTP 500 zurück wenn Tages-Quota erschöpft
+    if (body.contains("RateLimiter") || (body.contains("10001") && body.contains("Security"))) {
+      Matcher msgMatcher = Pattern.compile("\"message\"\\s*:\\s*\\[\\s*\"([^\"]+)\"")
+          .matcher(body);
+      String msg = msgMatcher.find() ? msgMatcher.group(1) : "Quota exceeded";
+      log.warn("eBay Quota erschöpft für '{}': {} – stoppe Batch. Reset: ~00:00 Pacific Time",
+          term, msg);
+      isEbayRateLimited = true;
+      return null;
+    }
+
     if (resp.statusCode() != 200) {
-      String body = resp.body();
-      // Rate-Limit-Fehler (errorId 10001) → Flag setzen und Batch abbrechen
-      if (body.contains("10001") || body.contains("RateLimiter")) {
-        log.warn("eBay Rate-Limit (10001) für '{}' – stoppe Batch", term);
-        isEbayRateLimited = true;
-      } else {
-        log.warn("eBay Finding API HTTP {} für '{}': {}", resp.statusCode(), term,
-            body.substring(0, Math.min(300, body.length())));
-      }
+      log.warn("eBay Finding API HTTP {} für '{}': {}", resp.statusCode(), term,
+          body.substring(0, Math.min(300, body.length())));
       return null;
     }
 
@@ -304,7 +310,7 @@ public class CollectorCoinPricingService {
     Pattern pricePattern = Pattern.compile(
         "\"convertedCurrentPrice\":\\[\\{\"__value__\":\"([\\d.]+)\",\"@currencyId\":\"EUR\"\\}\\]");
     List<Double> prices = new ArrayList<>();
-    Matcher m = pricePattern.matcher(resp.body());
+    Matcher m = pricePattern.matcher(body);
     while (m.find()) {
       try {
         double price = Double.parseDouble(m.group(1));
