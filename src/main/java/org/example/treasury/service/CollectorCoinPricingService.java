@@ -852,6 +852,21 @@ public class CollectorCoinPricingService {
     }
 
     double min = prices.stream().mapToDouble(d -> d).min().getAsDouble();
+
+    // Plausibilitätsprüfung: Preis darf nicht mehr als 5× den Spot-Wert betragen.
+    // Verhindert, dass eine Kategorieseite (z. B. 1oz-Känguru für einen 1/10oz-Coin) übernommen wird.
+    // Approximative Spot-Preise (werden gelegentlich aktualisiert, exakte Filterung
+    // erfolgt weiterhin in getLatestCollectorPricePerMetal).
+    double approxGoldEurOz = 3100.0;
+    double approxSilverEurOz = 31.0;
+    double approxSpot = computeSpotValue(metal, approxGoldEurOz, approxSilverEurOz);
+    if (approxSpot > 0 && min > approxSpot * 5) {
+      log.debug("gold.de: Preis {}  EUR ist {}× approximativer Spot ({} EUR) für '{}' – verwerfe",
+          String.format("%.2f", min), String.format("%.1f", min / approxSpot),
+          String.format("%.0f", approxSpot), term);
+      return null;
+    }
+
     return buildEntry(metal, CollectorCoinPriceSource.COININVEST, min, productUrl,
         "günstigstes Angebot (gold.de)");
   }
