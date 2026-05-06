@@ -192,6 +192,15 @@ public class CollectorCoinPricingService {
 
       // Tabellen-Ansicht: direktes Kind von td.spx-price (verhindert Versandkosten-Spans)
       List<ElementHandle> tableSpans = page.querySelectorAll("td.spx-price > span.price");
+      log.info("MA-Shops td.spx-price>span.price: {} Elemente für '{}'",
+          tableSpans.size(), term);
+      if (!tableSpans.isEmpty()) {
+        tableSpans.stream().limit(3).forEach(el -> {
+          try {
+            log.info("  td.spx-price Element: '{}'", el.innerText().trim().replace("\n", " "));
+          } catch (Exception ignored) { }
+        });
+      }
       OptionalDouble price = extractLowestPrice(tableSpans);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
@@ -200,13 +209,22 @@ public class CollectorCoinPricingService {
 
       // Karten-Ansicht: span innerhalb .itemPrice (verhindert Preisfilter-Dropdown-Werte)
       List<ElementHandle> cardSpans = page.querySelectorAll("span.itemPrice span.curr1.price");
+      log.info("MA-Shops span.itemPrice span.curr1.price: {} Elemente für '{}'",
+          cardSpans.size(), term);
+      if (!cardSpans.isEmpty()) {
+        cardSpans.stream().limit(3).forEach(el -> {
+          try {
+            log.info("  itemPrice Element: '{}'", el.innerText().trim().replace("\n", " "));
+          } catch (Exception ignored) { }
+        });
+      }
       price = extractLowestPrice(cardSpans);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot");
       }
 
-      log.debug("MA-Shops: keine Treffer für '{}'", term);
+      log.info("MA-Shops: keine Treffer für '{}'", term);
       return null;
     } finally {
       closePage(page);
