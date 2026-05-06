@@ -41,7 +41,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Orchestriert die Preisermittlung für Sammlermünzen aus vier externen Quellen:
- * MA-Shops, eBay.de (Browse API, aktive Angebote), Coininvest.de und Numista-API.
+ * MA-Shops, eBay.de (Browse API, aktive Angebote), gold.de (Preisvergleich) und Numista-API.
  *
  * <p>Jede Quelle kann separat oder gemeinsam getriggert werden.
  * Die ermittelten Preise werden in {@code collectorCoinPrice} gespeichert
@@ -155,8 +155,11 @@ public class CollectorCoinPricingService {
     if (source == CollectorCoinPriceSource.EBAY_SOLD) {
       return updateFromEbaySoldHttp(metals);
     }
+    if (source == CollectorCoinPriceSource.COININVEST) {
+      return updateFromGoldDe(metals);
+    }
 
-    // Playwright-basierte Quellen (MA-Shops, Coininvest)
+    // Playwright-basierte Quellen (MA-Shops)
     Map<String, Double> prevPrices = loadPreviousPrices(metals, source);
     List<CollectorCoinPrice> results = new ArrayList<>();
     List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
@@ -299,12 +302,11 @@ public class CollectorCoinPricingService {
   // ─── Playwright-basierte Scrapers ────────────────────────────────────────
 
   private CollectorCoinPrice scrapeWithPlaywright(CollectorCoinPriceSource source,
-                                                   BrowserContext context,
-                                                   PreciousMetal metal,
-                                                   String term) {
+                                                    BrowserContext context,
+                                                    PreciousMetal metal,
+                                                    String term) {
     return switch (source) {
       case MA_SHOPS -> scrapeMaShops(context, metal, term);
-      case COININVEST -> scrapeCoininvest(context, metal, term);
       default -> null;
     };
   }
@@ -717,60 +719,153 @@ public class CollectorCoinPricingService {
     }
   }
 
-  // Coininvest.de ────────────────────────────────────────────────────────
+  // gold.de – HTTP Preisvergleich (kein Playwright) ────────────────────────
 
-  private CollectorCoinPrice scrapeCoininvest(BrowserContext context,
-                                                PreciousMetal metal,
-                                                String term) {
-    String url = "https://stonexbullion.com/de/search/?term=" + encode(term);
-    Page page = context.newPage();
-    try {
-      com.microsoft.playwright.Response response =
-          page.navigate(url, new Page.NavigateOptions().setTimeout(25000));
+  /**
+   * Sucht auf gold.de nach einem Münzpreis via zweistufigem HTTP-Scraping:
+   * Schritt 1: Suchseite → erste Produkt-URL extrahieren
+   * Schritt 2: Produktseite → günstigsten Händlerpreis extrahieren.
+   *
+   * @param metals Münzliste
+   * @return neu gespeicherte Preis-Einträge
+   */
+  private List<CollectorCoinPrice> updateFromGoldDe(List<PreciousMetal> metals) {
+    HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build();
 
-      // Stonexbullion blockiert Bot-IPs mit HTTP 403 (CSRF-Token-Mismatch).
-      // In diesem Fall sofort abbrechen, um keine falschen Nullpreis-Einträge zu erzeugen.
-      if (response != null && response.status() == 403) {
-        log.warn("Coininvest (stonexbullion): HTTP 403 – Quelle blockiert (Bot-Schutz)."
-            + " Bitte alternative Quelle verwenden.");
-        return null;
-      }
-      // Zusätzlicher Inhalts-Check: Nuxt-SPA gibt manchmal 200 mit Forbidden-Body
-      page.waitForTimeout(4000);
-      String bodyText = page.innerText("body");
-      if (bodyText != null && bodyText.contains("Forbidden")) {
-        log.warn("Coininvest (stonexbullion): Forbidden-Seite empfangen – überspringe Münze {}",
-            metal.getName());
-        return null;
-      }
+    Map<String, Double> prevPrices =
+        loadPreviousPrices(metals, CollectorCoinPriceSource.COININVEST);
+    List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
 
-      String[] selectors = {
-          ".product-price",
-          ".price-wrapper .price",
-          "[data-price-amount]",
-          ".price-box .price",
-          ".product-item-price .price",
-          "span.price"
-      };
-
-      for (String sel : selectors) {
-        List<ElementHandle> els = page.querySelectorAll(sel);
-        OptionalDouble price = extractLowestPrice(els);
-        if (price.isPresent()) {
-          return buildEntry(metal, CollectorCoinPriceSource.COININVEST,
-              price.getAsDouble(), url, "günstigstes Angebot");
+    for (PreciousMetal metal : metals) {
+      String term = effectiveSearchTerm(metal);
+      CollectorCoinPrice entry = null;
+      try {
+        entry = fetchGoldDePrice(http, metal, term);
+        if (entry != null) {
+          results.add(collectorCoinPriceRepository.save(entry));
+          log.info("  COININVEST(gold.de) – {}: {} EUR", metal.getName(),
+              String.format("%.2f", entry.getPriceEur()));
         }
+        sleepMs(1500);
+      } catch (Exception e) {
+        log.warn("  COININVEST(gold.de) – {} fehlgeschlagen: {}", metal.getName(),
+            e.getMessage());
       }
-
-      OptionalDouble price = parseFirstEurFromText(page.innerText("body"));
-      if (price.isPresent()) {
-        return buildEntry(metal, CollectorCoinPriceSource.COININVEST,
-            price.getAsDouble(), url, "Textextraktion");
-      }
-      return null;
-    } finally {
-      closePage(page);
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(term)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
     }
+
+    saveScraperRun(CollectorCoinPriceSource.COININVEST, metals.size(), results.size(),
+        runEntries);
+    log.info("CollectorCoinPricingService: COININVEST(gold.de) fertig – {} Einträge gespeichert",
+        results.size());
+    return results;
+  }
+
+  /** Regex für gold.de Produkt-URLs in Suchergebnissen. */
+  private static final Pattern GOLD_DE_PRODUCT_URL = Pattern.compile(
+      "data-filter=\"produkte\"[\\s\\S]{0,300}?href=\"(https://www\\.gold\\.de/kaufen/[^\"]+)\"",
+      Pattern.CASE_INSENSITIVE);
+
+  /** Regex für den Händlerpreis auf einer gold.de Produktseite (preis=83.7200). */
+  private static final Pattern GOLD_DE_PREIS = Pattern.compile("(?<![_a-z])preis=([0-9]+\\.[0-9]+)",
+      Pattern.CASE_INSENSITIVE);
+
+  /**
+   * Scrapt den günstigsten Händlerpreis von gold.de für eine Münze.
+   * Schritt 1: Suche auf gold.de → erste Produkt-URL.
+   * Schritt 2: Produktseite → extrahiere alle {@code preis=XX.XX} Werte.
+   *
+   * @param http   HTTP-Client
+   * @param metal  Münze
+   * @param term   Suchbegriff
+   * @return Preis-Eintrag oder {@code null} wenn kein Treffer
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private CollectorCoinPrice fetchGoldDePrice(HttpClient http, PreciousMetal metal, String term)
+      throws IOException, InterruptedException {
+    // Schritt 1: Suche
+    String searchUrl = "https://www.gold.de/suche/?q=" + encode(term);
+    String searchHtml = goldDeGet(http, searchUrl);
+    if (searchHtml == null) {
+      return null;
+    }
+
+    Matcher urlMatcher = GOLD_DE_PRODUCT_URL.matcher(searchHtml);
+    if (!urlMatcher.find()) {
+      log.debug("gold.de: kein Produkt-Treffer für '{}'", term);
+      return null;
+    }
+    String productUrl = urlMatcher.group(1);
+
+    sleepMs(500);
+
+    // Schritt 2: Produktseite
+    String productHtml = goldDeGet(http, productUrl);
+    if (productHtml == null) {
+      return null;
+    }
+
+    Matcher priceMatcher = GOLD_DE_PREIS.matcher(productHtml);
+    List<Double> prices = new ArrayList<>();
+    while (priceMatcher.find() && prices.size() < 20) {
+      try {
+        double p = Double.parseDouble(priceMatcher.group(1));
+        if (p > 5.0) {
+          prices.add(p);
+        }
+      } catch (NumberFormatException ignored) {
+        // ignorieren
+      }
+    }
+
+    if (prices.isEmpty()) {
+      log.debug("gold.de: keine Preise auf '{}'", productUrl);
+      return null;
+    }
+
+    double min = prices.stream().mapToDouble(d -> d).min().getAsDouble();
+    return buildEntry(metal, CollectorCoinPriceSource.COININVEST, min, productUrl,
+        "günstigstes Angebot (gold.de)");
+  }
+
+  /**
+   * Führt einen HTTP-GET gegen gold.de aus und gibt den HTML-Body zurück.
+   *
+   * @param http HTTP-Client
+   * @param url  Ziel-URL
+   * @return HTML-Body oder {@code null} bei Fehler
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private String goldDeGet(HttpClient http, String url)
+      throws IOException, InterruptedException {
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(url))
+        .header("User-Agent", USER_AGENT)
+        .header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+        .header("Accept-Language", "de-DE,de;q=0.9,en;q=0.5")
+        .header("Accept-Encoding", "identity")
+        .GET()
+        .timeout(Duration.ofSeconds(20))
+        .build();
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() != 200) {
+      log.debug("gold.de HTTP {} für '{}'", resp.statusCode(), url);
+      return null;
+    }
+    return resp.body();
   }
 
   // ─── Numista REST-API ────────────────────────────────────────────────────

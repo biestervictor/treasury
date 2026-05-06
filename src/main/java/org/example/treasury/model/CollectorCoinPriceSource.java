@@ -14,8 +14,8 @@ public enum CollectorCoinPriceSource {
   /** eBay.de – tatsächlich verkaufte Artikel via Marketplace Insights API. */
   EBAY_SOLD("eBay Verkauft"),
 
-  /** Coininvest.de – Händlerpreise für Anlagemünzen und Sammlermünzen. */
-  COININVEST("Coininvest"),
+  /** gold.de – Preisvergleich für Edelmetallmünzen und -barren (ehem. Coininvest). */
+  COININVEST("gold.de"),
 
   /** Numista-API – crowdsourced Münz-Datenbank mit Marktpreisen. */
   NUMISTA("Numista");
