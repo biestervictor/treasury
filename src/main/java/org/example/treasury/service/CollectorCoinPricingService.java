@@ -198,8 +198,8 @@ public class CollectorCoinPricingService {
             price.getAsDouble(), url, "günstigstes Angebot");
       }
 
-      // Karten-Ansicht: span.curr1.price (Featured-Bereich oben auf der Suchergebnisseite)
-      List<ElementHandle> cardSpans = page.querySelectorAll("span.curr1.price");
+      // Karten-Ansicht: span innerhalb .itemPrice (verhindert Preisfilter-Dropdown-Werte)
+      List<ElementHandle> cardSpans = page.querySelectorAll("span.itemPrice span.curr1.price");
       price = extractLowestPrice(cardSpans);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
@@ -328,20 +328,23 @@ public class CollectorCoinPricingService {
   // Coininvest.de ────────────────────────────────────────────────────────
 
   private CollectorCoinPrice scrapeCoininvest(BrowserContext context,
-                                               PreciousMetal metal,
-                                               String term) {
-    String url = "https://www.coininvest.de/search/?q=" + encode(term);
+                                                PreciousMetal metal,
+                                                String term) {
+    // Coininvest.de wurde zu stonexbullion.com umbenannt (Nuxt.js-App)
+    String url = "https://stonexbullion.com/de/search/?term=" + encode(term);
     Page page = context.newPage();
     try {
-      page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
-      page.waitForTimeout(2000);
+      page.navigate(url, new Page.NavigateOptions().setTimeout(25000));
+      // Länger warten: Nuxt-Hydration + Cloudflare-JS-Challenge kann mehrere Sekunden dauern
+      page.waitForTimeout(4000);
 
       String[] selectors = {
+          ".product-price",
+          ".price-wrapper .price",
+          "[data-price-amount]",
           ".price-box .price",
           ".product-item-price .price",
-          ".buy-price",
-          ".product-price",
-          "[class*='price']"
+          "span.price"
       };
 
       for (String sel : selectors) {
@@ -403,8 +406,8 @@ public class CollectorCoinPricingService {
                                                 String numistaApiKey)
       throws IOException, InterruptedException {
     // 1) Münze suchen
-    String searchUrl = "https://api.numista.com/api/v3/find_coins?q="
-        + encode(term) + "&lang=de&page=0&rows=1";
+    String searchUrl = "https://api.numista.com/api/v3/coins?q="
+        + encode(term) + "&lang=de&page=0&count=1";
 
     HttpRequest searchReq = HttpRequest.newBuilder()
         .uri(URI.create(searchUrl))
@@ -504,7 +507,8 @@ public class CollectorCoinPricingService {
     for (ElementHandle el : elements) {
       try {
         OptionalDouble p = parseEurValue(el.innerText());
-        if (p.isPresent() && p.getAsDouble() < lowest) {
+        // Werte unter 2 EUR werden als Filter-Artefakte (z.B. Preisfilter-Dropdowns) abgelehnt
+        if (p.isPresent() && p.getAsDouble() >= 2.0 && p.getAsDouble() < lowest) {
           lowest = p.getAsDouble();
           found = true;
         }
