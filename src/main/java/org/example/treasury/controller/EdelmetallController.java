@@ -121,7 +121,25 @@ public class EdelmetallController {
   }
 
   /**
-   * Setzt den Sammlerwert (EUR/Stk) für eine einzelne Münze.
+   * Benennt eine Münze um.
+   *
+   * @param id   MongoDB-ID der Münze
+   * @param name neuer Name
+   */
+  @PostMapping("/metals/{id}/rename")
+  public ResponseEntity<String> renameMetal(
+      @PathVariable String id,
+      @RequestParam String name) {
+    preciousMetalRepository.findById(id).ifPresent(metal -> {
+      metal.setName(name.trim());
+      preciousMetalRepository.save(metal);
+    });
+    return ResponseEntity.status(303)
+        .header("Location", "/api/edelmetall/dashboard/view")
+        .body("Name aktualisiert");
+  }
+
+  /**
    *
    * @param id          MongoDB-ID der Münze
    * @param marketValue Sammlerwert pro Stück in EUR; 0.0 = zurücksetzen

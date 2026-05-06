@@ -57,6 +57,12 @@ public class CollectorCoinPricingService {
   private static final Pattern EUR_PRICE = Pattern.compile(
       "(\\d{1,3}(?:[.,]\\d{3})*[.,]\\d{2}|\\d+[.,]\\d{2})");
 
+  /**
+   * Erkennt explizite Gewichtsangaben in Gramm wie "31g", "15.5 g", "31,1g" im Suchterm.
+   * Verhindert Falsch-Treffer durch Wortenden wie "farbig", "fünfzig" etc.
+   */
+  private static final Pattern WEIGHT_G_IN_TEXT = Pattern.compile("\\d+[.,]?\\d*\\s*g\\b");
+
   private static final String USER_AGENT =
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 "
           + "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -145,6 +151,9 @@ public class CollectorCoinPricingService {
     }
     if (source == CollectorCoinPriceSource.EBAY) {
       return updateFromEbay(metals);
+    }
+    if (source == CollectorCoinPriceSource.EBAY_SOLD) {
+      return updateFromEbaySold(metals);
     }
 
     // Playwright-basierte Quellen (MA-Shops, Coininvest)
@@ -347,6 +356,12 @@ public class CollectorCoinPricingService {
   /** Epoch-second at which the cached token expires. */
   private volatile long ebayTokenExpiresAt = 0L;
 
+  /** Cached eBay Marketplace-Insights token (requires buy.marketplace.insights scope). */
+  private volatile String ebayInsightsToken = null;
+
+  /** Epoch-second at which the insights token expires. */
+  private volatile long ebayInsightsTokenExpiresAt = 0L;
+
   private List<CollectorCoinPrice> updateFromEbay(List<PreciousMetal> metals) {
     String appId = appConfigService.get(AppConfigService.KEY_EBAY_APP_ID);
     String certId = appConfigService.get(AppConfigService.KEY_EBAY_CERT_ID);
@@ -534,6 +549,200 @@ public class CollectorCoinPricingService {
     String sourceUrl = "https://www.ebay.de/sch/i.html?_nkw=" + encode(term) + "&_sacat=11116";
     return buildEntry(metal, CollectorCoinPriceSource.EBAY, avg, sourceUrl,
         "Ø " + count + " aktive Angebote (Browse API)");
+  }
+
+  // eBay Marketplace Insights (verkaufte Artikel) ────────────────────────
+
+  private List<CollectorCoinPrice> updateFromEbaySold(List<PreciousMetal> metals) {
+    String appId = appConfigService.get(AppConfigService.KEY_EBAY_APP_ID);
+    String certId = appConfigService.get(AppConfigService.KEY_EBAY_CERT_ID);
+    if (appId.isBlank() || certId.isBlank()) {
+      log.warn("eBay App ID oder Cert ID nicht konfiguriert. Überspringe eBay Sold.");
+      return List.of();
+    }
+
+    HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .build();
+
+    String token;
+    try {
+      token = getEbayInsightsToken(http, appId, certId);
+    } catch (Exception e) {
+      log.warn("eBay Insights Token-Abruf fehlgeschlagen: {}", e.getMessage());
+      return List.of();
+    }
+    if (token == null || token.isBlank()) {
+      log.warn("eBay Sold: leeres Insights-Token – überspringe Batch");
+      return List.of();
+    }
+
+    Map<String, Double> prevPrices =
+        loadPreviousPrices(metals, CollectorCoinPriceSource.EBAY_SOLD);
+    List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
+    for (PreciousMetal metal : metals) {
+      String term = effectiveEbaySearchTerm(metal);
+      CollectorCoinPrice entry = null;
+      try {
+        entry = fetchEbaySoldPrice(http, metal, term, token);
+        if (entry != null) {
+          results.add(collectorCoinPriceRepository.save(entry));
+          log.info("  EBAY_SOLD – {}: {} EUR", metal.getName(),
+              String.format("%.2f", entry.getPriceEur()));
+        }
+        sleepMs(1000);
+      } catch (Exception e) {
+        log.warn("  EBAY_SOLD – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
+      }
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(term)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
+    }
+
+    saveScraperRun(CollectorCoinPriceSource.EBAY_SOLD,
+        metals.size(), results.size(), runEntries);
+    log.info("CollectorCoinPricingService: EBAY_SOLD fertig – {} Einträge gespeichert",
+        results.size());
+    return results;
+  }
+
+  /**
+   * Returns a valid eBay Marketplace-Insights OAuth2 token.
+   * Requests the {@code buy.marketplace.insights} scope in addition to the base scope.
+   *
+   * @param http   the HTTP client
+   * @param appId  eBay App ID (Client ID)
+   * @param certId eBay Cert ID (Client Secret)
+   * @return access token string, or {@code null} on failure
+   * @throws IOException          on network error
+   * @throws InterruptedException if interrupted
+   */
+  private String getEbayInsightsToken(HttpClient http, String appId, String certId)
+      throws IOException, InterruptedException {
+    long nowSec = Instant.now(clock).getEpochSecond();
+    if (ebayInsightsToken != null && nowSec < ebayInsightsTokenExpiresAt - 60) {
+      return ebayInsightsToken;
+    }
+
+    String credentials = Base64.getEncoder().encodeToString(
+        (appId + ":" + certId).getBytes(StandardCharsets.UTF_8));
+    String scope = "https://api.ebay.com/oauth/api_scope"
+        + " https://api.ebay.com/oauth/api_scope/buy.marketplace.insights";
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create("https://api.ebay.com/identity/v1/oauth2/token"))
+        .header("Authorization", "Basic " + credentials)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString(
+            "grant_type=client_credentials&scope=" + encode(scope)))
+        .timeout(Duration.ofSeconds(15))
+        .build();
+
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() != 200) {
+      log.warn("eBay Insights Token HTTP {}: {}", resp.statusCode(),
+          resp.body().substring(0, Math.min(300, resp.body().length())));
+      return null;
+    }
+
+    Matcher tokenMatcher = Pattern.compile("\"access_token\"\\s*:\\s*\"([^\"]+)\"")
+        .matcher(resp.body());
+    if (!tokenMatcher.find()) {
+      log.warn("eBay Insights Token-Antwort enthält kein access_token");
+      return null;
+    }
+    String token = tokenMatcher.group(1);
+
+    Matcher expMatcher = Pattern.compile("\"expires_in\"\\s*:\\s*(\\d+)").matcher(resp.body());
+    long expiresIn = expMatcher.find() ? Long.parseLong(expMatcher.group(1)) : 7200L;
+
+    ebayInsightsToken = token;
+    ebayInsightsTokenExpiresAt = nowSec + expiresIn;
+    log.info("eBay Insights-Token abgerufen, gültig für {}s", expiresIn);
+    return token;
+  }
+
+  /**
+   * Fetches the average price of the top-5 recently sold eBay listings
+   * via the Marketplace Insights API.
+   *
+   * @param http  the HTTP client
+   * @param metal the coin to price
+   * @param term  the (enriched) search term
+   * @param token the OAuth2 Bearer token with insights scope
+   * @return a {@link CollectorCoinPrice} entry, or {@code null} if no usable result
+   * @throws IOException          on network error
+   * @throws InterruptedException if interrupted
+   */
+  private CollectorCoinPrice fetchEbaySoldPrice(HttpClient http,
+                                                 PreciousMetal metal,
+                                                 String term,
+                                                 String token)
+      throws IOException, InterruptedException {
+    String searchUrl =
+        "https://api.ebay.com/buy/marketplace_insights/v1_beta/item_sales/search"
+            + "?q=" + encode(term)
+            + "&category_ids=11116"
+            + "&limit=10";
+
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(searchUrl))
+        .header("Authorization", "Bearer " + token)
+        .header("X-EBAY-C-MARKETPLACE-ID", "EBAY_DE")
+        .header("User-Agent", "treasury-bot/1.0")
+        .GET()
+        .timeout(Duration.ofSeconds(15))
+        .build();
+
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() == 403 || resp.statusCode() == 404) {
+      log.warn("eBay Sold API HTTP {} für '{}' – Scope oder Endpunkt nicht verfügbar",
+          resp.statusCode(), term);
+      return null;
+    }
+    if (resp.statusCode() != 200) {
+      log.warn("eBay Sold API HTTP {} für '{}': {}", resp.statusCode(), term,
+          resp.body().substring(0, Math.min(300, resp.body().length())));
+      return null;
+    }
+
+    // Extract: "lastSoldPrice":{"value":"45.00","currency":"EUR"}
+    Matcher m = Pattern.compile(
+        "\"lastSoldPrice\"\\s*:\\s*\\{[^}]*?\"value\"\\s*:\\s*\"([\\d.]+)\"")
+        .matcher(resp.body());
+    List<Double> prices = new ArrayList<>();
+    while (m.find()) {
+      try {
+        double p = Double.parseDouble(m.group(1));
+        if (p > 1.0) {
+          prices.add(p);
+        }
+      } catch (NumberFormatException ignored) {
+        // ignored
+      }
+    }
+
+    if (prices.isEmpty()) {
+      log.debug("eBay Sold: keine Verkaufspreise für '{}'", term);
+      return null;
+    }
+
+    int count = Math.min(5, prices.size());
+    double avg = prices.stream().limit(count).mapToDouble(d -> d).average().orElse(0);
+    if (avg <= 0) {
+      return null;
+    }
+
+    String sourceUrl = "https://www.ebay.de/sch/i.html?_nkw=" + encode(term)
+        + "&_sacat=11116&LH_Complete=1&LH_Sold=1";
+    return buildEntry(metal, CollectorCoinPriceSource.EBAY_SOLD, avg, sourceUrl,
+        "Ø " + count + " verkaufte Angebote (Insights API)");
   }
 
   // Coininvest.de ────────────────────────────────────────────────────────
@@ -748,7 +957,7 @@ public class CollectorCoinPricingService {
     StringBuilder sb = new StringBuilder(base);
 
     // Gewicht hinzufügen wenn nicht bereits erwähnt
-    if (!lower.contains("oz") && !lower.contains("g ") && !lower.endsWith("g")) {
+    if (!lower.contains("oz") && !WEIGHT_G_IN_TEXT.matcher(lower).find()) {
       String weightSuffix = buildWeightSuffix(metal.getWeightInGrams());
       if (weightSuffix != null) {
         sb.append(" ").append(weightSuffix);

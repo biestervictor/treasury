@@ -37,9 +37,10 @@
                         <td>
                             <span class="badge"
                                   th:classappend="${src.name() == 'EBAY'} ? 'text-bg-warning' :
+                                                  (${src.name() == 'EBAY_SOLD'} ? 'text-bg-warning' :
                                                   (${src.name() == 'MA_SHOPS'} ? 'text-bg-primary' :
                                                   (${src.name() == 'COININVEST'} ? 'text-bg-success' :
-                                                  'text-bg-secondary'))"
+                                                  'text-bg-secondary')))"
                                   th:text="${src.displayName}">Quelle</span>
                         </td>
                         <td>
@@ -93,10 +94,11 @@
                         th:attr="data-bs-target=${'#collapse' + runStat.index},
                                  aria-controls=${'collapse' + runStat.index}">
                     <span class="badge me-2"
-                          th:classappend="${run.source.name() == 'EBAY'} ? 'text-bg-warning' :
-                                          (${run.source.name() == 'MA_SHOPS'} ? 'text-bg-primary' :
-                                          (${run.source.name() == 'COININVEST'} ? 'text-bg-success' :
-                                          'text-bg-secondary'))"
+                           th:classappend="${run.source.name() == 'EBAY'} ? 'text-bg-warning' :
+                                           (${run.source.name() == 'EBAY_SOLD'} ? 'text-bg-warning' :
+                                           (${run.source.name() == 'MA_SHOPS'} ? 'text-bg-primary' :
+                                           (${run.source.name() == 'COININVEST'} ? 'text-bg-success' :
+                                           'text-bg-secondary')))"
                           th:text="${run.source.displayName}">Quelle</span>
                     <span th:text="${#temporals.format(run.timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd HH:mm')}"></span>
                     <span class="ms-2 text-muted small"

@@ -8,8 +8,11 @@ public enum CollectorCoinPriceSource {
   /** MA-Shops.de – deutschsprachige Münzbörse, kein Cloudflare, Playwright-Scraper. */
   MA_SHOPS("MA-Shops"),
 
-  /** eBay.de – abgeschlossene Auktionen/Sofortkauf-Verkäufe (echte Transaktionspreise). */
+  /** eBay.de – aktive Angebote via Browse API. */
   EBAY("eBay"),
+
+  /** eBay.de – tatsächlich verkaufte Artikel via Marketplace Insights API. */
+  EBAY_SOLD("eBay Verkauft"),
 
   /** Coininvest.de – Händlerpreise für Anlagemünzen und Sammlermünzen. */
   COININVEST("Coininvest"),
