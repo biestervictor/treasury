@@ -272,7 +272,8 @@ public class CollectorCoinPricingService {
 
     HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
     if (resp.statusCode() != 200) {
-      log.warn("eBay Finding API HTTP {}: {}", resp.statusCode(), term);
+      log.warn("eBay Finding API HTTP {} für '{}': {}", resp.statusCode(), term,
+          resp.body().substring(0, Math.min(300, resp.body().length())));
       return null;
     }
 
@@ -356,6 +357,8 @@ public class CollectorCoinPricingService {
       log.warn("Numista-API-Key nicht konfiguriert (Settings → API-Keys). Überspringe Numista.");
       return List.of();
     }
+    log.info("Numista: starte mit Key (Länge={}, Prefix={}...)",
+        numistaApiKey.length(), numistaApiKey.substring(0, Math.min(6, numistaApiKey.length())));
 
     List<CollectorCoinPrice> results = new ArrayList<>();
     HttpClient http = HttpClient.newBuilder()
@@ -398,7 +401,8 @@ public class CollectorCoinPricingService {
 
     HttpResponse<String> searchResp = http.send(searchReq, HttpResponse.BodyHandlers.ofString());
     if (searchResp.statusCode() != 200) {
-      log.warn("Numista Suche HTTP {}: {}", searchResp.statusCode(), term);
+      log.warn("Numista Suche HTTP {} für '{}': {}", searchResp.statusCode(), term,
+          searchResp.body().substring(0, Math.min(200, searchResp.body().length())));
       return null;
     }
 
