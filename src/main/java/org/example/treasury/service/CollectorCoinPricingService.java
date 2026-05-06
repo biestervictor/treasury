@@ -191,7 +191,7 @@ public class CollectorCoinPricingService {
       page.waitForTimeout(2000);
 
       // Für jede td.spx-price NUR den ERSTEN span.price holen (= Artikelpreis, nicht Versand)
-      // querySelectorAll("td.spx-price > span.price") liefert nach JS-Rendering auch Versandpreise
+      // minPrice=10 EUR filtert Zubehör (Münzhalter etc.) heraus
       List<ElementHandle> priceCells = page.querySelectorAll("td.spx-price");
       List<ElementHandle> firstPriceSpans = new ArrayList<>();
       for (ElementHandle cell : priceCells) {
@@ -200,16 +200,7 @@ public class CollectorCoinPricingService {
           firstPriceSpans.add(firstSpan);
         }
       }
-      log.info("MA-Shops: {} td.spx-price Zellen, {} erste Preise für '{}'",
-          priceCells.size(), firstPriceSpans.size(), term);
-      if (!firstPriceSpans.isEmpty()) {
-        firstPriceSpans.stream().limit(3).forEach(el -> {
-          try {
-            log.info("  Preis-Span: '{}'", el.innerText().trim().replace("\n", " "));
-          } catch (Exception ignored) { }
-        });
-      }
-      OptionalDouble price = extractLowestPrice(firstPriceSpans, 8.0);
+      OptionalDouble price = extractLowestPrice(firstPriceSpans, 10.0);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot");
@@ -217,13 +208,13 @@ public class CollectorCoinPricingService {
 
       // Karten-Ansicht: span innerhalb .itemPrice (verhindert Preisfilter-Dropdown-Werte)
       List<ElementHandle> cardSpans = page.querySelectorAll("span.itemPrice span.curr1.price");
-      price = extractLowestPrice(cardSpans, 8.0);
+      price = extractLowestPrice(cardSpans, 10.0);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot – Galerie");
       }
 
-      log.info("MA-Shops: keine Treffer für '{}'", term);
+      log.debug("MA-Shops: keine Treffer für '{}'", term);
       return null;
     } finally {
       closePage(page);
