@@ -399,12 +399,9 @@ public class CollectorCoinPricingService {
         if (entry != null) {
           results.add(collectorCoinPriceRepository.save(entry));
           log.info("  NUMISTA – {}: {} EUR", metal.getName(),
-                  String.format("%.2f", entry.getPriceEur()));
+              String.format("%.2f", entry.getPriceEur()));
         }
         sleepMs(500);
-      } catch (IllegalStateException e) {
-        log.warn("NUMISTA abgebrochen: {}", e.getMessage());
-        break;
       } catch (Exception e) {
         log.warn("  NUMISTA – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
       }
@@ -412,86 +409,114 @@ public class CollectorCoinPricingService {
     return results;
   }
 
+  /**
+   * Fetches a collector coin price from the Numista v3 API.
+   * Flow: GET /v3/types?q={term} → type_id
+   *       GET /v3/types/{type_id}/issues → issue_id (first issue)
+   *       GET /v3/types/{type_id}/issues/{issue_id}/prices?currency=EUR → grade prices
+   * Best grade selected: unc > au > xf > vf > f > vg > g.
+   */
   private CollectorCoinPrice fetchNumistaPrice(HttpClient http,
                                                 PreciousMetal metal,
                                                 String term,
                                                 String numistaApiKey)
       throws IOException, InterruptedException {
-    // 1) Münze suchen
-    String searchUrl = "https://api.numista.com/api/v3/coins?q="
-        + encode(term) + "&lang=de&page=0&count=1";
-
-    HttpRequest searchReq = HttpRequest.newBuilder()
-        .uri(URI.create(searchUrl))
-        .header("Numista-API-Key", numistaApiKey)
-        .header("User-Agent", "treasury-bot/1.0")
-        .GET()
-        .timeout(Duration.ofSeconds(15))
-        .build();
-
-    HttpResponse<String> searchResp = http.send(searchReq, HttpResponse.BodyHandlers.ofString());
+    // 1) Typ suchen
+    String searchUrl = "https://api.numista.com/v3/types?q="
+        + encode(term) + "&lang=en&count=1";
+    HttpResponse<String> searchResp = numistaGet(http, searchUrl, numistaApiKey);
     if (searchResp.statusCode() != 200) {
-      String respBody = searchResp.body().substring(0, Math.min(200, searchResp.body().length()));
-      if (searchResp.statusCode() == 404 && respBody.contains("does not exist")) {
-        // v2-Key liefert 404 für alle v3-Endpunkte – sofort abbrechen mit klarer Meldung
-        throw new IllegalStateException(
-            "Numista API Key ist ein v2-Key – v3-Endpunkte nicht verfügbar. "
-            + "Bitte ein v3-Applikations-Key unter https://en.numista.com/api/ registrieren "
-            + "und in den Settings aktualisieren.");
-      }
-      log.warn("Numista Suche HTTP {} für '{}': {}", searchResp.statusCode(), term, respBody);
+      log.warn("Numista Suche HTTP {} für '{}': {}", searchResp.statusCode(), term,
+          searchResp.body().substring(0, Math.min(200, searchResp.body().length())));
       return null;
     }
 
-    String body = searchResp.body();
-    // Einfaches JSON-Parsen ohne Bibliothek: extrahiere "numista_ref"
-    Pattern refPattern = Pattern.compile("\"numista_ref\"\\s*:\\s*(\\d+)");
-    Matcher refMatcher = refPattern.matcher(body);
-    if (!refMatcher.find()) {
-      log.debug("Numista: keine Münze für '{}'", term);
+    // {"count":N,"types":[{"id":12345,...},...]}  →  extrahiere erste type-ID
+    Matcher typeMatcher = Pattern.compile(
+        "\"types\"[\\s\\S]*?\"id\"\\s*:\\s*(\\d+)").matcher(searchResp.body());
+    if (!typeMatcher.find()) {
+      log.debug("Numista: kein Typ gefunden für '{}'", term);
       return null;
     }
-    String ref = refMatcher.group(1);
+    String typeId = typeMatcher.group(1);
 
-    // 2) Preise für diese Münze abrufen
-    String priceUrl = "https://api.numista.com/api/v3/coins/" + ref + "/prices";
-    HttpRequest priceReq = HttpRequest.newBuilder()
-        .uri(URI.create(priceUrl))
-        .header("Numista-API-Key", numistaApiKey)
+    // 2) Erste Issue-ID abrufen
+    String issuesUrl = "https://api.numista.com/v3/types/" + typeId + "/issues";
+    HttpResponse<String> issuesResp = numistaGet(http, issuesUrl, numistaApiKey);
+    if (issuesResp.statusCode() != 200) {
+      log.debug("Numista Issues HTTP {}: typeId={}", issuesResp.statusCode(), typeId);
+      return null;
+    }
+
+    // [{"id":67890,...},...] → extrahiere erste issue-ID
+    Matcher issueMatcher = Pattern.compile(
+        "\\[\\s*\\{[\\s\\S]*?\"id\"\\s*:\\s*(\\d+)").matcher(issuesResp.body());
+    if (!issueMatcher.find()) {
+      log.debug("Numista: keine Issues für typeId={}", typeId);
+      return null;
+    }
+    String issueId = issueMatcher.group(1);
+
+    // 3) Preise abrufen
+    String priceUrl = "https://api.numista.com/v3/types/" + typeId
+        + "/issues/" + issueId + "/prices?currency=EUR";
+    HttpResponse<String> priceResp = numistaGet(http, priceUrl, numistaApiKey);
+    if (priceResp.statusCode() != 200) {
+      log.debug("Numista Preise HTTP {}: typeId={}, issueId={}", priceResp.statusCode(),
+          typeId, issueId);
+      return null;
+    }
+
+    // Besten Preis nach Grade extrahieren (unc bevorzugt)
+    double price = extractBestNumistaPrice(priceResp.body());
+    if (price <= 0) {
+      log.debug("Numista: keine Preisdaten für '{}' (typeId={}, issueId={})",
+          term, typeId, issueId);
+      return null;
+    }
+
+    return buildEntry(metal, CollectorCoinPriceSource.NUMISTA, price,
+        "https://en.numista.com/catalogue/pieces" + typeId + ".html",
+        "Numista Katalogpreis (typeId=" + typeId + ")");
+  }
+
+  /**
+   * Sends a GET request to the Numista API with the required headers.
+   */
+  private HttpResponse<String> numistaGet(HttpClient http, String url, String apiKey)
+      throws IOException, InterruptedException {
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(url))
+        .header("Numista-API-Key", apiKey)
         .header("User-Agent", "treasury-bot/1.0")
         .GET()
         .timeout(Duration.ofSeconds(15))
         .build();
+    return http.send(req, HttpResponse.BodyHandlers.ofString());
+  }
 
-    HttpResponse<String> priceResp = http.send(priceReq, HttpResponse.BodyHandlers.ofString());
-    if (priceResp.statusCode() != 200) {
-      log.debug("Numista Preise HTTP {}: ref={}", priceResp.statusCode(), ref);
-      return null;
+  /**
+   * Extracts the best available grade price from the Numista prices response.
+   * Grade preference: unc > au > xf > vf > f > vg > g.
+   *
+   * @param priceJson the JSON response body from the prices endpoint
+   * @return the best price in EUR, or -1 if no price is available
+   */
+  private double extractBestNumistaPrice(String priceJson) {
+    String[] grades = {"unc", "au", "xf", "vf", "f", "vg", "g"};
+    for (String grade : grades) {
+      // Each entry in array: {"grade":"unc","price":45.0}
+      Matcher m = Pattern.compile(
+          "\"grade\"\\s*:\\s*\"" + grade + "\"\\s*,\\s*\"price\"\\s*:\\s*([\\d.]+)")
+          .matcher(priceJson);
+      if (m.find()) {
+        double p = Double.parseDouble(m.group(1));
+        if (p > 0) {
+          return p;
+        }
+      }
     }
-
-    // "average_price":{"value":45.0,"currency":"EUR"}
-    Pattern avgPattern = Pattern.compile(
-        "\"average_price\"\\s*:\\s*\\{[^}]*\"value\"\\s*:\\s*([\\d.]+)[^}]*\"currency\"\\s*:\\s*\"EUR\"");
-    Matcher avgMatcher = avgPattern.matcher(priceResp.body());
-    if (avgMatcher.find()) {
-      double price = Double.parseDouble(avgMatcher.group(1));
-      return buildEntry(metal, CollectorCoinPriceSource.NUMISTA, price,
-          "https://numista.com/catalogue/pieces/" + ref + ".html",
-          "Numista Durchschnittspreis (ref=" + ref + ")");
-    }
-
-    // Fallback: erster "value" in EUR
-    Pattern valPattern = Pattern.compile(
-        "\"value\"\\s*:\\s*([\\d.]+)[^}]*\"currency\"\\s*:\\s*\"EUR\"");
-    Matcher valMatcher = valPattern.matcher(priceResp.body());
-    if (valMatcher.find()) {
-      double price = Double.parseDouble(valMatcher.group(1));
-      return buildEntry(metal, CollectorCoinPriceSource.NUMISTA, price,
-          "https://numista.com/catalogue/pieces/" + ref + ".html",
-          "Numista Preis (ref=" + ref + ")");
-    }
-
-    return null;
+    return -1;
   }
 
   // ─── Hilfsmethoden ───────────────────────────────────────────────────────
