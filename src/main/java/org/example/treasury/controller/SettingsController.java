@@ -85,6 +85,7 @@ public class SettingsController {
     model.addAttribute("devMode", devMode);
     model.addAttribute("numistaApiKey", appConfigService.get(AppConfigService.KEY_NUMISTA_API_KEY));
     model.addAttribute("ebayAppId", appConfigService.get(AppConfigService.KEY_EBAY_APP_ID));
+    model.addAttribute("ebayCertId", appConfigService.get(AppConfigService.KEY_EBAY_CERT_ID));
 
     var jobs = jobSettingsViewService.list();
     model.addAttribute("jobs", jobs);
@@ -266,7 +267,8 @@ public class SettingsController {
    * Speichert applikationsweite Konfigurationswerte (z.B. API-Keys).
    *
    * @param numistaApiKey  der Numista-API-Key
-   * @param ebayAppId      die eBay Finding-API App ID
+   * @param ebayAppId      die eBay Browse API App ID (Client ID)
+   * @param ebayCertId     die eBay Browse API Cert ID (Client Secret)
    * @param redirectAttributes flash attributes for the redirect
    * @return redirect to settings page
    */
@@ -274,11 +276,13 @@ public class SettingsController {
   public String updateConfig(
       @RequestParam(name = "numistaApiKey", defaultValue = "") String numistaApiKey,
       @RequestParam(name = "ebayAppId", defaultValue = "") String ebayAppId,
+      @RequestParam(name = "ebayCertId", defaultValue = "") String ebayCertId,
       RedirectAttributes redirectAttributes) {
     appConfigService.set(AppConfigService.KEY_NUMISTA_API_KEY, numistaApiKey.trim());
     appConfigService.set(AppConfigService.KEY_EBAY_APP_ID, ebayAppId.trim());
-    log.info("API-Keys aktualisiert: Numista-Länge={}, eBay-AppId-Länge={}",
-        numistaApiKey.trim().length(), ebayAppId.trim().length());
+    appConfigService.set(AppConfigService.KEY_EBAY_CERT_ID, ebayCertId.trim());
+    log.info("API-Keys aktualisiert: Numista-Länge={}, eBay-AppId-Länge={}, eBay-CertId-Länge={}",
+        numistaApiKey.trim().length(), ebayAppId.trim().length(), ebayCertId.trim().length());
     redirectAttributes.addFlashAttribute("success", "API-Keys gespeichert.");
     return "redirect:/api/settings";
   }

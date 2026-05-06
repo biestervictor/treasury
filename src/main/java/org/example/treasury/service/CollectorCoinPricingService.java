@@ -17,6 +17,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.OptionalDouble;
 import java.util.regex.Matcher;
@@ -33,7 +34,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Orchestriert die Preisermittlung für Sammlermünzen aus vier externen Quellen:
- * MA-Shops, eBay.de (abgeschlossene Verkäufe), Coininvest.de und Numista-API.
+ * MA-Shops, eBay.de (Browse API, aktive Angebote), Coininvest.de und Numista-API.
  *
  * <p>Jede Quelle kann separat oder gemeinsam getriggert werden.
  * Die ermittelten Preise werden in {@code collectorCoinPrice} gespeichert
@@ -62,7 +63,7 @@ public class CollectorCoinPricingService {
    *
    * @param preciousMetalRepository      Münz-Repository
    * @param collectorCoinPriceRepository Preisverlauf-Repository
-   * @param appConfigService             App-Konfigurationsservice (für Numista-API-Key)
+   * @param appConfigService             App-Konfigurationsservice (für API-Keys)
    */
   @Autowired
   public CollectorCoinPricingService(PreciousMetalRepository preciousMetalRepository,
@@ -221,101 +222,157 @@ public class CollectorCoinPricingService {
     }
   }
 
-  // eBay Finding API ─────────────────────────────────────────────────────
+  // eBay Browse API (OAuth2 client_credentials) ────────────────────────────
+
+  /** Cached eBay OAuth2 access token. */
+  private volatile String ebayAccessToken = null;
+
+  /** Epoch-second at which the cached token expires. */
+  private volatile long ebayTokenExpiresAt = 0L;
 
   private List<CollectorCoinPrice> updateFromEbay(List<PreciousMetal> metals) {
     String appId = appConfigService.get(AppConfigService.KEY_EBAY_APP_ID);
-    if (appId.isBlank()) {
-      log.warn("eBay App ID nicht konfiguriert (Settings → API-Keys). Überspringe eBay.");
+    String certId = appConfigService.get(AppConfigService.KEY_EBAY_CERT_ID);
+    if (appId.isBlank() || certId.isBlank()) {
+      log.warn("eBay App ID oder Cert ID nicht konfiguriert (Settings → API-Keys). Überspringe eBay.");
       return List.of();
     }
 
-    List<CollectorCoinPrice> results = new ArrayList<>();
     HttpClient http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(15))
         .build();
 
+    String token;
+    try {
+      token = getEbayToken(http, appId, certId);
+    } catch (Exception e) {
+      log.warn("eBay Token-Abruf fehlgeschlagen: {}", e.getMessage());
+      return List.of();
+    }
+    if (token == null || token.isBlank()) {
+      log.warn("eBay: leeres Access-Token – überspringe Batch");
+      return List.of();
+    }
+
+    List<CollectorCoinPrice> results = new ArrayList<>();
     for (PreciousMetal metal : metals) {
       String term = effectiveSearchTerm(metal);
       try {
-        CollectorCoinPrice entry = fetchEbayPrice(http, metal, term, appId);
-        if (entry == null && isEbayRateLimited) {
-          log.warn("eBay Rate-Limit erreicht – breche Batch ab");
-          break;
-        }
+        CollectorCoinPrice entry = fetchEbayBrowsePrice(http, metal, term, token);
         if (entry != null) {
           results.add(collectorCoinPriceRepository.save(entry));
           log.info("  EBAY – {}: {} EUR", metal.getName(),
               String.format("%.2f", entry.getPriceEur()));
         }
-        sleepMs(2000);
+        sleepMs(1000);
       } catch (Exception e) {
         log.warn("  EBAY – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
       }
     }
-    isEbayRateLimited = false;
     log.info("CollectorCoinPricingService: EBAY fertig – {} Einträge gespeichert", results.size());
     return results;
   }
 
-  /** Wird gesetzt wenn eBay einen Rate-Limit-Fehler zurückgibt, um den laufenden Batch abzubrechen. */
-  private volatile boolean isEbayRateLimited = false;
-
-  private CollectorCoinPrice fetchEbayPrice(HttpClient http,
-                                             PreciousMetal metal,
-                                             String term,
-                                             String appId)
+  /**
+   * Returns a valid eBay OAuth2 access token, fetching a new one if the cached one has expired.
+   *
+   * @param http   the HTTP client
+   * @param appId  the eBay App ID (Client ID)
+   * @param certId the eBay Cert ID (Client Secret)
+   * @return access token string, or {@code null} on failure
+   * @throws IOException          on network error
+   * @throws InterruptedException if interrupted
+   */
+  private String getEbayToken(HttpClient http, String appId, String certId)
       throws IOException, InterruptedException {
-    String apiUrl = "https://svcs.ebay.com/services/search/FindingService/v1"
-        + "?OPERATION-NAME=findCompletedItems"
-        + "&SERVICE-VERSION=1.0.0"
-        + "&SECURITY-APPNAME=" + encode(appId)
-        + "&RESPONSE-DATA-FORMAT=JSON"
-        + "&REST-PAYLOAD"
-        + "&keywords=" + encode(term)
-        + "&itemFilter%280%29.name=SoldItemsOnly"
-        + "&itemFilter%280%29.value=true"
-        + "&categoryId=11116"
-        + "&paginationInput.entriesPerPage=10"
-        + "&sortOrder=EndTimeSoonest";
+    long nowSec = Instant.now(clock).getEpochSecond();
+    if (ebayAccessToken != null && nowSec < ebayTokenExpiresAt - 60) {
+      return ebayAccessToken;
+    }
+
+    String credentials = Base64.getEncoder().encodeToString(
+        (appId + ":" + certId).getBytes(StandardCharsets.UTF_8));
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create("https://api.ebay.com/identity/v1/oauth2/token"))
+        .header("Authorization", "Basic " + credentials)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString(
+            "grant_type=client_credentials&scope="
+                + encode("https://api.ebay.com/oauth/api_scope")))
+        .timeout(Duration.ofSeconds(15))
+        .build();
+
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() != 200) {
+      log.warn("eBay Token HTTP {}: {}", resp.statusCode(),
+          resp.body().substring(0, Math.min(300, resp.body().length())));
+      return null;
+    }
+
+    Matcher tokenMatcher = Pattern.compile("\"access_token\"\\s*:\\s*\"([^\"]+)\"")
+        .matcher(resp.body());
+    if (!tokenMatcher.find()) {
+      log.warn("eBay Token-Antwort enthält kein access_token: {}",
+          resp.body().substring(0, Math.min(300, resp.body().length())));
+      return null;
+    }
+    String token = tokenMatcher.group(1);
+
+    Matcher expMatcher = Pattern.compile("\"expires_in\"\\s*:\\s*(\\d+)").matcher(resp.body());
+    long expiresIn = expMatcher.find() ? Long.parseLong(expMatcher.group(1)) : 7200L;
+
+    ebayAccessToken = token;
+    ebayTokenExpiresAt = nowSec + expiresIn;
+    log.info("eBay OAuth2-Token abgerufen, gültig für {}s", expiresIn);
+    return token;
+  }
+
+  /**
+   * Fetches the average price of the top-5 active eBay listings via Browse API.
+   *
+   * @param http   the HTTP client
+   * @param metal  the coin to price
+   * @param term   the search term
+   * @param token  the OAuth2 Bearer token
+   * @return a {@link CollectorCoinPrice} entry, or {@code null} if no results
+   * @throws IOException          on network error
+   * @throws InterruptedException if interrupted
+   */
+  private CollectorCoinPrice fetchEbayBrowsePrice(HttpClient http,
+                                                   PreciousMetal metal,
+                                                   String term,
+                                                   String token)
+      throws IOException, InterruptedException {
+    String searchUrl = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+        + "?q=" + encode(term)
+        + "&filter=" + encode("categoryIds:{11116}")
+        + "&limit=10";
 
     HttpRequest req = HttpRequest.newBuilder()
-        .uri(URI.create(apiUrl))
+        .uri(URI.create(searchUrl))
+        .header("Authorization", "Bearer " + token)
+        .header("X-EBAY-C-MARKETPLACE-ID", "EBAY_DE")
         .header("User-Agent", "treasury-bot/1.0")
         .GET()
         .timeout(Duration.ofSeconds(15))
         .build();
 
     HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-    String body = resp.body();
-
-    // Rate-Limit prüfen: eBay gibt HTTP 500 zurück wenn Tages-Quota erschöpft
-    if (body.contains("RateLimiter") || (body.contains("10001") && body.contains("Security"))) {
-      Matcher msgMatcher = Pattern.compile("\"message\"\\s*:\\s*\\[\\s*\"([^\"]+)\"")
-          .matcher(body);
-      String msg = msgMatcher.find() ? msgMatcher.group(1) : "Quota exceeded";
-      log.warn("eBay Quota erschöpft für '{}': {} – stoppe Batch. Reset: ~00:00 Pacific Time",
-          term, msg);
-      isEbayRateLimited = true;
-      return null;
-    }
-
     if (resp.statusCode() != 200) {
-      log.warn("eBay Finding API HTTP {} für '{}': {}", resp.statusCode(), term,
-          body.substring(0, Math.min(300, body.length())));
+      log.warn("eBay Browse API HTTP {} für '{}': {}", resp.statusCode(), term,
+          resp.body().substring(0, Math.min(300, resp.body().length())));
       return null;
     }
 
-    // Preise aus JSON extrahieren: "convertedCurrentPrice":[{"__value__":"45.00","@currencyId":"EUR"}]
-    Pattern pricePattern = Pattern.compile(
-        "\"convertedCurrentPrice\":\\[\\{\"__value__\":\"([\\d.]+)\",\"@currencyId\":\"EUR\"\\}\\]");
+    // Extract price values: "price":{"value":"45.00","currency":"EUR"}
+    Matcher m = Pattern.compile("\"price\"\\s*:\\s*\\{[^}]*?\"value\"\\s*:\\s*\"([\\d.]+)\"")
+        .matcher(resp.body());
     List<Double> prices = new ArrayList<>();
-    Matcher m = pricePattern.matcher(body);
     while (m.find()) {
       try {
-        double price = Double.parseDouble(m.group(1));
-        if (price > 0) {
-          prices.add(price);
+        double p = Double.parseDouble(m.group(1));
+        if (p > 0) {
+          prices.add(p);
         }
       } catch (NumberFormatException ignored) {
         // ignored
@@ -323,7 +380,7 @@ public class CollectorCoinPricingService {
     }
 
     if (prices.isEmpty()) {
-      log.debug("eBay: keine abgeschlossenen Verkäufe für '{}'", term);
+      log.debug("eBay Browse: keine Preise für '{}'", term);
       return null;
     }
 
@@ -333,10 +390,9 @@ public class CollectorCoinPricingService {
       return null;
     }
 
-    String sourceUrl = "https://www.ebay.de/sch/i.html?_nkw=" + encode(term)
-        + "&LH_Sold=1&LH_Complete=1&_sacat=11116";
+    String sourceUrl = "https://www.ebay.de/sch/i.html?_nkw=" + encode(term) + "&_sacat=11116";
     return buildEntry(metal, CollectorCoinPriceSource.EBAY, avg, sourceUrl,
-        "Ø " + count + " abgeschlossene Verkäufe (Finding API)");
+        "Ø " + count + " aktive Angebote (Browse API)");
   }
 
   // Coininvest.de ────────────────────────────────────────────────────────

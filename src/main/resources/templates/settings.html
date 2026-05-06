@@ -114,7 +114,15 @@
           <div class="form-text">
             Unter <a href="https://developer.ebay.com/my/keys" target="_blank">developer.ebay.com → My Account → Application Keys</a>
             → Production Keyset → <strong>App ID (Client ID)</strong>.
-            Wird für die eBay-Preisquelle (abgeschlossene Verkäufe) benötigt.
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="ebayCertId">eBay Cert ID (Client Secret)</label>
+          <input class="form-control" type="text" id="ebayCertId" name="ebayCertId"
+                 th:value="${ebayCertId}" placeholder="z.B. PRD-abc123..." />
+          <div class="form-text">
+            Selbe Seite → Production Keyset → <strong>Cert ID (Client Secret)</strong>.
+            Zusammen mit der App ID für OAuth2-Token (Browse API) benötigt.
           </div>
         </div>
         <button class="btn btn-outline-primary" type="submit">Speichern</button>
