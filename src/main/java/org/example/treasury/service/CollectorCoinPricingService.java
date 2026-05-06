@@ -190,18 +190,26 @@ public class CollectorCoinPricingService {
       page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
       page.waitForTimeout(2000);
 
-      // Tabellen-Ansicht: direktes Kind von td.spx-price (verhindert Versandkosten-Spans)
-      List<ElementHandle> tableSpans = page.querySelectorAll("td.spx-price > span.price");
-      log.info("MA-Shops td.spx-price>span.price: {} Elemente für '{}'",
-          tableSpans.size(), term);
-      if (!tableSpans.isEmpty()) {
-        tableSpans.stream().limit(3).forEach(el -> {
+      // Für jede td.spx-price NUR den ERSTEN span.price holen (= Artikelpreis, nicht Versand)
+      // querySelectorAll("td.spx-price > span.price") liefert nach JS-Rendering auch Versandpreise
+      List<ElementHandle> priceCells = page.querySelectorAll("td.spx-price");
+      List<ElementHandle> firstPriceSpans = new ArrayList<>();
+      for (ElementHandle cell : priceCells) {
+        ElementHandle firstSpan = cell.querySelector("span.price");
+        if (firstSpan != null) {
+          firstPriceSpans.add(firstSpan);
+        }
+      }
+      log.info("MA-Shops: {} td.spx-price Zellen, {} erste Preise für '{}'",
+          priceCells.size(), firstPriceSpans.size(), term);
+      if (!firstPriceSpans.isEmpty()) {
+        firstPriceSpans.stream().limit(3).forEach(el -> {
           try {
-            log.info("  td.spx-price Element: '{}'", el.innerText().trim().replace("\n", " "));
+            log.info("  Preis-Span: '{}'", el.innerText().trim().replace("\n", " "));
           } catch (Exception ignored) { }
         });
       }
-      OptionalDouble price = extractLowestPrice(tableSpans);
+      OptionalDouble price = extractLowestPrice(firstPriceSpans);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot");
@@ -209,19 +217,10 @@ public class CollectorCoinPricingService {
 
       // Karten-Ansicht: span innerhalb .itemPrice (verhindert Preisfilter-Dropdown-Werte)
       List<ElementHandle> cardSpans = page.querySelectorAll("span.itemPrice span.curr1.price");
-      log.info("MA-Shops span.itemPrice span.curr1.price: {} Elemente für '{}'",
-          cardSpans.size(), term);
-      if (!cardSpans.isEmpty()) {
-        cardSpans.stream().limit(3).forEach(el -> {
-          try {
-            log.info("  itemPrice Element: '{}'", el.innerText().trim().replace("\n", " "));
-          } catch (Exception ignored) { }
-        });
-      }
       price = extractLowestPrice(cardSpans);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
-            price.getAsDouble(), url, "günstigstes Angebot");
+            price.getAsDouble(), url, "günstigstes Angebot – Galerie");
       }
 
       log.info("MA-Shops: keine Treffer für '{}'", term);
