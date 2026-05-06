@@ -312,9 +312,10 @@ public class CollectorCoinPricingService {
   // MA-Shops ──────────────────────────────────────────────────────────────
 
   private CollectorCoinPrice scrapeMaShops(BrowserContext context,
-                                            PreciousMetal metal,
-                                            String term) {
-    String url = "https://www.ma-shops.de/shops/search.php?l=de&s=" + encode(term);
+                                             PreciousMetal metal,
+                                             String term) {
+    // catid=12 schränkt auf "Gold, Silber, Platin" ein – verhindert günstige Fremdmünzen
+    String url = "https://www.ma-shops.de/shops/search.php?l=de&s=" + encode(term) + "&catid=12";
     Page page = context.newPage();
     try {
       page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
@@ -748,13 +749,29 @@ public class CollectorCoinPricingService {
   // Coininvest.de ────────────────────────────────────────────────────────
 
   private CollectorCoinPrice scrapeCoininvest(BrowserContext context,
-                                               PreciousMetal metal,
-                                               String term) {
+                                                PreciousMetal metal,
+                                                String term) {
     String url = "https://stonexbullion.com/de/search/?term=" + encode(term);
     Page page = context.newPage();
     try {
-      page.navigate(url, new Page.NavigateOptions().setTimeout(25000));
+      com.microsoft.playwright.Response response =
+          page.navigate(url, new Page.NavigateOptions().setTimeout(25000));
+
+      // Stonexbullion blockiert Bot-IPs mit HTTP 403 (CSRF-Token-Mismatch).
+      // In diesem Fall sofort abbrechen, um keine falschen Nullpreis-Einträge zu erzeugen.
+      if (response != null && response.status() == 403) {
+        log.warn("Coininvest (stonexbullion): HTTP 403 – Quelle blockiert (Bot-Schutz)."
+            + " Bitte alternative Quelle verwenden.");
+        return null;
+      }
+      // Zusätzlicher Inhalts-Check: Nuxt-SPA gibt manchmal 200 mit Forbidden-Body
       page.waitForTimeout(4000);
+      String bodyText = page.innerText("body");
+      if (bodyText != null && bodyText.contains("Forbidden")) {
+        log.warn("Coininvest (stonexbullion): Forbidden-Seite empfangen – überspringe Münze {}",
+            metal.getName());
+        return null;
+      }
 
       String[] selectors = {
           ".product-price",
