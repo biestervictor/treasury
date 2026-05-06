@@ -48,11 +48,11 @@ treasury:
   nameSpace: treasury
   image:
     name: ghcr.io/biestervictor/treasury
-    tag: "0d2511f7ff9fa17c1c42fa040e8b15e0d18f785c"
+    tag: "c025355273e1bb5f423e982337b79f3cec9d7e82"
   timezone: Europe/Berlin
   build:
-    version: 0.0.62
-    time: "2026-05-06 11:38 UTC"
+    version: 0.0.63
+    time: "2026-05-06 11:44 UTC"
   secrets: my-tls-secret
   tls:
     certKey: tls-crt
