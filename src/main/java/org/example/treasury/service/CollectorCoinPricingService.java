@@ -209,7 +209,7 @@ public class CollectorCoinPricingService {
           } catch (Exception ignored) { }
         });
       }
-      OptionalDouble price = extractLowestPrice(firstPriceSpans);
+      OptionalDouble price = extractLowestPrice(firstPriceSpans, 8.0);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot");
@@ -217,7 +217,7 @@ public class CollectorCoinPricingService {
 
       // Karten-Ansicht: span innerhalb .itemPrice (verhindert Preisfilter-Dropdown-Werte)
       List<ElementHandle> cardSpans = page.querySelectorAll("span.itemPrice span.curr1.price");
-      price = extractLowestPrice(cardSpans);
+      price = extractLowestPrice(cardSpans, 8.0);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
             price.getAsDouble(), url, "günstigstes Angebot – Galerie");
@@ -519,13 +519,17 @@ public class CollectorCoinPricingService {
   }
 
   private OptionalDouble extractLowestPrice(List<ElementHandle> elements) {
+    return extractLowestPrice(elements, 2.0);
+  }
+
+  private OptionalDouble extractLowestPrice(List<ElementHandle> elements, double minPrice) {
     double lowest = Double.MAX_VALUE;
     boolean found = false;
     for (ElementHandle el : elements) {
       try {
         OptionalDouble p = parseEurValue(el.innerText());
-        // Werte unter 2 EUR werden als Filter-Artefakte (z.B. Preisfilter-Dropdowns) abgelehnt
-        if (p.isPresent() && p.getAsDouble() >= 2.0 && p.getAsDouble() < lowest) {
+        // Werte unterhalb des Mindestpreises abgelehnt (z.B. Preisfilter-Artefakte, Zubehör)
+        if (p.isPresent() && p.getAsDouble() >= minPrice && p.getAsDouble() < lowest) {
           lowest = p.getAsDouble();
           found = true;
         }
