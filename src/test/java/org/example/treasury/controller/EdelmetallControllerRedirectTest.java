@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.example.treasury.dto.ManualMetalPricesRequest;
 import org.example.treasury.job.CollectorCoinPriceJob;
+import org.example.treasury.repository.CollectorCoinPriceRepository;
 import org.example.treasury.repository.PreciousMetalRepository;
 import org.example.treasury.service.CollectorCoinPricingService;
 import org.example.treasury.service.EdelmetallService;
@@ -18,7 +19,8 @@ class EdelmetallControllerRedirectTest {
     CollectorCoinPricingService pricingService = Mockito.mock(CollectorCoinPricingService.class);
     CollectorCoinPriceJob job = Mockito.mock(CollectorCoinPriceJob.class);
     PreciousMetalRepository repo = Mockito.mock(PreciousMetalRepository.class);
-    return new EdelmetallController(service, pricingService, job, repo);
+    CollectorCoinPriceRepository priceRepo = Mockito.mock(CollectorCoinPriceRepository.class);
+    return new EdelmetallController(service, pricingService, job, repo, priceRepo);
   }
 
   @Test
@@ -27,7 +29,8 @@ class EdelmetallControllerRedirectTest {
     CollectorCoinPricingService pricingService = Mockito.mock(CollectorCoinPricingService.class);
     CollectorCoinPriceJob job = Mockito.mock(CollectorCoinPriceJob.class);
     PreciousMetalRepository repo = Mockito.mock(PreciousMetalRepository.class);
-    EdelmetallController controller = new EdelmetallController(service, pricingService, job, repo);
+    CollectorCoinPriceRepository priceRepo = Mockito.mock(CollectorCoinPriceRepository.class);
+    EdelmetallController controller = new EdelmetallController(service, pricingService, job, repo, priceRepo);
 
     Mockito.when(service.updatePricesAndStoreValuation()).thenReturn(null);
 

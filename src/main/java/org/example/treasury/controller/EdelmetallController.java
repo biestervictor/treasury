@@ -2,12 +2,15 @@ package org.example.treasury.controller;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import org.example.treasury.dto.ManualMetalPricesRequest;
 import org.example.treasury.dto.MetalDashboardDto;
 import org.example.treasury.job.CollectorCoinPriceJob;
 import org.example.treasury.model.CollectorCoinPrice;
 import org.example.treasury.model.CollectorCoinPriceSource;
+import org.example.treasury.model.CollectorScraperRun;
 import org.example.treasury.model.PreciousMetal;
+import org.example.treasury.repository.CollectorCoinPriceRepository;
 import org.example.treasury.repository.PreciousMetalRepository;
 import org.example.treasury.service.CollectorCoinPricingService;
 import org.example.treasury.service.EdelmetallService;
@@ -23,6 +26,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.util.UriUtils;
 
+/**
+ * Controller für Edelmetall-Dashboard, Preisermittlung, Sammlerwerte und Verwaltung.
+ */
 @Controller
 @RequestMapping("/api/edelmetall")
 public class EdelmetallController {
@@ -31,23 +37,27 @@ public class EdelmetallController {
   private final CollectorCoinPricingService collectorCoinPricingService;
   private final CollectorCoinPriceJob collectorCoinPriceJob;
   private final PreciousMetalRepository preciousMetalRepository;
+  private final CollectorCoinPriceRepository collectorCoinPriceRepository;
 
   /**
    * Konstruktor.
    *
-   * @param edelmetallService           Edelmetall-Service
-   * @param collectorCoinPricingService Sammlermünz-Preisservice
-   * @param collectorCoinPriceJob       Sammlermünz-Preisermittlungsjob
-   * @param preciousMetalRepository     Münz-Repository
+   * @param edelmetallService             Edelmetall-Service
+   * @param collectorCoinPricingService   Sammlermünz-Preisservice
+   * @param collectorCoinPriceJob         Sammlermünz-Preisermittlungsjob
+   * @param preciousMetalRepository       Münz-Repository
+   * @param collectorCoinPriceRepository  Preisverlauf-Repository
    */
   public EdelmetallController(EdelmetallService edelmetallService,
                                CollectorCoinPricingService collectorCoinPricingService,
                                CollectorCoinPriceJob collectorCoinPriceJob,
-                               PreciousMetalRepository preciousMetalRepository) {
+                               PreciousMetalRepository preciousMetalRepository,
+                               CollectorCoinPriceRepository collectorCoinPriceRepository) {
     this.edelmetallService = edelmetallService;
     this.collectorCoinPricingService = collectorCoinPricingService;
     this.collectorCoinPriceJob = collectorCoinPriceJob;
     this.preciousMetalRepository = preciousMetalRepository;
+    this.collectorCoinPriceRepository = collectorCoinPriceRepository;
   }
 
   /**
@@ -81,7 +91,7 @@ public class EdelmetallController {
   }
 
   /**
-   * Manuelle Preiseingabe (ohne externen API-Call). Persistiert PriceSnapshot + Valuation für heute.
+   * Manuelle Preiseingabe (ohne externen API-Call).
    */
   @PostMapping("/prices/manual")
   @ResponseBody
@@ -111,11 +121,10 @@ public class EdelmetallController {
   }
 
   /**
-   * Setzt den Sammlerwert (EUR/Stk) für eine einzelne Münze und löst sofort
-   * einen neuen Valuation-Snapshot aus. Redirect zum Dashboard.
+   * Setzt den Sammlerwert (EUR/Stk) für eine einzelne Münze.
    *
    * @param id          MongoDB-ID der Münze
-   * @param marketValue Sammlerwert pro Stück in EUR; 0.0 = zurücksetzen (Fallback auf Spot)
+   * @param marketValue Sammlerwert pro Stück in EUR; 0.0 = zurücksetzen
    */
   @PostMapping("/metals/{id}/marketValue")
   public ResponseEntity<String> setMarketValue(
@@ -125,6 +134,38 @@ public class EdelmetallController {
     return ResponseEntity.status(303)
         .header("Location", "/api/edelmetall/dashboard/view")
         .body("Market value updated");
+  }
+
+  /**
+   * Löscht eine Münze (PreciousMetal) sowie alle zugehörigen Preis-Einträge.
+   * Löst anschließend eine Neubewertung aus.
+   *
+   * @param id MongoDB-ID der zu löschenden Münze
+   */
+  @PostMapping("/metals/{id}/delete")
+  public ResponseEntity<String> deleteMetal(@PathVariable String id) {
+    collectorCoinPriceRepository.deleteByPreciousMetalId(id);
+    preciousMetalRepository.deleteById(id);
+    edelmetallService.recomputeValuation();
+    return ResponseEntity.status(303)
+        .header("Location", "/api/edelmetall/dashboard/view")
+        .body("Gelöscht");
+  }
+
+  /**
+   * Löscht einen einzelnen Preis-Eintrag aus der Scraper-History einer Münze.
+   *
+   * @param id      MongoDB-ID des CollectorCoinPrice-Eintrags
+   * @param metalId MongoDB-ID der Münze (für den Redirect zurück zur History-Seite)
+   */
+  @PostMapping("/collector-prices/{id}/delete")
+  public ResponseEntity<String> deleteCollectorPrice(
+      @PathVariable String id,
+      @RequestParam String metalId) {
+    collectorCoinPriceRepository.deleteById(id);
+    return ResponseEntity.status(303)
+        .header("Location", "/api/edelmetall/metals/" + metalId + "/history")
+        .body("Gelöscht");
   }
 
   /**
@@ -146,7 +187,7 @@ public class EdelmetallController {
   }
 
   /**
-   * Triggert Sammlermünz-Preisermittlung für eine Quelle im Hintergrund. Redirect zum Dashboard.
+   * Triggert Sammlermünz-Preisermittlung für eine Quelle im Hintergrund.
    *
    * @param source Quelle (MA_SHOPS, EBAY, COININVEST, NUMISTA)
    */
@@ -161,7 +202,7 @@ public class EdelmetallController {
   }
 
   /**
-   * Triggert Sammlermünz-Preisermittlung für alle Quellen im Hintergrund. Redirect zum Dashboard.
+   * Triggert Sammlermünz-Preisermittlung für alle Quellen im Hintergrund.
    */
   @PostMapping("/collector-prices/update/all")
   public ResponseEntity<String> updateAllCollectorPrices() {
@@ -172,13 +213,37 @@ public class EdelmetallController {
   }
 
   /**
-   * Dashboard View (Thymeleaf) mit Chart.
+   * Scraper-Verlauf-Seite (Thymeleaf): zeigt alle Läufe mit Erfolgsquoten und Preisänderungen.
+   *
+   * @param model Spring MVC Model
+   * @return Template-Name
+   */
+  @GetMapping("/scraper-history")
+  public String scraperHistory(Model model) {
+    List<CollectorScraperRun> runs = collectorCoinPricingService.getScraperHistory();
+    Map<CollectorCoinPriceSource, CollectorScraperRun> latestPerSource =
+        collectorCoinPricingService.getLatestRunPerSource();
+    model.addAttribute("runs", runs);
+    model.addAttribute("latestRunPerSource", latestPerSource);
+    model.addAttribute("sources", CollectorCoinPriceSource.values());
+    return "collectorScraperHistory";
+  }
+
+  /**
+   * Dashboard View (Thymeleaf) mit Chart und abgeleitetem Sammlerwert pro Münze.
+   *
+   * @param model Spring MVC Model
+   * @return Template-Name
    */
   @GetMapping("/dashboard/view")
   public String dashboardView(Model model) {
     MetalDashboardDto dto = edelmetallService.getDashboard();
     model.addAttribute("dashboard", dto);
     model.addAttribute("sources", CollectorCoinPriceSource.values());
+    model.addAttribute("latestCollectorPrices",
+        collectorCoinPricingService.getLatestCollectorPricePerMetal(
+            dto.currentPrices().goldEurPerOunce(),
+            dto.currentPrices().silverEurPerOunce()));
     return "edelmetallDashboard";
   }
 }

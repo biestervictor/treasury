@@ -72,6 +72,7 @@
                         <th>Anmerkung</th>
                         <th>URL</th>
                         <th></th>
+                        <th></th>
                     </tr>
                     </thead>
                     <tbody>
@@ -102,6 +103,12 @@
                                         title="Als Sammlerwert setzen">&#10003; Übernehmen</button>
                             </form>
                         </td>
+                        <td>
+                            <button type="button"
+                                    class="btn btn-outline-danger btn-sm delete-price-btn"
+                                    th:attr="data-id=${entry.id}, data-metal-id=${metal.id}"
+                                    title="Eintrag löschen">&#x2715;</button>
+                        </td>
                     </tr>
                     </tbody>
                 </table>
@@ -112,6 +119,25 @@
 
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<!-- Modal: Preis-Eintrag löschen -->
+<div class="modal fade" id="deletePriceModal" tabindex="-1" aria-labelledby="deletePriceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deletePriceModalLabel">Preis-Eintrag löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <div class="modal-body">Diesen Preis-Eintrag unwiderruflich löschen?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <form id="deletePriceForm" method="post" action="#">
+                    <button type="submit" class="btn btn-danger">Löschen</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script th:inline="javascript" th:if="${!#lists.isEmpty(history)}">
     const SOURCE_COLORS = {
@@ -163,5 +189,16 @@
     });
 </script>
 <th:block th:replace="fragments/scripts :: scripts"></th:block>
+<script>
+    document.querySelectorAll('.delete-price-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            const metalId = btn.getAttribute('data-metal-id');
+            document.getElementById('deletePriceForm').setAttribute(
+                'action', '/api/edelmetall/collector-prices/' + id + '/delete?metalId=' + metalId);
+            new bootstrap.Modal(document.getElementById('deletePriceModal')).show();
+        });
+    });
+</script>
 </body>
 </html>

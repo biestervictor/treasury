@@ -350,6 +350,22 @@ public class EdelmetallService {
   }
 
   /**
+   * Recomputes the valuation snapshot using the current latest price snapshot.
+   * Triggered after structural changes such as deleting a metal entry.
+   *
+   * @return the newly stored valuation snapshot
+   */
+  public MetalValuationSnapshot recomputeValuation() {
+    MetalPriceSnapshot latestPrice = metalPriceSnapshotRepository.findTopByOrderByTimestampDesc()
+        .orElseGet(() -> MetalPriceSnapshot.builder()
+            .timestamp(Instant.now(clock))
+            .goldPriceEurPerOunce(DEFAULT_GOLD_PRICE_PER_OUNCE)
+            .silverPriceEurPerOunce(DEFAULT_SILVER_PRICE_PER_OUNCE)
+            .build());
+    return storeValuationSnapshot(latestPrice);
+  }
+
+  /**
    * Setzt den Sammlerwert (EUR/Stk) für eine Münze und speichert sofort einen neuen Valuation-Snapshot.
    *
    * @param id          MongoDB-ID der Münze (PreciousMetal.id)

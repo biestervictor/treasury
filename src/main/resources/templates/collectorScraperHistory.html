@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('Scraper-Verlauf')"></head>
+<body class="bg-light">
+
+<th:block th:replace="navbarEdelmetall.html :: nav"></th:block>
+
+<div class="container mt-4">
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a th:href="@{/api/edelmetall/dashboard/view}">Edelmetalle Dashboard</a>
+            </li>
+            <li class="breadcrumb-item active">Scraper-Verlauf</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4">Scraper-Verlauf</h1>
+
+    <!-- Zusammenfassung: Letzter Lauf pro Quelle -->
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Letzter Lauf pro Quelle</div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Quelle</th>
+                        <th>Letzter Lauf</th>
+                        <th class="text-end">Versuche</th>
+                        <th class="text-end">Treffer</th>
+                        <th class="text-end">Erfolgsquote</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="src : ${sources}">
+                        <td>
+                            <span class="badge"
+                                  th:classappend="${src.name() == 'EBAY'} ? 'text-bg-warning' :
+                                                  (${src.name() == 'MA_SHOPS'} ? 'text-bg-primary' :
+                                                  (${src.name() == 'COININVEST'} ? 'text-bg-success' :
+                                                  'text-bg-secondary'))"
+                                  th:text="${src.displayName}">Quelle</span>
+                        </td>
+                        <td>
+                            <span th:if="${latestRunPerSource.containsKey(src)}"
+                                  th:text="${#temporals.format(latestRunPerSource.get(src).timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd HH:mm')}"></span>
+                            <span th:unless="${latestRunPerSource.containsKey(src)}"
+                                  class="text-muted small">Noch kein Lauf</span>
+                        </td>
+                        <td class="text-end">
+                            <span th:if="${latestRunPerSource.containsKey(src)}"
+                                  th:text="${latestRunPerSource.get(src).attempted}"></span>
+                            <span th:unless="${latestRunPerSource.containsKey(src)}"
+                                  class="text-muted">—</span>
+                        </td>
+                        <td class="text-end">
+                            <span th:if="${latestRunPerSource.containsKey(src)}"
+                                  th:text="${latestRunPerSource.get(src).succeeded}"></span>
+                            <span th:unless="${latestRunPerSource.containsKey(src)}"
+                                  class="text-muted">—</span>
+                        </td>
+                        <td class="text-end">
+                            <th:block th:if="${latestRunPerSource.containsKey(src)}">
+                                <span th:with="run=${latestRunPerSource.get(src)},
+                                              rate=${run.attempted > 0 ? run.succeeded * 100 / run.attempted : 0}"
+                                      th:classappend="${rate >= 70} ? 'badge text-bg-success' :
+                                                      (${rate >= 40} ? 'badge text-bg-warning' :
+                                                      'badge text-bg-danger')"
+                                      th:text="${rate + '%'}"></span>
+                            </th:block>
+                            <span th:unless="${latestRunPerSource.containsKey(src)}"
+                                  class="text-muted">—</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Lauf-Verlauf (neueste zuerst) -->
+    <h5 class="mb-3">Alle Läufe (neueste zuerst)</h5>
+
+    <div th:if="${#lists.isEmpty(runs)}" class="alert alert-info">
+        Noch keine Scraper-Läufe vorhanden. Scraper im Dashboard triggern.
+    </div>
+
+    <div class="accordion" id="runAccordion" th:if="${!#lists.isEmpty(runs)}">
+        <div class="accordion-item" th:each="run, runStat : ${runs}">
+            <h2 class="accordion-header" th:id="${'heading' + runStat.index}">
+                <button class="accordion-button collapsed py-2" type="button"
+                        data-bs-toggle="collapse"
+                        th:attr="data-bs-target=${'#collapse' + runStat.index},
+                                 aria-controls=${'collapse' + runStat.index}">
+                    <span class="badge me-2"
+                          th:classappend="${run.source.name() == 'EBAY'} ? 'text-bg-warning' :
+                                          (${run.source.name() == 'MA_SHOPS'} ? 'text-bg-primary' :
+                                          (${run.source.name() == 'COININVEST'} ? 'text-bg-success' :
+                                          'text-bg-secondary'))"
+                          th:text="${run.source.displayName}">Quelle</span>
+                    <span th:text="${#temporals.format(run.timestamp.atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd HH:mm')}"></span>
+                    <span class="ms-2 text-muted small"
+                          th:text="${run.succeeded + ' / ' + run.attempted + ' Münzen'}"></span>
+                    <span th:if="${run.succeeded == 0}"
+                          class="badge text-bg-danger ms-2">Keine Treffer</span>
+                    <span th:if="${run.succeeded > 0 and run.succeeded < run.attempted}"
+                          class="badge text-bg-warning ms-2">Teilweise</span>
+                    <span th:if="${run.succeeded > 0 and run.succeeded == run.attempted}"
+                          class="badge text-bg-success ms-2">Vollständig</span>
+                </button>
+            </h2>
+            <div th:id="${'collapse' + runStat.index}" class="accordion-collapse collapse"
+                 th:attr="aria-labelledby=${'heading' + runStat.index}">
+                <div class="accordion-body p-0">
+                    <div th:if="${run.entries == null or #lists.isEmpty(run.entries)}"
+                         class="p-3 text-muted small">Keine Detaildaten.</div>
+                    <table class="table table-sm mb-0 align-middle"
+                           th:if="${run.entries != null and !#lists.isEmpty(run.entries)}">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:24px"></th>
+                                <th>Münze</th>
+                                <th class="small text-muted">Suchbegriff</th>
+                                <th class="text-end">Preis (EUR)</th>
+                                <th class="text-end">Vorheriger Preis</th>
+                                <th class="text-end">Änderung</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="entry : ${run.entries}"
+                                th:classappend="${!entry.success} ? 'table-danger' : ''">
+                                <td class="text-center">
+                                    <span th:if="${entry.success}"
+                                          class="text-success fw-bold">&#10003;</span>
+                                    <span th:unless="${entry.success}"
+                                          class="text-danger">&#x2715;</span>
+                                </td>
+                                <td th:text="${entry.metalName}"></td>
+                                <td class="small text-muted" th:text="${entry.searchTerm}"></td>
+                                <td class="text-end fw-bold">
+                                    <span th:if="${entry.priceEur != null}"
+                                          th:text="${#numbers.formatDecimal(entry.priceEur, 1, 2) + ' €'}"></span>
+                                    <span th:unless="${entry.priceEur != null}"
+                                          class="text-muted">—</span>
+                                </td>
+                                <td class="text-end">
+                                    <span th:if="${entry.previousPriceEur != null}"
+                                          th:text="${#numbers.formatDecimal(entry.previousPriceEur, 1, 2) + ' €'}"></span>
+                                    <span th:unless="${entry.previousPriceEur != null}"
+                                          class="text-muted small">erstmalig</span>
+                                </td>
+                                <td class="text-end small">
+                                    <th:block th:if="${entry.priceEur != null and entry.previousPriceEur != null}">
+                                        <span th:with="delta=${entry.priceEur - entry.previousPriceEur},
+                                                      pct=${(entry.priceEur - entry.previousPriceEur) / entry.previousPriceEur * 100}"
+                                              th:classappend="${delta > 0.005} ? 'text-success' :
+                                                              (${delta < -0.005} ? 'text-danger' : 'text-muted')"
+                                              th:text="${(delta >= 0 ? '+' : '') + #numbers.formatDecimal(delta, 1, 2)
+                                                        + ' € (' + (pct >= 0 ? '+' : '') + #numbers.formatDecimal(pct, 1, 1) + '%)'}">
+                                        </span>
+                                    </th:block>
+                                    <span th:unless="${entry.priceEur != null and entry.previousPriceEur != null}"
+                                          class="text-muted">—</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
+<th:block th:replace="fragments/scripts :: scripts"></th:block>
+</body>
+</html>

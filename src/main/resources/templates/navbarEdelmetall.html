@@ -19,6 +19,9 @@
                             <span class="badge bg-danger" th:if="${jobsAnyDisabled}">Jobs: OFF</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/api/edelmetall/scraper-history}">Scraper-Verlauf</a>
+                    </li>
                 </ul>
 
                 <th:block th:replace="fragments/buildDbBadges :: badges"></th:block>

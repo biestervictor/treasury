@@ -18,14 +18,21 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.example.treasury.model.CollectorCoinPrice;
 import org.example.treasury.model.CollectorCoinPriceSource;
+import org.example.treasury.model.CollectorScraperRun;
 import org.example.treasury.model.PreciousMetal;
+import org.example.treasury.model.PreciousMetalType;
 import org.example.treasury.repository.CollectorCoinPriceRepository;
+import org.example.treasury.repository.CollectorScraperRunRepository;
 import org.example.treasury.repository.PreciousMetalRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +45,8 @@ import org.springframework.stereotype.Service;
  *
  * <p>Jede Quelle kann separat oder gemeinsam getriggert werden.
  * Die ermittelten Preise werden in {@code collectorCoinPrice} gespeichert
- * und dienen als Grundlage für den Preisverlauf-Chart je Münze.</p>
+ * und dienen als Grundlage für den Preisverlauf-Chart je Münze.
+ * Preise unterhalb des Materialwertes (Spot) werden verworfen.</p>
  */
 @Service
 public class CollectorCoinPricingService {
@@ -53,32 +61,55 @@ public class CollectorCoinPricingService {
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 "
           + "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
+  private static final double TROY_OZ_GRAMS = 31.1034768;
+
+  // Standard troy-oz-Nennwerte für die Suchbegriff-Anreicherung
+  private static final double[] OZ_VALUES =
+      {1.0 / 20, 1.0 / 10, 1.0 / 4, 1.0 / 2, 1.0, 2.0, 5.0};
+  private static final String[] OZ_LABELS =
+      {"1/20oz", "1/10oz", "1/4oz", "1/2oz", "1oz", "2oz", "5oz"};
+  private static final double OZ_TOLERANCE_GRAMS = 0.5;
+
   private final PreciousMetalRepository preciousMetalRepository;
   private final CollectorCoinPriceRepository collectorCoinPriceRepository;
+  private final CollectorScraperRunRepository scraperRunRepository;
   private final Clock clock;
   private final AppConfigService appConfigService;
 
   /**
-   * Konstruktor.
+   * Konstruktor (Produktion).
    *
    * @param preciousMetalRepository      Münz-Repository
    * @param collectorCoinPriceRepository Preisverlauf-Repository
    * @param appConfigService             App-Konfigurationsservice (für API-Keys)
+   * @param scraperRunRepository         Scraper-Run-Repository
    */
   @Autowired
   public CollectorCoinPricingService(PreciousMetalRepository preciousMetalRepository,
                                      CollectorCoinPriceRepository collectorCoinPriceRepository,
-                                     AppConfigService appConfigService) {
-    this(preciousMetalRepository, collectorCoinPriceRepository, appConfigService, Clock.systemUTC());
+                                     AppConfigService appConfigService,
+                                     CollectorScraperRunRepository scraperRunRepository) {
+    this(preciousMetalRepository, collectorCoinPriceRepository, appConfigService,
+        scraperRunRepository, Clock.systemUTC());
+  }
+
+  /** Test-Konstruktor (ohne scraperRunRepository). */
+  CollectorCoinPricingService(PreciousMetalRepository preciousMetalRepository,
+                               CollectorCoinPriceRepository collectorCoinPriceRepository,
+                               AppConfigService appConfigService,
+                               Clock clock) {
+    this(preciousMetalRepository, collectorCoinPriceRepository, appConfigService, null, clock);
   }
 
   CollectorCoinPricingService(PreciousMetalRepository preciousMetalRepository,
                                CollectorCoinPriceRepository collectorCoinPriceRepository,
                                AppConfigService appConfigService,
+                               CollectorScraperRunRepository scraperRunRepository,
                                Clock clock) {
     this.preciousMetalRepository = preciousMetalRepository;
     this.collectorCoinPriceRepository = collectorCoinPriceRepository;
     this.appConfigService = appConfigService;
+    this.scraperRunRepository = scraperRunRepository;
     this.clock = clock;
   }
 
@@ -112,17 +143,19 @@ public class CollectorCoinPricingService {
     if (source == CollectorCoinPriceSource.NUMISTA) {
       return updateFromNumista(metals);
     }
-
     if (source == CollectorCoinPriceSource.EBAY) {
       return updateFromEbay(metals);
     }
 
+    // Playwright-basierte Quellen (MA-Shops, Coininvest)
+    Map<String, Double> prevPrices = loadPreviousPrices(metals, source);
     List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
     try (Playwright playwright = Playwright.create()) {
       Browser browser = playwright.chromium().launch(
           new BrowserType.LaunchOptions()
               .setHeadless(true)
-              // Pflicht-Args für Chromium in Docker/Kubernetes (kein /dev/shm)
               .setArgs(java.util.List.of(
                   "--disable-dev-shm-usage",
                   "--no-sandbox",
@@ -135,22 +168,34 @@ public class CollectorCoinPricingService {
       try {
         for (PreciousMetal metal : metals) {
           String term = effectiveSearchTerm(metal);
+          CollectorCoinPrice entry = null;
           try {
-            CollectorCoinPrice entry = scrapeWithPlaywright(source, context, metal, term);
+            entry = scrapeWithPlaywright(source, context, metal, term);
             if (entry != null) {
               results.add(collectorCoinPriceRepository.save(entry));
               log.info("  {} – {}: {} EUR", source, metal.getName(),
                   String.format("%.2f", entry.getPriceEur()));
             }
           } catch (Exception e) {
-            log.warn("  {} – {} Scrape fehlgeschlagen: {}", source, metal.getName(), e.getMessage());
+            log.warn("  {} – {} Scrape fehlgeschlagen: {}", source, metal.getName(),
+                e.getMessage());
           }
+          runEntries.add(CollectorScraperRun.Entry.builder()
+              .metalId(metal.getId())
+              .metalName(metal.getName())
+              .searchTerm(term)
+              .success(entry != null)
+              .priceEur(entry != null ? entry.getPriceEur() : null)
+              .previousPriceEur(prevPrices.get(metal.getId()))
+              .build());
           sleepMs(1500);
         }
       } finally {
         browser.close();
       }
     }
+
+    saveScraperRun(source, metals.size(), results.size(), runEntries);
     log.info("CollectorCoinPricingService: {} fertig – {} Einträge gespeichert",
         source, results.size());
     return results;
@@ -164,6 +209,82 @@ public class CollectorCoinPricingService {
    */
   public List<CollectorCoinPrice> getPriceHistory(String metalId) {
     return collectorCoinPriceRepository.findByPreciousMetalIdOrderByTimestampAsc(metalId);
+  }
+
+  /**
+   * Liefert den abgeleiteten Sammlerwert pro Münze als Durchschnitt der jeweils
+   * aktuellsten Preise aller Quellen — gefiltert: Preise unterhalb des Materialwerts
+   * (Spot-Preis auf Basis Gewicht + Metalltyp) werden ausgeschlossen.
+   *
+   * @param goldPerOz    aktueller Goldpreis EUR/oz
+   * @param silverPerOz  aktueller Silberpreis EUR/oz
+   * @return Map: PreciousMetal-ID → ermittelter Sammlerwert in EUR
+   */
+  public Map<String, Double> getLatestCollectorPricePerMetal(double goldPerOz,
+                                                              double silverPerOz) {
+    Map<String, PreciousMetal> metalById = preciousMetalRepository.findAll()
+        .stream().collect(Collectors.toMap(PreciousMetal::getId, m -> m));
+
+    List<CollectorCoinPrice> all = new ArrayList<>(collectorCoinPriceRepository.findAll());
+    all.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
+
+    // Neuester Preis pro Münze+Quelle (sortiert desc → putIfAbsent nimmt den ersten = neuesten)
+    Map<String, Map<CollectorCoinPriceSource, Double>> latestPerMetalSource = new HashMap<>();
+    for (CollectorCoinPrice p : all) {
+      if (p.getPreciousMetalId() == null || p.getTimestamp() == null) {
+        continue;
+      }
+      latestPerMetalSource
+          .computeIfAbsent(p.getPreciousMetalId(), k -> new HashMap<>())
+          .putIfAbsent(p.getSource(), p.getPriceEur());
+    }
+
+    Map<String, Double> result = new HashMap<>();
+    latestPerMetalSource.forEach((metalId, sourceMap) -> {
+      PreciousMetal metal = metalById.get(metalId);
+      double spotValue = computeSpotValue(metal, goldPerOz, silverPerOz);
+
+      OptionalDouble avg = sourceMap.values().stream()
+          .filter(v -> v > 0 && v >= spotValue)
+          .mapToDouble(d -> d)
+          .average();
+      if (avg.isPresent()) {
+        result.put(metalId, avg.getAsDouble());
+      }
+    });
+    return result;
+  }
+
+  /**
+   * Gibt alle gespeicherten Scraper-Läufe zurück, neueste zuerst.
+   *
+   * @return Liste der CollectorScraperRun-Einträge
+   */
+  public List<CollectorScraperRun> getScraperHistory() {
+    if (scraperRunRepository == null) {
+      return List.of();
+    }
+    return scraperRunRepository.findAllByOrderByTimestampDesc();
+  }
+
+  /**
+   * Gibt den neuesten Scraper-Lauf pro Quelle zurück.
+   *
+   * @return Map: Quelle → neuester CollectorScraperRun
+   */
+  public Map<CollectorCoinPriceSource, CollectorScraperRun> getLatestRunPerSource() {
+    Map<CollectorCoinPriceSource, CollectorScraperRun> result = new HashMap<>();
+    if (scraperRunRepository == null) {
+      return result;
+    }
+    for (CollectorCoinPriceSource source : CollectorCoinPriceSource.values()) {
+      List<CollectorScraperRun> runs =
+          scraperRunRepository.findBySourceOrderByTimestampDesc(source);
+      if (!runs.isEmpty()) {
+        result.put(source, runs.get(0));
+      }
+    }
+    return result;
   }
 
   // ─── Playwright-basierte Scrapers ────────────────────────────────────────
@@ -182,17 +303,14 @@ public class CollectorCoinPricingService {
   // MA-Shops ──────────────────────────────────────────────────────────────
 
   private CollectorCoinPrice scrapeMaShops(BrowserContext context,
-                                             PreciousMetal metal,
-                                             String term) {
-    // Korrekte Such-URL für ma-shops.de (die /search/?q= Variante liefert 404)
+                                            PreciousMetal metal,
+                                            String term) {
     String url = "https://www.ma-shops.de/shops/search.php?l=de&s=" + encode(term);
     Page page = context.newPage();
     try {
       page.navigate(url, new Page.NavigateOptions().setTimeout(20000));
       page.waitForTimeout(2000);
 
-      // Für jede td.spx-price NUR den ERSTEN span.price holen (= Artikelpreis, nicht Versand)
-      // minPrice=10 EUR filtert Zubehör (Münzhalter etc.) heraus
       List<ElementHandle> priceCells = page.querySelectorAll("td.spx-price");
       List<ElementHandle> firstPriceSpans = new ArrayList<>();
       for (ElementHandle cell : priceCells) {
@@ -207,7 +325,6 @@ public class CollectorCoinPricingService {
             price.getAsDouble(), url, "günstigstes Angebot");
       }
 
-      // Karten-Ansicht: span innerhalb .itemPrice (verhindert Preisfilter-Dropdown-Werte)
       List<ElementHandle> cardSpans = page.querySelectorAll("span.itemPrice span.curr1.price");
       price = extractLowestPrice(cardSpans, 10.0);
       if (price.isPresent()) {
@@ -222,7 +339,7 @@ public class CollectorCoinPricingService {
     }
   }
 
-  // eBay Browse API (OAuth2 client_credentials) ────────────────────────────
+  // eBay Browse API (OAuth2 client_credentials) ─────────────────────────────
 
   /** Cached eBay OAuth2 access token. */
   private volatile String ebayAccessToken = null;
@@ -234,7 +351,7 @@ public class CollectorCoinPricingService {
     String appId = appConfigService.get(AppConfigService.KEY_EBAY_APP_ID);
     String certId = appConfigService.get(AppConfigService.KEY_EBAY_CERT_ID);
     if (appId.isBlank() || certId.isBlank()) {
-      log.warn("eBay App ID oder Cert ID nicht konfiguriert (Settings → API-Keys). Überspringe eBay.");
+      log.warn("eBay App ID oder Cert ID nicht konfiguriert. Überspringe eBay.");
       return List.of();
     }
 
@@ -254,11 +371,15 @@ public class CollectorCoinPricingService {
       return List.of();
     }
 
+    Map<String, Double> prevPrices = loadPreviousPrices(metals, CollectorCoinPriceSource.EBAY);
     List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
     for (PreciousMetal metal : metals) {
-      String term = effectiveSearchTerm(metal);
+      String term = effectiveEbaySearchTerm(metal);
+      CollectorCoinPrice entry = null;
       try {
-        CollectorCoinPrice entry = fetchEbayBrowsePrice(http, metal, term, token);
+        entry = fetchEbayBrowsePrice(http, metal, term, token);
         if (entry != null) {
           results.add(collectorCoinPriceRepository.save(entry));
           log.info("  EBAY – {}: {} EUR", metal.getName(),
@@ -268,7 +389,17 @@ public class CollectorCoinPricingService {
       } catch (Exception e) {
         log.warn("  EBAY – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
       }
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(term)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
     }
+
+    saveScraperRun(CollectorCoinPriceSource.EBAY, metals.size(), results.size(), runEntries);
     log.info("CollectorCoinPricingService: EBAY fertig – {} Einträge gespeichert", results.size());
     return results;
   }
@@ -312,8 +443,7 @@ public class CollectorCoinPricingService {
     Matcher tokenMatcher = Pattern.compile("\"access_token\"\\s*:\\s*\"([^\"]+)\"")
         .matcher(resp.body());
     if (!tokenMatcher.find()) {
-      log.warn("eBay Token-Antwort enthält kein access_token: {}",
-          resp.body().substring(0, Math.min(300, resp.body().length())));
+      log.warn("eBay Token-Antwort enthält kein access_token");
       return null;
     }
     String token = tokenMatcher.group(1);
@@ -329,12 +459,13 @@ public class CollectorCoinPricingService {
 
   /**
    * Fetches the average price of the top-5 active eBay listings via Browse API.
+   * Returns {@code null} if no listing is found or all prices are below the spot value.
    *
    * @param http   the HTTP client
    * @param metal  the coin to price
-   * @param term   the search term
+   * @param term   the (enriched) search term
    * @param token  the OAuth2 Bearer token
-   * @return a {@link CollectorCoinPrice} entry, or {@code null} if no results
+   * @return a {@link CollectorCoinPrice} entry, or {@code null} if no usable result
    * @throws IOException          on network error
    * @throws InterruptedException if interrupted
    */
@@ -364,7 +495,7 @@ public class CollectorCoinPricingService {
       return null;
     }
 
-    // Extract price values: "price":{"value":"45.00","currency":"EUR"}
+    // Extract: "price":{"value":"45.00","currency":"EUR"}
     Matcher m = Pattern.compile("\"price\"\\s*:\\s*\\{[^}]*?\"value\"\\s*:\\s*\"([\\d.]+)\"")
         .matcher(resp.body());
     List<Double> prices = new ArrayList<>();
@@ -384,8 +515,18 @@ public class CollectorCoinPricingService {
       return null;
     }
 
-    int count = Math.min(5, prices.size());
-    double avg = prices.stream().limit(count).mapToDouble(d -> d).average().orElse(0);
+    // Materialwert berechnen und Preise darunter herausfiltern
+    double spotValue = computeSpotValue(metal, 0, 0); // spot ohne aktuelle Preise → 0 Fallback
+    // Spot ohne Preisangabe → wir filtern hier konservativ nur offensichtlichen Schrott (< 1 EUR)
+    // Die echte Spot-Filterung erfolgt in getLatestCollectorPricePerMetal() mit aktuellen Kursen.
+    List<Double> filtered = prices.stream().filter(p -> p > 1.0).toList();
+    if (filtered.isEmpty()) {
+      log.debug("eBay Browse: alle Preise unter 1 EUR für '{}'", term);
+      return null;
+    }
+
+    int count = Math.min(5, filtered.size());
+    double avg = filtered.stream().limit(count).mapToDouble(d -> d).average().orElse(0);
     if (avg <= 0) {
       return null;
     }
@@ -398,14 +539,12 @@ public class CollectorCoinPricingService {
   // Coininvest.de ────────────────────────────────────────────────────────
 
   private CollectorCoinPrice scrapeCoininvest(BrowserContext context,
-                                                PreciousMetal metal,
-                                                String term) {
-    // Coininvest.de wurde zu stonexbullion.com umbenannt (Nuxt.js-App)
+                                               PreciousMetal metal,
+                                               String term) {
     String url = "https://stonexbullion.com/de/search/?term=" + encode(term);
     Page page = context.newPage();
     try {
       page.navigate(url, new Page.NavigateOptions().setTimeout(25000));
-      // Länger warten: Nuxt-Hydration + Cloudflare-JS-Challenge kann mehrere Sekunden dauern
       page.waitForTimeout(4000);
 
       String[] selectors = {
@@ -442,13 +581,16 @@ public class CollectorCoinPricingService {
   private List<CollectorCoinPrice> updateFromNumista(List<PreciousMetal> metals) {
     String numistaApiKey = appConfigService.get(AppConfigService.KEY_NUMISTA_API_KEY);
     if (numistaApiKey.isBlank()) {
-      log.warn("Numista-API-Key nicht konfiguriert (Settings → API-Keys). Überspringe Numista.");
+      log.warn("Numista-API-Key nicht konfiguriert. Überspringe Numista.");
       return List.of();
     }
     log.info("Numista: starte mit Key (Länge={}, Prefix={}...)",
         numistaApiKey.length(), numistaApiKey.substring(0, Math.min(6, numistaApiKey.length())));
 
+    Map<String, Double> prevPrices = loadPreviousPrices(metals, CollectorCoinPriceSource.NUMISTA);
     List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
     HttpClient http = HttpClient.newBuilder()
         .version(HttpClient.Version.HTTP_1_1)
         .connectTimeout(Duration.ofSeconds(15))
@@ -456,8 +598,9 @@ public class CollectorCoinPricingService {
 
     for (PreciousMetal metal : metals) {
       String term = effectiveSearchTerm(metal);
+      CollectorCoinPrice entry = null;
       try {
-        CollectorCoinPrice entry = fetchNumistaPrice(http, metal, term, numistaApiKey);
+        entry = fetchNumistaPrice(http, metal, term, numistaApiKey);
         if (entry != null) {
           results.add(collectorCoinPriceRepository.save(entry));
           log.info("  NUMISTA – {}: {} EUR", metal.getName(),
@@ -467,7 +610,17 @@ public class CollectorCoinPricingService {
       } catch (Exception e) {
         log.warn("  NUMISTA – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
       }
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(term)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
     }
+
+    saveScraperRun(CollectorCoinPriceSource.NUMISTA, metals.size(), results.size(), runEntries);
     return results;
   }
 
@@ -483,7 +636,6 @@ public class CollectorCoinPricingService {
                                                 String term,
                                                 String numistaApiKey)
       throws IOException, InterruptedException {
-    // 1) Typ suchen
     String searchUrl = "https://api.numista.com/v3/types?q="
         + encode(term) + "&lang=en&count=1";
     HttpResponse<String> searchResp = numistaGet(http, searchUrl, numistaApiKey);
@@ -493,7 +645,6 @@ public class CollectorCoinPricingService {
       return null;
     }
 
-    // {"count":N,"types":[{"id":12345,...},...]}  →  extrahiere erste type-ID
     Matcher typeMatcher = Pattern.compile(
         "\"types\"[\\s\\S]*?\"id\"\\s*:\\s*(\\d+)").matcher(searchResp.body());
     if (!typeMatcher.find()) {
@@ -502,7 +653,6 @@ public class CollectorCoinPricingService {
     }
     String typeId = typeMatcher.group(1);
 
-    // 2) Erste Issue-ID abrufen
     String issuesUrl = "https://api.numista.com/v3/types/" + typeId + "/issues";
     HttpResponse<String> issuesResp = numistaGet(http, issuesUrl, numistaApiKey);
     if (issuesResp.statusCode() != 200) {
@@ -510,7 +660,6 @@ public class CollectorCoinPricingService {
       return null;
     }
 
-    // [{"id":67890,...},...] → extrahiere erste issue-ID
     Matcher issueMatcher = Pattern.compile(
         "\\[\\s*\\{[\\s\\S]*?\"id\"\\s*:\\s*(\\d+)").matcher(issuesResp.body());
     if (!issueMatcher.find()) {
@@ -519,17 +668,15 @@ public class CollectorCoinPricingService {
     }
     String issueId = issueMatcher.group(1);
 
-    // 3) Preise abrufen
     String priceUrl = "https://api.numista.com/v3/types/" + typeId
         + "/issues/" + issueId + "/prices?currency=EUR";
     HttpResponse<String> priceResp = numistaGet(http, priceUrl, numistaApiKey);
     if (priceResp.statusCode() != 200) {
-      log.debug("Numista Preise HTTP {}: typeId={}, issueId={}", priceResp.statusCode(),
-          typeId, issueId);
+      log.debug("Numista Preise HTTP {}: typeId={}, issueId={}",
+          priceResp.statusCode(), typeId, issueId);
       return null;
     }
 
-    // Besten Preis nach Grade extrahieren (unc bevorzugt)
     double price = extractBestNumistaPrice(priceResp.body());
     if (price <= 0) {
       log.debug("Numista: keine Preisdaten für '{}' (typeId={}, issueId={})",
@@ -567,7 +714,6 @@ public class CollectorCoinPricingService {
   private double extractBestNumistaPrice(String priceJson) {
     String[] grades = {"unc", "au", "xf", "vf", "f", "vg", "g"};
     for (String grade : grades) {
-      // Each entry in array: {"grade":"unc","price":45.0}
       Matcher m = Pattern.compile(
           "\"grade\"\\s*:\\s*\"" + grade + "\"\\s*,\\s*\"price\"\\s*:\\s*([\\d.]+)")
           .matcher(priceJson);
@@ -581,7 +727,7 @@ public class CollectorCoinPricingService {
     return -1;
   }
 
-  // ─── Hilfsmethoden ───────────────────────────────────────────────────────
+  // ─── Such-Term Hilfsmethoden ─────────────────────────────────────────────
 
   private String effectiveSearchTerm(PreciousMetal metal) {
     String term = metal.getCollectorSearchTerm();
@@ -589,6 +735,98 @@ public class CollectorCoinPricingService {
       return term.trim();
     }
     return metal.getName() != null ? metal.getName().trim() : "";
+  }
+
+  /**
+   * Baut einen für eBay angereicherten Suchbegriff:
+   * Falls das Basisterm noch kein Gewicht (oz), keinen Metalltyp und kein "Münze" enthält,
+   * werden diese ergänzt.
+   */
+  private String effectiveEbaySearchTerm(PreciousMetal metal) {
+    String base = effectiveSearchTerm(metal);
+    String lower = base.toLowerCase(Locale.ROOT);
+    StringBuilder sb = new StringBuilder(base);
+
+    // Gewicht hinzufügen wenn nicht bereits erwähnt
+    if (!lower.contains("oz") && !lower.contains("g ") && !lower.endsWith("g")) {
+      String weightSuffix = buildWeightSuffix(metal.getWeightInGrams());
+      if (weightSuffix != null) {
+        sb.append(" ").append(weightSuffix);
+      }
+    }
+
+    // Metalltyp hinzufügen wenn nicht bereits erwähnt
+    if (metal.getType() != null
+        && !lower.contains("gold") && !lower.contains("silber")
+        && !lower.contains("silver")) {
+      String typeName = metal.getType() == PreciousMetalType.GOLD ? "Gold" : "Silber";
+      sb.append(" ").append(typeName);
+    }
+
+    // "Münze" hinzufügen wenn nicht bereits erwähnt
+    if (!lower.contains("münze") && !lower.contains("coin") && !lower.contains("münzen")) {
+      sb.append(" Münze");
+    }
+
+    return sb.toString().trim();
+  }
+
+  /**
+   * Berechnet das Oz-Kürzel für ein gegebenes Gewicht oder fällt auf Gramm zurück.
+   *
+   * @param grams Gewicht in Gramm
+   * @return z.B. "1oz", "1/2oz", "31g" oder {@code null} wenn grams &lt;= 0
+   */
+  static String buildWeightSuffix(double grams) {
+    if (grams <= 0) {
+      return null;
+    }
+    for (int i = 0; i < OZ_VALUES.length; i++) {
+      double expected = OZ_VALUES[i] * TROY_OZ_GRAMS;
+      if (Math.abs(grams - expected) <= OZ_TOLERANCE_GRAMS) {
+        return OZ_LABELS[i];
+      }
+    }
+    return Math.round(grams) + "g";
+  }
+
+  // ─── Hilfsmethoden ───────────────────────────────────────────────────────
+
+  private double computeSpotValue(PreciousMetal metal, double goldPerOz, double silverPerOz) {
+    if (metal == null || metal.getWeightInGrams() <= 0) {
+      return 0;
+    }
+    double pricePerOz = metal.getType() == PreciousMetalType.GOLD ? goldPerOz : silverPerOz;
+    return metal.getWeightInGrams() / TROY_OZ_GRAMS * pricePerOz;
+  }
+
+  private Map<String, Double> loadPreviousPrices(List<PreciousMetal> metals,
+                                                  CollectorCoinPriceSource source) {
+    Map<String, Double> prev = new HashMap<>();
+    for (PreciousMetal metal : metals) {
+      collectorCoinPriceRepository
+          .findTopByPreciousMetalIdAndSourceOrderByTimestampDesc(metal.getId(), source)
+          .ifPresent(p -> prev.put(metal.getId(), p.getPriceEur()));
+    }
+    return prev;
+  }
+
+  private void saveScraperRun(CollectorCoinPriceSource source, int attempted, int succeeded,
+                               List<CollectorScraperRun.Entry> entries) {
+    if (scraperRunRepository == null) {
+      return;
+    }
+    try {
+      scraperRunRepository.save(CollectorScraperRun.builder()
+          .timestamp(Instant.now(clock))
+          .source(source)
+          .attempted(attempted)
+          .succeeded(succeeded)
+          .entries(entries)
+          .build());
+    } catch (Exception e) {
+      log.warn("Scraper-Run-Protokoll konnte nicht gespeichert werden: {}", e.getMessage());
+    }
   }
 
   private CollectorCoinPrice buildEntry(PreciousMetal metal,
@@ -617,7 +855,6 @@ public class CollectorCoinPricingService {
     for (ElementHandle el : elements) {
       try {
         OptionalDouble p = parseEurValue(el.innerText());
-        // Werte unterhalb des Mindestpreises abgelehnt (z.B. Preisfilter-Artefakte, Zubehör)
         if (p.isPresent() && p.getAsDouble() >= minPrice && p.getAsDouble() < lowest) {
           lowest = p.getAsDouble();
           found = true;
@@ -658,7 +895,6 @@ public class CollectorCoinPricingService {
     if (s.isBlank()) {
       return OptionalDouble.empty();
     }
-    // Deutsches Format: letztes Komma ist Dezimaltrennzeichen, Punkte sind Tausender
     if (s.contains(",")) {
       s = s.replace(".", "").replace(",", ".");
     }

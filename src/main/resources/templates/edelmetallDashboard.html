@@ -67,6 +67,8 @@
                         <form method="post" th:action="@{/api/edelmetall/collector-prices/update/all}">
                             <button type="submit" class="btn btn-dark btn-sm">Alle Quellen</button>
                         </form>
+                        <a th:href="@{/api/edelmetall/scraper-history}"
+                           class="btn btn-outline-info btn-sm">Scraper-Verlauf</a>
                     </div>
                 </div>
             </div>
@@ -126,9 +128,11 @@
                                 <th class="text-end">Anzahl</th>
                                 <th class="text-end">Kaufpreis / Stk (EUR)</th>
                                 <th class="text-end">Sammlerwert / Stk (EUR)</th>
+                                <th class="text-end">Scraper-Sammlerwert (EUR)</th>
                                 <th class="text-end">Aktueller Wert / Stk (EUR)</th>
                                 <th class="text-end">Aktueller Wert ges. (EUR)</th>
                                 <th class="text-end">Gewinn (EUR)</th>
+                                <th></th>
                             </tr>
                             </thead>
                             <tbody>
@@ -154,6 +158,14 @@
                                     </button>
                                 </td>
                                 <td class="text-end">
+                                    <th:block th:if="${latestCollectorPrices != null and latestCollectorPrices.containsKey(it.preciousMetalId)}">
+                                        <span class="badge text-bg-secondary"
+                                              th:text="${#numbers.formatDecimal(latestCollectorPrices.get(it.preciousMetalId), 1, 2) + ' €'}"></span>
+                                    </th:block>
+                                    <span th:unless="${latestCollectorPrices != null and latestCollectorPrices.containsKey(it.preciousMetalId)}"
+                                          class="text-muted small">—</span>
+                                </td>
+                                <td class="text-end">
                                     <span th:text="${#numbers.formatDecimal(it.currentUnitValue, 1, 2)}"></span>
                                     <span th:if="${it.usesMarketValue}"
                                           class="badge text-bg-info ms-1"
@@ -164,6 +176,12 @@
                                 </td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.currentTotalValue, 1, 2)}"></td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.profit, 1, 2)}"></td>
+                                <td class="text-end">
+                                    <button type="button"
+                                            class="btn btn-outline-danger btn-sm delete-metal-btn"
+                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}"
+                                            title="Eintrag löschen">&#x2715;</button>
+                                </td>
                             </tr>
                             </tbody>
                         </table>
@@ -197,6 +215,28 @@
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Münze löschen -->
+<div class="modal fade" id="deleteMetalModal" tabindex="-1" aria-labelledby="deleteMetalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteMetalModalLabel">Eintrag löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <div class="modal-body">
+                Münze <strong id="deleteMetalName"></strong> und alle zugehörigen Scraper-Preise
+                unwiderruflich löschen?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <form id="deleteMetalForm" method="post" action="#">
+                    <button type="submit" class="btn btn-danger">Löschen</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -295,6 +335,18 @@
             document.getElementById('marketValueForm').setAttribute('action', '/api/edelmetall/metals/' + id + '/marketValue');
             const modal = new bootstrap.Modal(document.getElementById('marketValueModal'));
             modal.show();
+        });
+    });
+
+    // Münze löschen
+    document.querySelectorAll('.delete-metal-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            document.getElementById('deleteMetalName').textContent = name;
+            document.getElementById('deleteMetalForm').setAttribute(
+                'action', '/api/edelmetall/metals/' + id + '/delete');
+            new bootstrap.Modal(document.getElementById('deleteMetalModal')).show();
         });
     });
 </script>
