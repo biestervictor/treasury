@@ -333,6 +333,12 @@ public class CollectorCoinPricingService {
       }
 
       List<ElementHandle> priceCells = page.querySelectorAll("td.spx-price");
+      // Wenn mehr als 10 Preiszellen: generische Kategorieseite, kein spezifischer Treffer
+      if (priceCells.size() > 10) {
+        log.debug("MA-Shops: {} Treffer – zu viele für spezifischen Coin, überspringe '{}'",
+            priceCells.size(), term);
+        return null;
+      }
       List<ElementHandle> firstPriceSpans = new ArrayList<>();
       for (ElementHandle cell : priceCells) {
         ElementHandle firstSpan = cell.querySelector("span.price");
@@ -347,6 +353,11 @@ public class CollectorCoinPricingService {
       }
 
       List<ElementHandle> cardSpans = page.querySelectorAll("span.itemPrice span.curr1.price");
+      if (cardSpans.size() > 10) {
+        log.debug("MA-Shops: {} Galerie-Treffer – zu viele, überspringe '{}'",
+            cardSpans.size(), term);
+        return null;
+      }
       price = extractLowestPriceWithVariance(cardSpans, 25.0);
       if (price.isPresent()) {
         return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS,
@@ -590,6 +601,21 @@ public class CollectorCoinPricingService {
               String.format("%.2f", entry.getPriceEur()));
         }
         sleepMs(1500);
+      } catch (EbayBlockedException e) {
+        log.warn("EBAY_SOLD: eBay blockiert Zugriff auf Completed-Items ({}) – "
+            + "Batch wird übersprungen. Alle verbleibenden Münzen erhalten keinen Preis.", e.getMessage());
+        // restliche Münzen ohne Sleep als "nicht gefunden" eintragen
+        runEntries.add(CollectorScraperRun.Entry.builder()
+            .metalId(metal.getId()).metalName(metal.getName()).searchTerm(term)
+            .success(false).build());
+        for (int i = metals.indexOf(metal) + 1; i < metals.size(); i++) {
+          PreciousMetal m2 = metals.get(i);
+          runEntries.add(CollectorScraperRun.Entry.builder()
+              .metalId(m2.getId()).metalName(m2.getName())
+              .searchTerm(effectiveEbaySearchTerm(m2))
+              .success(false).build());
+        }
+        break;
       } catch (Exception e) {
         log.warn("  EBAY_SOLD – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
       }
@@ -613,11 +639,12 @@ public class CollectorCoinPricingService {
   /**
    * Fetcht die eBay-Verkaufspreise (Completed Items) via HTTP-GET gegen die eBay-Suchseite.
    * eBay liefert die Preise im server-seitig gerendertem HTML ohne JavaScript.
+   * Falls eBay Zugriff blockiert (403), wird der gesamte Batch frühzeitig beendet.
    *
    * @param http  der HTTP-Client
    * @param metal die Münze
    * @param term  der angereicherte Suchbegriff
-   * @return CollectorCoinPrice oder {@code null} wenn kein Treffer
+   * @return CollectorCoinPrice oder {@code null} wenn kein Treffer oder blockiert
    * @throws IOException          bei Netzwerkfehler
    * @throws InterruptedException bei Unterbrechung
    */
@@ -643,6 +670,11 @@ public class CollectorCoinPricingService {
         .build();
 
     HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() == 403 || resp.statusCode() == 429) {
+      // eBay blockiert Bot-Zugriff auf Completed-Items-Suche – als spezielle Exception
+      // signalisieren damit der Batch frühzeitig abbricht
+      throw new EbayBlockedException("HTTP " + resp.statusCode());
+    }
     if (resp.statusCode() != 200) {
       log.debug("eBay Sold HTTP {} für '{}'", resp.statusCode(), term);
       return null;
@@ -652,7 +684,6 @@ public class CollectorCoinPricingService {
     List<Double> prices = new ArrayList<>();
     while (m.find() && prices.size() < 10) {
       String raw = m.group(1);
-      // Ranges "25,00 bis 30,00" → ersten Wert
       if (raw.contains(" bis ")) {
         raw = raw.split(" bis ")[0];
       }
@@ -677,6 +708,13 @@ public class CollectorCoinPricingService {
         + "&_sacat=11116&LH_Complete=1&LH_Sold=1";
     return buildEntry(metal, CollectorCoinPriceSource.EBAY_SOLD, avg, sourceUrl,
         "Ø " + count + " verkaufte Angebote (HTTP-Scraping)");
+  }
+
+  /** Signalisiert, dass eBay den Zugriff blockiert hat (403/429). */
+  private static class EbayBlockedException extends RuntimeException {
+    EbayBlockedException(String msg) {
+      super(msg);
+    }
   }
 
   // Coininvest.de ────────────────────────────────────────────────────────
