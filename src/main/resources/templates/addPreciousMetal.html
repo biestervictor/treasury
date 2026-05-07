@@ -37,6 +37,12 @@
             </div>
 
             <div class="mb-3">
+              <label class="form-label fw-semibold" for="manufacturer">Hersteller / Prägeanstalt</label>
+              <input class="form-control" id="manufacturer" name="manufacturer" type="text"
+                     placeholder="z.B. Münze Österreich, Perth Mint" maxlength="200">
+            </div>
+
+            <div class="mb-3">
               <label class="form-label fw-semibold" for="weightInGrams">
                 Gewicht (Gramm) <span class="text-danger">*</span>
               </label>
@@ -96,11 +102,19 @@
           <!-- Volle Breite -->
           <div class="col-12">
             <div class="mb-3">
-              <label class="form-label fw-semibold" for="collectorSearchTerm">Scraper-Suchbegriff</label>
+              <label class="form-label fw-semibold" for="collectorSearchTerm">Primärer Scraper-Suchbegriff</label>
               <input class="form-control" id="collectorSearchTerm" name="collectorSearchTerm"
                      type="text" placeholder="optional – überschreibt Bezeichnung für Preissuche">
               <div class="form-text">
                 Leer lassen = Bezeichnung wird als Suchbegriff verwendet.
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="searchTerms">Alternative Suchbegriffe</label>
+              <textarea class="form-control" id="searchTerms" name="searchTerms"
+                        rows="3" placeholder="Optional: ein Begriff pro Zeile, werden als Fallback versucht"></textarea>
+              <div class="form-text">
+                Mehrere alternative Suchbegriffe – einer pro Zeile. Werden nacheinander versucht bis ein Treffer gefunden wird.
               </div>
             </div>
           </div>

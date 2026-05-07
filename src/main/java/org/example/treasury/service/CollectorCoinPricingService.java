@@ -96,6 +96,13 @@ public class CollectorCoinPricingService {
   private final AtomicInteger completedCount = new AtomicInteger(0);
   private volatile String currentSourceName = null;
 
+  /**
+   * Per-Münze Scraper-Status:
+   * Key = metalId, Value = JSON-String mit Ergebnissen oder "running".
+   */
+  private final java.util.concurrent.ConcurrentHashMap<String, String> metalScrapeStatus =
+      new java.util.concurrent.ConcurrentHashMap<>();
+
   private final PreciousMetalRepository preciousMetalRepository;
   private final CollectorCoinPriceRepository collectorCoinPriceRepository;
   private final CollectorScraperRunRepository scraperRunRepository;
@@ -208,6 +215,88 @@ public class CollectorCoinPricingService {
   }
 
   /**
+   * Prüft ob ein Einzelmünzen-Scraper für die angegebene Münze bereits läuft.
+   *
+   * @param metalId MongoDB-ID der Münze
+   * @return {@code true} wenn aktiv
+   */
+  public boolean isMetalScrapeRunning(String metalId) {
+    return "running".equals(metalScrapeStatus.get(metalId));
+  }
+
+  /**
+   * Liefert den aktuellen Scraper-Status für eine Münze als Map (für JSON-Serialisierung).
+   *
+   * @param metalId MongoDB-ID der Münze
+   * @return Map mit running, results
+   */
+  public Map<String, Object> getMetalScrapeStatus(String metalId) {
+    Map<String, Object> out = new java.util.LinkedHashMap<>();
+    String raw = metalScrapeStatus.get(metalId);
+    out.put("running", "running".equals(raw));
+    out.put("done", raw != null && !"running".equals(raw));
+    out.put("results", raw != null && !"running".equals(raw) ? raw : null);
+    return out;
+  }
+
+  /**
+   * Scrapt eine einzelne Münze über alle HTTP-Quellen und speichert die Ergebnisse.
+   * Aktualisiert {@code metalScrapeStatus} während des Laufs.
+   *
+   * @param metalId MongoDB-ID der Münze
+   */
+  public void updateFromAllSourcesForMetal(String metalId) {
+    PreciousMetal metal = preciousMetalRepository.findById(metalId).orElse(null);
+    if (metal == null) {
+      return;
+    }
+    metalScrapeStatus.put(metalId, "running");
+    List<Map<String, Object>> sourceResults = new ArrayList<>();
+    try {
+      HttpClient http = HttpClient.newBuilder()
+          .connectTimeout(Duration.ofSeconds(15))
+          .followRedirects(HttpClient.Redirect.NORMAL)
+          .build();
+
+      for (CollectorCoinPriceSource source : CollectorCoinPriceSource.values()) {
+        Map<String, Object> srcResult = new java.util.LinkedHashMap<>();
+        srcResult.put("source", source.getDisplayName());
+        CollectorCoinPrice price = null;
+        try {
+          price = switch (source) {
+            case MA_SHOPS -> scrapeGoldSilberAnlage(http, metal, buildGsaSearchTerm(metal));
+            case SILBER_CORNER -> scrapeSilberCorner(http, metal);
+            case COININVEST -> scrapeSingleGoldDe(http, metal);
+            default -> null; // eBay/Numista/Playwright sources skipped in single-metal mode
+          };
+          if (price != null) {
+            collectorCoinPriceRepository.save(price);
+          }
+        } catch (Exception e) {
+          log.warn("Einzelmünzen-Scraper {} – {}: {}", source, metal.getName(), e.getMessage());
+        }
+        srcResult.put("found", price != null);
+        srcResult.put("price", price != null ? price.getPriceEur() : null);
+        sourceResults.add(srcResult);
+      }
+    } finally {
+      // Serialize results to JSON string for status polling
+      StringBuilder sb = new StringBuilder("[");
+      for (int i = 0; i < sourceResults.size(); i++) {
+        if (i > 0) sb.append(",");
+        Map<String, Object> r = sourceResults.get(i);
+        sb.append("{\"source\":\"").append(r.get("source")).append("\"");
+        sb.append(",\"found\":").append(r.get("found"));
+        Object p = r.get("price");
+        sb.append(",\"price\":").append(p != null ? p : "null");
+        sb.append("}");
+      }
+      sb.append("]");
+      metalScrapeStatus.put(metalId, sb.toString());
+    }
+  }
+
+  /**
    * Aktualisiert Preise von einer bestimmten Quelle für alle Münzen.
    *
    * @param source Preisquelle
@@ -231,6 +320,12 @@ public class CollectorCoinPricingService {
     }
     if (source == CollectorCoinPriceSource.MA_SHOPS) {
       return updateFromGoldSilberAnlage(metals);
+    }
+    if (source == CollectorCoinPriceSource.SILBER_CORNER) {
+      return updateFromSilberCorner(metals);
+    }
+    if (source == CollectorCoinPriceSource.SILBERLING) {
+      return updateFromSilberling(metals);
     }
 
     // Playwright-basierte Quellen (Fallback, kein aktiver Source-Typ)
@@ -1534,5 +1629,257 @@ public class CollectorCoinPricingService {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
+  }
+
+  // ─── silber-corner.de – HTTP Scraper ──────────────────────────────────────
+
+  /**
+   * Regex für Produktname und Preis aus dem silber-corner.de dataLayer JSON.
+   * Jedes Produkt: {"name":"...","id":"...","price":"79.2","brand":"..."}
+   */
+  private static final Pattern SC_PRODUCT = Pattern.compile(
+      "\"name\":\"([^\"]+)\",\"id\":\"[^\"]+\",\"price\":\"([0-9.]+)\"");
+
+  /**
+   * Scrapt Preise von silber-corner.de für alle Münzen.
+   *
+   * @param metals Münzliste
+   * @return neu gespeicherte Preis-Einträge
+   */
+  private List<CollectorCoinPrice> updateFromSilberCorner(List<PreciousMetal> metals) {
+    HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build();
+
+    Map<String, Double> prevPrices =
+        loadPreviousPrices(metals, CollectorCoinPriceSource.SILBER_CORNER);
+    List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
+    for (PreciousMetal metal : metals) {
+      String term = effectiveSearchTerm(metal);
+      CollectorCoinPrice entry = null;
+      try {
+        entry = scrapeSilberCorner(http, metal);
+        if (entry != null) {
+          results.add(collectorCoinPriceRepository.save(entry));
+          log.info("  SILBER_CORNER – {}: {} EUR", metal.getName(),
+              String.format("%.2f", entry.getPriceEur()));
+        }
+        sleepMs(1000);
+      } catch (Exception e) {
+        log.warn("  silber-corner.de – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
+      }
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(term)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
+    }
+
+    saveScraperRun(CollectorCoinPriceSource.SILBER_CORNER,
+        metals.size(), results.size(), runEntries);
+    log.info("CollectorCoinPricingService: SILBER_CORNER fertig – {} Einträge gespeichert",
+        results.size());
+    return results;
+  }
+
+  /**
+   * Scrapt silber-corner.de für eine einzelne Münze mit Fuzzy-Fallback.
+   *
+   * @param http  HTTP-Client
+   * @param metal Münze
+   * @return günstigster passender Preis oder {@code null}
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private CollectorCoinPrice scrapeSilberCorner(HttpClient http, PreciousMetal metal)
+      throws IOException, InterruptedException {
+    List<String> terms = buildFuzzyTerms(effectiveSearchTerm(metal));
+    for (int i = 0; i < terms.size(); i++) {
+      CollectorCoinPrice result = scrapeSilberCornerWithTerm(http, metal, terms.get(i));
+      if (result != null) {
+        return result;
+      }
+      if (i < terms.size() - 1) {
+        sleepMs(400);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Fetcht und parst eine silber-corner.de Suche für einen einzelnen Suchbegriff.
+   * Produktdaten sind als JSON im {@code dataLayer.push} Block eingebettet.
+   *
+   * @param http       HTTP-Client
+   * @param metal      Münze
+   * @param searchTerm Suchbegriff
+   * @return günstigster passender Preis oder {@code null}
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private CollectorCoinPrice scrapeSilberCornerWithTerm(HttpClient http,
+                                                         PreciousMetal metal,
+                                                         String searchTerm)
+      throws IOException, InterruptedException {
+    String url = "https://www.silber-corner.de/search?q=" + encode(searchTerm);
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(url))
+        .header("User-Agent", USER_AGENT)
+        .header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+        .header("Accept-Language", "de-DE,de;q=0.9,en;q=0.5")
+        .header("Accept-Encoding", "identity")
+        .GET()
+        .timeout(Duration.ofSeconds(20))
+        .build();
+
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() != 200) {
+      log.debug("silber-corner.de HTTP {} für '{}'", resp.statusCode(), searchTerm);
+      return null;
+    }
+
+    String typeLabel = (metal.getType() == PreciousMetalType.GOLD) ? "GOLD" : "SILBER";
+    Matcher m = SC_PRODUCT.matcher(resp.body());
+    Double bestPrice = null;
+    String bestTitle = null;
+    while (m.find()) {
+      String title = m.group(1).toUpperCase(Locale.ROOT);
+      if (!title.contains(typeLabel)) {
+        continue;
+      }
+      if (!scTitleMatchesWeight(title, metal.getWeightInGrams())) {
+        continue;
+      }
+      try {
+        double price = Double.parseDouble(m.group(2));
+        if (price > 0 && (bestPrice == null || price < bestPrice)) {
+          bestPrice = price;
+          bestTitle = m.group(1);
+        }
+      } catch (NumberFormatException ignored) {
+        // ignorieren
+      }
+    }
+
+    if (bestPrice == null) {
+      log.debug("silber-corner.de: kein Treffer für '{}' (type={})", searchTerm, typeLabel);
+      return null;
+    }
+
+    return buildEntry(metal, CollectorCoinPriceSource.SILBER_CORNER, bestPrice, url, bestTitle);
+  }
+
+  /**
+   * Prüft ob ein Produkttitel (uppercase) zum Gewicht der Münze passt.
+   * Gibt {@code true} zurück wenn das Gewicht keiner bekannten Oz-Stufe entspricht.
+   *
+   * @param upperTitle Produkttitel in Großbuchstaben
+   * @param grams      Gewicht in Gramm
+   * @return {@code true} wenn Titel zur Gewichtsklasse passt
+   */
+  private boolean scTitleMatchesWeight(String upperTitle, double grams) {
+    if (grams <= 0) {
+      return true;
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS) < 2.0) {
+      return upperTitle.contains("1 OZ") || upperTitle.contains("1 UNZE")
+          || upperTitle.contains("1OZ");
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS / 2) < 1.5) {
+      return upperTitle.contains("1/2 OZ") || upperTitle.contains("1/2 UNZE")
+          || upperTitle.contains("0,5 OZ");
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS / 4) < 1.0) {
+      return upperTitle.contains("1/4 OZ") || upperTitle.contains("1/4 UNZE");
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS / 10) < 0.5) {
+      return upperTitle.contains("1/10 OZ") || upperTitle.contains("1/10 UNZE");
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS / 20) < 0.3) {
+      return upperTitle.contains("1/20 OZ") || upperTitle.contains("1/20 UNZE");
+    }
+    // Unbekannte Oz-Stufe – nicht filtern
+    return true;
+  }
+
+  // ─── silberling.de – Playwright-Stub ──────────────────────────────────────
+
+  /**
+   * Playwright-Scraper für silberling.de (noch nicht implementiert).
+   * silberling.de ist ein Shopware-5-Shop hinter Cloudflare und liefert
+   * für alle URLs außer der Startseite 404, weshalb HTTP-Scraping nicht möglich ist.
+   * Gibt eine leere Liste zurück bis ein Playwright-basierter Scraper implementiert wird.
+   *
+   * @param metals Münzliste (unbenutzt)
+   * @return leere Liste
+   */
+  private List<CollectorCoinPrice> updateFromSilberling(List<PreciousMetal> metals) {
+    log.info("SILBERLING: silberling.de benötigt Playwright (Cloudflare/Shopware-5) –"
+        + " Scraper noch nicht implementiert, Quelle wird übersprungen.");
+    return List.of();
+  }
+
+  // ─── gold.de Einzelmünzen-Scraper ─────────────────────────────────────────
+
+  /**
+   * Scrapt gold.de für eine einzelne Münze (per-Metal-Variante).
+   * Versucht den primären Suchbegriff, dann Fuzzy-Fallbacks.
+   *
+   * @param http  HTTP-Client
+   * @param metal Münze
+   * @return Preis-Eintrag oder {@code null}
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private CollectorCoinPrice scrapeSingleGoldDe(HttpClient http, PreciousMetal metal)
+      throws IOException, InterruptedException {
+    for (String term : buildFuzzyTerms(effectiveSearchTerm(metal))) {
+      CollectorCoinPrice result = fetchGoldDePrice(http, metal, term);
+      if (result != null) {
+        return result;
+      }
+    }
+    return null;
+  }
+
+  // ─── Fuzzy-Search-Hilfsmethoden ───────────────────────────────────────────
+
+  /**
+   * Baut eine Liste von Suchbegriffen für Fuzzy-Fallback:
+   * Beginnt mit dem primären Begriff und entfernt schrittweise das letzte Wort.
+   * Stoppt wenn der verkürzte Begriff nur noch 2 oder weniger Wörter hätte.
+   *
+   * <p>Beispiel: "Wiener Philharmoniker 1oz Silber" →
+   * ["Wiener Philharmoniker 1oz Silber", "Wiener Philharmoniker 1oz"]</p>
+   *
+   * @param primary primärer Suchbegriff
+   * @return Liste von Suchbegriffen (mindestens 1 Eintrag wenn primary nicht leer)
+   */
+  List<String> buildFuzzyTerms(String primary) {
+    List<String> terms = new ArrayList<>();
+    if (primary == null || primary.isBlank()) {
+      return terms;
+    }
+    terms.add(primary.trim());
+    String current = primary.trim();
+    while (true) {
+      int lastSpace = current.lastIndexOf(' ');
+      if (lastSpace <= 0) {
+        break;
+      }
+      String shorter = current.substring(0, lastSpace).trim();
+      if (shorter.split("\\s+").length <= 2) {
+        break;
+      }
+      terms.add(shorter);
+      current = shorter;
+    }
+    return terms;
   }
 }

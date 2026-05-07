@@ -144,6 +144,98 @@ public class EdelmetallController {
   }
 
   /**
+   * Setzt den Hersteller einer Münze.
+   *
+   * @param id           MongoDB-ID der Münze
+   * @param manufacturer neuer Hersteller (leer = zurücksetzen)
+   */
+  @PostMapping("/metals/{id}/manufacturer")
+  @ResponseBody
+  public ResponseEntity<String> setManufacturer(
+      @PathVariable String id,
+      @RequestParam String manufacturer) {
+    preciousMetalRepository.findById(id).ifPresent(metal -> {
+      metal.setManufacturer(manufacturer.isBlank() ? null : manufacturer.trim());
+      preciousMetalRepository.save(metal);
+    });
+    return ResponseEntity.ok("Hersteller aktualisiert");
+  }
+
+  /**
+   * Setzt das Erscheinungsjahr einer Münze.
+   *
+   * @param id   MongoDB-ID der Münze
+   * @param year neues Jahr (0 = zurücksetzen)
+   */
+  @PostMapping("/metals/{id}/year")
+  @ResponseBody
+  public ResponseEntity<String> setYear(
+      @PathVariable String id,
+      @RequestParam(required = false) Integer year) {
+    preciousMetalRepository.findById(id).ifPresent(metal -> {
+      metal.setYear((year != null && year > 0) ? year : null);
+      preciousMetalRepository.save(metal);
+    });
+    return ResponseEntity.ok("Jahr aktualisiert");
+  }
+
+  /**
+   * Setzt die Suchbegriff-Liste einer Münze.
+   * Mehrere Begriffe werden durch Newline oder Semikolon getrennt.
+   *
+   * @param id          MongoDB-ID der Münze
+   * @param searchTerms Suchbegriffe, getrennt durch \\n oder ;
+   */
+  @PostMapping("/metals/{id}/search-terms")
+  @ResponseBody
+  public ResponseEntity<String> setSearchTerms(
+      @PathVariable String id,
+      @RequestParam(required = false, defaultValue = "") String searchTerms) {
+    preciousMetalRepository.findById(id).ifPresent(metal -> {
+      List<String> terms = java.util.Arrays.stream(searchTerms.split("[\\n;]+"))
+          .map(String::trim)
+          .filter(s -> !s.isBlank())
+          .distinct()
+          .collect(java.util.stream.Collectors.toList());
+      metal.setSearchTerms(terms);
+      preciousMetalRepository.save(metal);
+    });
+    return ResponseEntity.ok("Suchbegriffe aktualisiert");
+  }
+
+  /**
+   * Startet den Scraper für eine einzelne Münze über alle Quellen asynchron.
+   * Gibt sofort 202 zurück; Status abrufbar via GET /metals/{id}/scrape/status.
+   *
+   * @param id MongoDB-ID der Münze
+   */
+  @PostMapping("/metals/{id}/scrape")
+  @ResponseBody
+  public ResponseEntity<String> scrapeForMetal(@PathVariable String id) {
+    if (!preciousMetalRepository.existsById(id)) {
+      return ResponseEntity.notFound().build();
+    }
+    if (collectorCoinPricingService.isMetalScrapeRunning(id)) {
+      return ResponseEntity.status(409).body("Scraper läuft bereits für diese Münze.");
+    }
+    new Thread(() -> collectorCoinPricingService.updateFromAllSourcesForMetal(id),
+        "coin-scrape-" + id).start();
+    return ResponseEntity.accepted().body("Gestartet");
+  }
+
+  /**
+   * Liefert den aktuellen Scraper-Status für eine einzelne Münze als JSON.
+   *
+   * @param id MongoDB-ID der Münze
+   */
+  @GetMapping("/metals/{id}/scrape/status")
+  @ResponseBody
+  public ResponseEntity<Map<String, Object>> metalScrapeStatus(@PathVariable String id) {
+    Map<String, Object> status = collectorCoinPricingService.getMetalScrapeStatus(id);
+    return ResponseEntity.ok(status);
+  }
+
+  /**
    *
    * @param id          MongoDB-ID der Münze
    * @param marketValue Sammlerwert pro Stück in EUR; 0.0 = zurücksetzen
@@ -290,12 +382,14 @@ public class EdelmetallController {
    * @param name                Bezeichnung der Münze
    * @param type                Metalltyp (GOLD oder SILVER)
    * @param year                Erscheinungsjahr (optional)
+   * @param manufacturer        Hersteller/Prägeanstalt (optional)
    * @param weightInGrams       Gewicht in Gramm
    * @param quantity            Anzahl der Stück
    * @param purchasePrice       Kaufpreis pro Stück in EUR
    * @param importedAt          Kaufdatum
    * @param marketValue         Sammlerwert pro Stück (0 = nicht gesetzt)
-   * @param collectorSearchTerm Optionaler Suchbegriff für den Scraper
+   * @param collectorSearchTerm Optionaler primärer Suchbegriff für den Scraper
+   * @param searchTerms         Optionale alternative Suchbegriffe (Newline/Semikolon getrennt)
    * @return 303-Redirect zum Dashboard
    */
   @PostMapping("/metals")
@@ -303,16 +397,25 @@ public class EdelmetallController {
       @RequestParam String name,
       @RequestParam PreciousMetalType type,
       @RequestParam(required = false) Integer year,
+      @RequestParam(required = false) String manufacturer,
       @RequestParam double weightInGrams,
       @RequestParam int quantity,
       @RequestParam double purchasePrice,
       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate importedAt,
       @RequestParam(defaultValue = "0") double marketValue,
-      @RequestParam(required = false) String collectorSearchTerm) {
+      @RequestParam(required = false) String collectorSearchTerm,
+      @RequestParam(required = false, defaultValue = "") String searchTerms) {
+    java.util.List<String> termList = java.util.Arrays.stream(searchTerms.split("[\\n;]+"))
+        .map(String::trim)
+        .filter(s -> !s.isBlank())
+        .distinct()
+        .collect(java.util.stream.Collectors.toList());
     PreciousMetal metal = PreciousMetal.builder()
         .name(name.trim())
         .type(type)
         .year(year)
+        .manufacturer(manufacturer != null && !manufacturer.isBlank()
+            ? manufacturer.trim() : null)
         .weightInGrams(weightInGrams)
         .quantity(quantity)
         .purchasePrice(purchasePrice)
@@ -321,6 +424,7 @@ public class EdelmetallController {
         .collectorSearchTerm(
             collectorSearchTerm != null && !collectorSearchTerm.isBlank()
                 ? collectorSearchTerm.trim() : null)
+        .searchTerms(termList)
         .build();
     metal.setImportKey(EdelmetallService.buildImportKey(metal));
     preciousMetalRepository.save(metal);
@@ -345,6 +449,10 @@ public class EdelmetallController {
         collectorCoinPricingService.getLatestCollectorPricePerMetal(
             dto.currentPrices().goldEurPerOunce(),
             dto.currentPrices().silverEurPerOunce()));
+    // Map metal-ID → PreciousMetal für Zugriff auf Jahr, Hersteller, Suchbegriffe im Template
+    java.util.Map<String, PreciousMetal> metalMap = new java.util.HashMap<>();
+    preciousMetalRepository.findAll().forEach(m -> metalMap.put(m.getId(), m));
+    model.addAttribute("metals", metalMap);
     return "edelmetallDashboard";
   }
 }

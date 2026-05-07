@@ -26,7 +26,7 @@
                         <div>Silber: <strong id="currentSilverPrice" th:text="${dashboard.currentPrices.silverEurPerOunce()}"></strong></div>
                     </div>
 
-                    <!-- Filter-Buttons (analog zu Displayverwaltung) -->
+                    <!-- Filter-Buttons -->
                     <div class="mt-3 d-flex flex-wrap gap-2">
                         <button type="button" class="btn btn-outline-dark btn-sm" id="filterAllBtn">Alle</button>
                         <button type="button" class="btn btn-outline-warning btn-sm" id="filterGoldBtn">Gold</button>
@@ -138,19 +138,22 @@
                             <tr>
                                 <th>Name</th>
                                 <th></th>
+                                <th>Jahr</th>
+                                <th>Hersteller</th>
                                 <th class="text-end">Gewicht (g)</th>
                                 <th class="text-end">Anzahl</th>
-                                <th class="text-end">Kaufpreis / Stk (EUR)</th>
-                                <th class="text-end">Sammlerwert / Stk (EUR)</th>
-                                <th class="text-end">Scraper-Sammlerwert (EUR)</th>
-                                <th class="text-end">Aktueller Wert / Stk (EUR)</th>
-                                <th class="text-end">Aktueller Wert ges. (EUR)</th>
+                                <th class="text-end">Kaufpreis / Stk</th>
+                                <th class="text-end">Sammlerwert / Stk</th>
+                                <th class="text-end">Scraper-SW</th>
+                                <th class="text-end">Spot / Stk</th>
+                                <th class="text-end">Gesamt (EUR)</th>
                                 <th class="text-end">Gewinn (EUR)</th>
                                 <th></th>
                             </tr>
                             </thead>
                             <tbody>
-                            <tr th:each="it : ${dashboard.latestValuations()}" th:attr="data-metal-type=${it.type}">
+                            <tr th:each="it : ${dashboard.latestValuations()}"
+                                th:attr="data-metal-type=${it.type}, data-metal-id=${it.preciousMetalId}">
                                 <td>
                                     <a th:href="@{/api/edelmetall/metals/{id}/history(id=${it.preciousMetalId})}"
                                        th:text="${it.name}"
@@ -170,6 +173,29 @@
                                           style="background-color:#A0A0A0;color:#fff;font-size:0.72rem;letter-spacing:.03em"
                                           title="Silber">Ag</span>
                                 </td>
+                                <!-- Jahr -->
+                                <td class="text-nowrap">
+                                    <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null}"
+                                          th:text="${metals[it.preciousMetalId].year}"></span>
+                                    <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null}"
+                                          class="text-muted small">—</span>
+                                    <button type="button"
+                                            class="btn btn-link btn-sm p-0 ms-1 edit-year-btn"
+                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-year=${metals != null and metals[it.preciousMetalId] != null ? metals[it.preciousMetalId].year : ''}"
+                                            title="Jahr bearbeiten">&#9998;</button>
+                                </td>
+                                <!-- Hersteller -->
+                                <td class="text-nowrap" style="max-width:160px; overflow:hidden; text-overflow:ellipsis;">
+                                    <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null}"
+                                          th:text="${metals[it.preciousMetalId].manufacturer}"
+                                          th:title="${metals[it.preciousMetalId].manufacturer}"></span>
+                                    <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null}"
+                                          class="text-muted small">—</span>
+                                    <button type="button"
+                                            class="btn btn-link btn-sm p-0 ms-1 edit-manufacturer-btn"
+                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-manufacturer=${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null ? metals[it.preciousMetalId].manufacturer : ''}"
+                                            title="Hersteller bearbeiten">&#9998;</button>
+                                </td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.weightInGrams, 1, 4)}"></td>
                                 <td class="text-end" th:text="${it.quantity}"></td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.purchasePrice, 1, 2)}"></td>
@@ -184,10 +210,14 @@
                                         &#9998;
                                     </button>
                                 </td>
+                                <!-- Scraper-Sammlerwert mit Highlighting: grün wenn ≤ 3× Spot, gelb wenn darüber -->
                                 <td class="text-end">
                                     <th:block th:if="${latestCollectorPrices != null and latestCollectorPrices.containsKey(it.preciousMetalId)}">
-                                        <span class="badge text-bg-secondary"
-                                              th:text="${#numbers.formatDecimal(latestCollectorPrices.get(it.preciousMetalId), 1, 2) + ' €'}"></span>
+                                        <th:block th:with="cp=${latestCollectorPrices.get(it.preciousMetalId)}, spot=${it.spotUnitValue}">
+                                            <span th:class="${(spot > 0 and cp <= spot * 3) ? 'badge text-bg-success' : 'badge text-bg-warning'}"
+                                                  th:text="${#numbers.formatDecimal(cp, 1, 2) + ' €'}"
+                                                  th:title="${(spot > 0 and cp <= spot * 3) ? 'Plausibler Sammlerwert (≤3× Spot)' : 'Hoch: >3× Spot – prüfen'}"></span>
+                                        </th:block>
                                     </th:block>
                                     <span th:unless="${latestCollectorPrices != null and latestCollectorPrices.containsKey(it.preciousMetalId)}"
                                           class="text-muted small">—</span>
@@ -203,7 +233,12 @@
                                 </td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.currentTotalValue, 1, 2)}"></td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.profit, 1, 2)}"></td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
+                                    <!-- Per-Münze Scraper-Button -->
+                                    <button type="button"
+                                            class="btn btn-outline-info btn-sm scrape-single-btn me-1"
+                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}"
+                                            title="Scraper für diese Münze starten">&#128269;</button>
                                     <button type="button"
                                             class="btn btn-outline-danger btn-sm delete-metal-btn"
                                             th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}"
@@ -268,6 +303,46 @@
     </div>
 </div>
 
+<!-- Modal: Jahr bearbeiten -->
+<div class="modal fade" id="editYearModal" tabindex="-1" aria-labelledby="editYearModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editYearModalLabel">Jahr bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <div class="modal-body">
+                <input type="number" class="form-control" id="editYearInput"
+                       min="1800" max="2100" placeholder="z.B. 2024 (leer = kein Jahrgang)">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="editYearSaveBtn">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Hersteller bearbeiten -->
+<div class="modal fade" id="editManufacturerModal" tabindex="-1" aria-labelledby="editManufacturerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editManufacturerModalLabel">Hersteller bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control" id="editManufacturerInput"
+                       placeholder="z.B. Münze Österreich, Perth Mint" maxlength="200">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="editManufacturerSaveBtn">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: Münze löschen -->
 <div class="modal fade" id="deleteMetalModal" tabindex="-1" aria-labelledby="deleteMetalModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-sm">
@@ -290,10 +365,24 @@
     </div>
 </div>
 
+<!-- Modal: Scraper-Ergebnis (per-Münze) -->
+<div class="modal fade" id="scrapeResultModal" tabindex="-1" aria-labelledby="scrapeResultModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scrapeResultModalLabel">Scraper-Ergebnis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <div class="modal-body" id="scrapeResultBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schliessen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script th:inline="javascript">
-    // Wichtig: In th:inline="javascript" serialisiert Thymeleaf serverseitig via Jackson.
-    // Daher dürfen wir hier KEINE Objekte mit java.time.Instant einbetten (ProfitPointDto),
-    // sonst crasht das Rendering. Wir geben nur primitive Arrays (String/Number) aus.
     const labels = /*[[${dashboard.profitTimeline().![timestamp().toString()]}]]*/ [];
     const values = /*[[${dashboard.profitTimeline().![profitTotal()]}]]*/ [];
     const marketValues = /*[[${dashboard.marketValueTimeline().![marketValueTotal()]}]]*/ [];
@@ -355,7 +444,6 @@
                 return;
             }
 
-            // Nach Persistierung zur View navigieren, damit Diagramm+Badges sicher neu gerendert werden.
             window.location.href = '/api/edelmetall/dashboard/view';
         } catch (e) {
             alert('Fehler: ' + e);
@@ -410,6 +498,140 @@
             new bootstrap.Modal(document.getElementById('renameMetalModal')).show();
         });
     });
+
+    // Jahr bearbeiten (AJAX)
+    let editYearMetalId = null;
+    document.querySelectorAll('.edit-year-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            editYearMetalId = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            const year = btn.getAttribute('data-year');
+            document.getElementById('editYearModalLabel').textContent = 'Jahr: ' + name;
+            document.getElementById('editYearInput').value = year || '';
+            new bootstrap.Modal(document.getElementById('editYearModal')).show();
+        });
+    });
+    document.getElementById('editYearSaveBtn')?.addEventListener('click', async () => {
+        if (!editYearMetalId) return;
+        const yearVal = document.getElementById('editYearInput').value.trim();
+        const url = '/api/edelmetall/metals/' + editYearMetalId + '/year'
+            + (yearVal ? '?year=' + encodeURIComponent(yearVal) : '');
+        try {
+            await fetch(url, { method: 'POST' });
+            location.reload();
+        } catch (e) {
+            alert('Fehler: ' + e);
+        }
+    });
+
+    // Hersteller bearbeiten (AJAX)
+    let editManufacturerMetalId = null;
+    document.querySelectorAll('.edit-manufacturer-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            editManufacturerMetalId = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            const mfr = btn.getAttribute('data-manufacturer');
+            document.getElementById('editManufacturerModalLabel').textContent = 'Hersteller: ' + name;
+            document.getElementById('editManufacturerInput').value = mfr || '';
+            new bootstrap.Modal(document.getElementById('editManufacturerModal')).show();
+        });
+    });
+    document.getElementById('editManufacturerSaveBtn')?.addEventListener('click', async () => {
+        if (!editManufacturerMetalId) return;
+        const mfr = document.getElementById('editManufacturerInput').value.trim();
+        const params = new URLSearchParams({ manufacturer: mfr });
+        try {
+            await fetch('/api/edelmetall/metals/' + editManufacturerMetalId + '/manufacturer',
+                { method: 'POST', body: params });
+            location.reload();
+        } catch (e) {
+            alert('Fehler: ' + e);
+        }
+    });
+
+    // Per-Münze Scraper
+    document.querySelectorAll('.scrape-single-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+
+            try {
+                const startResp = await fetch('/api/edelmetall/metals/' + id + '/scrape', { method: 'POST' });
+                if (startResp.status === 409) {
+                    btn.disabled = false;
+                    btn.innerHTML = '&#128269;';
+                    alert('Scraper läuft bereits für diese Münze.');
+                    return;
+                }
+                if (!startResp.ok) {
+                    btn.disabled = false;
+                    btn.innerHTML = '&#128269;';
+                    return;
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerHTML = '&#128269;';
+                return;
+            }
+
+            // Polling
+            const poll = setInterval(async () => {
+                try {
+                    const statusResp = await fetch('/api/edelmetall/metals/' + id + '/scrape/status');
+                    const data = await statusResp.json();
+                    if (data.done) {
+                        clearInterval(poll);
+                        btn.disabled = false;
+                        btn.innerHTML = '&#10003;';
+                        showScrapeResultModal(name, data.results);
+                    }
+                } catch (e) {
+                    // Netzwerkfehler ignorieren, weiter pollen
+                }
+            }, 2000);
+        });
+    });
+
+    function showScrapeResultModal(name, resultsJson) {
+        let results;
+        try {
+            results = JSON.parse(resultsJson);
+        } catch (e) {
+            return;
+        }
+
+        document.getElementById('scrapeResultModalLabel').textContent = 'Scraper-Ergebnis: ' + name;
+
+        let html = '<ul class="list-group mb-0">';
+        const noResults = [];
+        for (const r of results) {
+            if (!r.found) noResults.push(r.source);
+            const badge = r.found
+                ? '<span class="badge text-bg-success">'
+                    + (r.price != null ? r.price.toFixed(2) + '\u00a0\u20ac' : '&#10003;')
+                    + '</span>'
+                : '<span class="badge text-bg-secondary">kein Treffer</span>';
+            html += '<li class="list-group-item d-flex justify-content-between align-items-center">'
+                + '<span>' + r.source + '</span>' + badge + '</li>';
+        }
+        html += '</ul>';
+
+        if (noResults.length > 0) {
+            html += '<div class="alert alert-warning mt-3 mb-0 small">Kein Treffer bei: '
+                + noResults.join(', ') + '</div>';
+        }
+
+        document.getElementById('scrapeResultBody').innerHTML = html;
+
+        const modal = new bootstrap.Modal(document.getElementById('scrapeResultModal'));
+        modal.show();
+
+        // Seite nach Schliessen neu laden (frische Preise anzeigen)
+        document.getElementById('scrapeResultModal').addEventListener(
+            'hidden.bs.modal', () => location.reload(), { once: true });
+    }
 
     // Alle-Quellen-Scraper: Progress-Bar + Double-Trigger-Sperre
     (function () {
@@ -498,4 +720,3 @@
 <th:block th:replace="fragments/scripts :: scripts"></th:block>
 </body>
 </html>
-
