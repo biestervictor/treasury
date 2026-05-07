@@ -1,6 +1,7 @@
 package org.example.treasury.model;
 
 import java.time.LocalDate;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,6 +34,9 @@ public class PreciousMetal {
   /** Bezeichnung/Name (CSV: Bezeichnung). */
   private String name;
 
+  /** Hersteller/Prägeanstalt (z.B. "Münze Österreich", "Perth Mint"). */
+  private String manufacturer;
+
   /** Erscheinungsjahr, optional. */
   private Integer year;
 
@@ -58,9 +62,17 @@ public class PreciousMetal {
   private double marketValue;
 
   /**
-   * Optionaler Suchbegriff für Sammlermünz-Preis-Scraper (MA-Shops, eBay, etc.).
+   * Optionaler primärer Suchbegriff für den Scraper.
    * Wird er nicht gesetzt, verwendet der Scraper {@link #name} als Fallback.
    */
   private String collectorSearchTerm;
+
+  /**
+   * Optionale Liste alternativer Suchbegriffe für den Scraper.
+   * Werden nacheinander versucht bis ein Treffer gefunden wird.
+   * Wenn leer, greift Fuzzy-Fallback (progressive Wortkürzung).
+   */
+  @Builder.Default
+  private List<String> searchTerms = new java.util.ArrayList<>();
 
 }

@@ -18,7 +18,13 @@ public enum CollectorCoinPriceSource {
   COININVEST("gold.de"),
 
   /** Numista-API – crowdsourced Münz-Datenbank mit Marktpreisen. */
-  NUMISTA("Numista");
+  NUMISTA("Numista"),
+
+  /** silber-corner.de – Edelmetallhändler, HTTP-Scraper via dataLayer JSON. */
+  SILBER_CORNER("silber-corner.de"),
+
+  /** silberling.de – Edelmetallhändler, Playwright-Scraper (JS-gerendert). */
+  SILBERLING("silberling.de");
 
   private final String displayName;
 
@@ -35,3 +41,4 @@ public enum CollectorCoinPriceSource {
     return displayName;
   }
 }
+
