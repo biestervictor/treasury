@@ -57,18 +57,31 @@
                         Scraper läuft im Hintergrund (~1-2 min). Preisverlauf pro Münze über
                         Klick auf den Münznamen abrufbar.
                     </p>
-                    <div class="d-flex flex-wrap gap-2">
+                    <div class="d-flex flex-wrap gap-2" id="scraperButtons">
                         <form th:each="src : ${sources}" method="post"
                               th:action="@{/api/edelmetall/collector-prices/update}">
                             <input type="hidden" name="source" th:value="${src}">
-                            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                            <button type="submit" class="btn btn-outline-secondary btn-sm scraper-btn"
                                     th:text="${src.displayName}">Quelle</button>
                         </form>
-                        <form method="post" th:action="@{/api/edelmetall/collector-prices/update/all}">
-                            <button type="submit" class="btn btn-dark btn-sm">Alle Quellen</button>
+                        <form id="allScraperForm">
+                            <button type="submit" class="btn btn-dark btn-sm scraper-btn" id="allScraperBtn">Alle Quellen</button>
                         </form>
                         <a th:href="@{/api/edelmetall/scraper-history}"
                            class="btn btn-outline-info btn-sm">Scraper-Verlauf</a>
+                    </div>
+
+                    <!-- Progress bar (sichtbar während Scraper läuft) -->
+                    <div id="scraperProgress" class="mt-2" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center small text-muted mb-1">
+                            <span id="scraperProgressText">Starte...</span>
+                            <span id="scraperProgressCount">0 / 5</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-dark"
+                                 id="scraperProgressBar" role="progressbar"
+                                 style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -396,6 +409,90 @@
             new bootstrap.Modal(document.getElementById('renameMetalModal')).show();
         });
     });
+
+    // Alle-Quellen-Scraper: Progress-Bar + Double-Trigger-Sperre
+    (function () {
+        const form = document.getElementById('allScraperForm');
+        const progress = document.getElementById('scraperProgress');
+        const bar = document.getElementById('scraperProgressBar');
+        const text = document.getElementById('scraperProgressText');
+        const count = document.getElementById('scraperProgressCount');
+        let polling = false;
+
+        function setButtons(disabled) {
+            document.querySelectorAll('.scraper-btn').forEach(b => b.disabled = disabled);
+        }
+
+        function updateBar(completed, total, source, running) {
+            const pct = total > 0 ? Math.round(completed / total * 100) : 0;
+            bar.style.width = pct + '%';
+            bar.setAttribute('aria-valuenow', pct);
+            count.textContent = completed + ' / ' + total;
+            if (running) {
+                text.textContent = 'Läuft: ' + (source || '...');
+            } else {
+                text.textContent = 'Fertig!';
+                bar.classList.remove('progress-bar-animated');
+            }
+        }
+
+        function pollStatus() {
+            fetch('/api/edelmetall/collector-prices/status')
+                .then(r => r.json())
+                .then(data => {
+                    updateBar(data.completed, data.total, data.currentSource, data.running);
+                    if (data.running) {
+                        setTimeout(pollStatus, 2000);
+                    } else {
+                        polling = false;
+                        setTimeout(() => {
+                            progress.style.display = 'none';
+                            bar.classList.add('progress-bar-animated');
+                            setButtons(false);
+                        }, 2500);
+                    }
+                })
+                .catch(() => {
+                    if (polling) setTimeout(pollStatus, 3000);
+                });
+        }
+
+        // Check on page load whether a scraper is already running
+        fetch('/api/edelmetall/collector-prices/status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.running) {
+                    progress.style.display = 'block';
+                    setButtons(true);
+                    polling = true;
+                    updateBar(data.completed, data.total, data.currentSource, true);
+                    pollStatus();
+                }
+            });
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (polling) return;
+            setButtons(true);
+            progress.style.display = 'block';
+            bar.style.width = '0%';
+            bar.classList.add('progress-bar-animated');
+            text.textContent = 'Starte...';
+            count.textContent = '0 / ?';
+            fetch('/api/edelmetall/collector-prices/update/all', {method: 'POST'})
+                .then(r => {
+                    if (r.status === 409) {
+                        // already running - just start polling
+                    }
+                    polling = true;
+                    setTimeout(pollStatus, 1000);
+                })
+                .catch(() => {
+                    setButtons(false);
+                    progress.style.display = 'none';
+                });
+        });
+    })();
 </script>
 <th:block th:replace="fragments/scripts :: scripts"></th:block>
 </body>

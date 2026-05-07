@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -76,6 +78,19 @@ public class CollectorCoinPricingService {
       {"1/20oz", "1/10oz", "1/4oz", "1/2oz", "1oz", "2oz", "5oz"};
   private static final double OZ_TOLERANCE_GRAMS = 0.5;
 
+  /**
+   * Extrahiert Produktpreis + Titel aus dem Shopify-SSR-JSON von gold-silber-anlage.com.
+   * Format: "price":{"amount":XX.XX,"currencyCode":"EUR"},"product":{"title":"TITEL"
+   */
+  private static final Pattern GSA_PRODUCT = Pattern.compile(
+      "\"price\":\\{\"amount\":(\\d+(?:\\.\\d+)?),\"currencyCode\":\"EUR\"\\},"
+          + "\"product\":\\{\"title\":\"([^\"]+)\"");
+
+  /** Tracking-State für den Gesamt-Scraper-Lauf (Alle Quellen). */
+  private final AtomicBoolean allScraperRunning = new AtomicBoolean(false);
+  private final AtomicInteger completedCount = new AtomicInteger(0);
+  private volatile String currentSourceName = null;
+
   private final PreciousMetalRepository preciousMetalRepository;
   private final CollectorCoinPriceRepository collectorCoinPriceRepository;
   private final CollectorScraperRunRepository scraperRunRepository;
@@ -121,19 +136,70 @@ public class CollectorCoinPricingService {
 
   /**
    * Aktualisiert Preise aus allen vier Quellen sequenziell.
+   * Wenn bereits ein Lauf aktiv ist, wird der Aufruf ignoriert.
    *
-   * @return alle neu gespeicherten Preis-Einträge
+   * @return alle neu gespeicherten Preis-Einträge (leer wenn bereits läuft)
    */
   public List<CollectorCoinPrice> updateFromAllSources() {
-    List<CollectorCoinPrice> all = new ArrayList<>();
-    for (CollectorCoinPriceSource source : CollectorCoinPriceSource.values()) {
-      try {
-        all.addAll(updateFromSource(source));
-      } catch (Exception e) {
-        log.warn("Fehler bei Quelle {}: {}", source, e.getMessage());
-      }
+    if (!allScraperRunning.compareAndSet(false, true)) {
+      log.warn("Scraper läuft bereits – neuer Trigger wird ignoriert.");
+      return List.of();
     }
-    return all;
+    completedCount.set(0);
+    currentSourceName = null;
+    try {
+      List<CollectorCoinPrice> all = new ArrayList<>();
+      for (CollectorCoinPriceSource source : CollectorCoinPriceSource.values()) {
+        currentSourceName = source.getDisplayName();
+        try {
+          all.addAll(updateFromSource(source));
+        } catch (Exception e) {
+          log.warn("Fehler bei Quelle {}: {}", source, e.getMessage());
+        } finally {
+          completedCount.incrementAndGet();
+        }
+      }
+      return all;
+    } finally {
+      currentSourceName = null;
+      allScraperRunning.set(false);
+    }
+  }
+
+  /**
+   * Gibt zurück ob der Gesamt-Scraper-Lauf aktuell aktiv ist.
+   *
+   * @return {@code true} wenn aktiv
+   */
+  public boolean isAllScraperRunning() {
+    return allScraperRunning.get();
+  }
+
+  /**
+   * Anzahl der bereits abgeschlossenen Quellen im aktuellen Gesamt-Lauf.
+   *
+   * @return abgeschlossene Quellen
+   */
+  public int getCompletedCount() {
+    return completedCount.get();
+  }
+
+  /**
+   * Gesamtzahl der Quellen.
+   *
+   * @return Anzahl Quellen
+   */
+  public int getTotalSources() {
+    return CollectorCoinPriceSource.values().length;
+  }
+
+  /**
+   * Anzeigename der aktuell laufenden Quelle, oder {@code null}.
+   *
+   * @return aktueller Quellenname
+   */
+  public String getCurrentSourceName() {
+    return currentSourceName;
   }
 
   /**
@@ -158,8 +224,11 @@ public class CollectorCoinPricingService {
     if (source == CollectorCoinPriceSource.COININVEST) {
       return updateFromGoldDe(metals);
     }
+    if (source == CollectorCoinPriceSource.MA_SHOPS) {
+      return updateFromGoldSilberAnlage(metals);
+    }
 
-    // Playwright-basierte Quellen (MA-Shops)
+    // Playwright-basierte Quellen (Fallback, kein aktiver Source-Typ)
     Map<String, Double> prevPrices = loadPreviousPrices(metals, source);
     List<CollectorCoinPrice> results = new ArrayList<>();
     List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
@@ -678,15 +747,18 @@ public class CollectorCoinPricingService {
         .header("User-Agent", USER_AGENT)
         .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
         .header("Accept-Language", "de-DE,de;q=0.9,en;q=0.5")
-        .header("Accept-Encoding", "identity")
+        .header("Accept-Encoding", "gzip, deflate, br")
+        .header("Referer", "https://www.google.de/")
+        .header("Sec-Fetch-Dest", "document")
+        .header("Sec-Fetch-Mode", "navigate")
+        .header("Sec-Fetch-Site", "cross-site")
+        .header("Upgrade-Insecure-Requests", "1")
         .GET()
         .timeout(Duration.ofSeconds(20))
         .build();
 
     HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
     if (resp.statusCode() == 403 || resp.statusCode() == 429) {
-      // eBay blockiert Bot-Zugriff auf Completed-Items-Suche – als spezielle Exception
-      // signalisieren damit der Batch frühzeitig abbricht
       throw new EbayBlockedException("HTTP " + resp.statusCode());
     }
     if (resp.statusCode() != 200) {
@@ -729,6 +801,165 @@ public class CollectorCoinPricingService {
     EbayBlockedException(String msg) {
       super(msg);
     }
+  }
+
+  // gold-silber-anlage.com – HTTP Shopify-Scraper ─────────────────────────
+
+  /**
+   * Scrapt Preise von gold-silber-anlage.com (Shopify-Shop) per HTTP-GET.
+   * Die Suchergebnis-Seite enthält alle Produkte als eingebettetes JSON.
+   *
+   * @param metals Münzliste
+   * @return neu gespeicherte Preis-Einträge
+   */
+  private List<CollectorCoinPrice> updateFromGoldSilberAnlage(List<PreciousMetal> metals) {
+    HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build();
+
+    Map<String, Double> prevPrices = loadPreviousPrices(metals, CollectorCoinPriceSource.MA_SHOPS);
+    List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
+    for (PreciousMetal metal : metals) {
+      String searchTerm = buildGsaSearchTerm(metal);
+      CollectorCoinPrice entry = null;
+      try {
+        entry = scrapeGoldSilberAnlage(http, metal, searchTerm);
+        if (entry != null) {
+          results.add(collectorCoinPriceRepository.save(entry));
+          log.info("  MA_SHOPS(gold-silber-anlage.com) – {}: {} EUR",
+              metal.getName(), String.format("%.2f", entry.getPriceEur()));
+        }
+        sleepMs(1000);
+      } catch (Exception e) {
+        log.warn("  gold-silber-anlage.com – {} fehlgeschlagen: {}",
+            metal.getName(), e.getMessage());
+      }
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(searchTerm)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
+    }
+
+    saveScraperRun(CollectorCoinPriceSource.MA_SHOPS,
+        metals.size(), results.size(), runEntries);
+    log.info("CollectorCoinPricingService: MA_SHOPS(gold-silber-anlage.com) fertig"
+        + " – {} Einträge gespeichert", results.size());
+    return results;
+  }
+
+  /**
+   * Fetcht und parst eine gold-silber-anlage.com-Suche.
+   * Das Shopify-SSR-HTML enthält alle Produktdaten als eingebettetes JSON-Fragment.
+   * Wir filtern nach passendem Metalltyp und Gewichtsklasse (Unzen-Label im Titel).
+   *
+   * @param http       HTTP-Client
+   * @param metal      Münze
+   * @param searchTerm Suchbegriff (bereits normalisiert)
+   * @return günstigster passender Preis oder {@code null}
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private CollectorCoinPrice scrapeGoldSilberAnlage(HttpClient http,
+                                                     PreciousMetal metal,
+                                                     String searchTerm)
+      throws IOException, InterruptedException {
+    String url = "https://gold-silber-anlage.com/search?q="
+        + encode(searchTerm) + "&sort_by=price-ascending";
+
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(url))
+        .header("User-Agent", USER_AGENT)
+        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+        .header("Accept-Language", "de-DE,de;q=0.9,en;q=0.5")
+        .GET()
+        .timeout(Duration.ofSeconds(20))
+        .build();
+
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() != 200) {
+      log.debug("gold-silber-anlage HTTP {} für '{}'", resp.statusCode(), searchTerm);
+      return null;
+    }
+
+    String typeLabel = (metal.getType() == PreciousMetalType.GOLD) ? "GOLD" : "SILBER";
+    String ozLabel = gsaOzLabel(metal.getWeightInGrams());
+
+    Matcher m = GSA_PRODUCT.matcher(resp.body());
+    Double bestPrice = null;
+    String bestTitle = null;
+    while (m.find()) {
+      double price = Double.parseDouble(m.group(1));
+      String title = m.group(2).toUpperCase(Locale.ROOT);
+      if (!title.contains(typeLabel)) {
+        continue;
+      }
+      if (ozLabel != null && !title.contains(ozLabel)) {
+        continue;
+      }
+      if (bestPrice == null || price < bestPrice) {
+        bestPrice = price;
+        bestTitle = m.group(2);
+      }
+    }
+
+    if (bestPrice == null) {
+      log.debug("gold-silber-anlage: kein Treffer für '{}' (oz={}, type={})",
+          searchTerm, ozLabel, typeLabel);
+      return null;
+    }
+
+    return buildEntry(metal, CollectorCoinPriceSource.MA_SHOPS, bestPrice, url, bestTitle);
+  }
+
+  /**
+   * Baut den Suchbegriff für gold-silber-anlage.com:
+   * Entfernt generische Präfixe, ersetzt „farbig" durch „koloriert".
+   *
+   * @param metal Münze
+   * @return normalisierter Suchbegriff
+   */
+  private String buildGsaSearchTerm(PreciousMetal metal) {
+    String base = effectiveSearchTerm(metal).toLowerCase(Locale.ROOT);
+    base = base.replace("farbig", "koloriert")
+               .replace("perth mint ", "")
+               .replace("lunar 2 ", "")
+               .replace("lunar ", "");
+    return base.trim();
+  }
+
+  /**
+   * Liefert das Unzen-Label wie im gold-silber-anlage.com Produkttitel verwendet.
+   *
+   * @param grams Gewicht in Gramm
+   * @return z.B. "1 UNZE", "1/2 UNZE" oder {@code null} wenn kein passendes Label
+   */
+  private String gsaOzLabel(double grams) {
+    if (grams <= 0) {
+      return null;
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS) < 2.0) {
+      return "1 UNZE";
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS / 2) < 1.5) {
+      return "1/2 UNZE";
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS / 4) < 1.0) {
+      return "1/4 UNZE";
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS / 10) < 0.5) {
+      return "1/10 UNZE";
+    }
+    if (Math.abs(grams - TROY_OZ_GRAMS / 20) < 0.3) {
+      return "1/20 UNZE";
+    }
+    return null;
   }
 
   // gold.de – HTTP Preisvergleich (kein Playwright) ────────────────────────

@@ -1,6 +1,7 @@
 package org.example.treasury.controller;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.example.treasury.dto.ManualMetalPricesRequest;
@@ -221,13 +222,33 @@ public class EdelmetallController {
 
   /**
    * Triggert Sammlermünz-Preisermittlung für alle Quellen im Hintergrund.
+   * Wenn bereits ein Lauf läuft, wird 409 zurückgegeben.
    */
   @PostMapping("/collector-prices/update/all")
   public ResponseEntity<String> updateAllCollectorPrices() {
+    if (collectorCoinPricingService.isAllScraperRunning()) {
+      return ResponseEntity.status(409).body("Scraper läuft bereits.");
+    }
     new Thread(() -> collectorCoinPriceJob.triggerAll(), "collector-price-all").start();
     return ResponseEntity.status(303)
         .header("Location", "/api/edelmetall/dashboard/view")
         .body("Gestartet: alle Quellen");
+  }
+
+  /**
+   * Liefert den aktuellen Status des Gesamt-Scraper-Laufs als JSON.
+   *
+   * @return JSON mit running, completed, total, currentSource
+   */
+  @GetMapping("/collector-prices/status")
+  @ResponseBody
+  public ResponseEntity<Map<String, Object>> scraperStatus() {
+    Map<String, Object> status = new LinkedHashMap<>();
+    status.put("running", collectorCoinPricingService.isAllScraperRunning());
+    status.put("completed", collectorCoinPricingService.getCompletedCount());
+    status.put("total", collectorCoinPricingService.getTotalSources());
+    status.put("currentSource", collectorCoinPricingService.getCurrentSourceName());
+    return ResponseEntity.ok(status);
   }
 
   /**

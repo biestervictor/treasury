@@ -5,8 +5,8 @@ package org.example.treasury.model;
  */
 public enum CollectorCoinPriceSource {
 
-  /** MA-Shops.de – deutschsprachige Münzbörse, kein Cloudflare, Playwright-Scraper. */
-  MA_SHOPS("MA-Shops"),
+  /** gold-silber-anlage.com – Shopify-Shop für kolorierte Sammlermünzen, HTTP-Scraper. */
+  MA_SHOPS("gold-silber-anlage.com"),
 
   /** eBay.de – aktive Angebote via Browse API. */
   EBAY("eBay"),
