@@ -1,6 +1,7 @@
 package org.example.treasury.controller;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,10 +12,12 @@ import org.example.treasury.model.CollectorCoinPrice;
 import org.example.treasury.model.CollectorCoinPriceSource;
 import org.example.treasury.model.CollectorScraperRun;
 import org.example.treasury.model.PreciousMetal;
+import org.example.treasury.model.PreciousMetalType;
 import org.example.treasury.repository.CollectorCoinPriceRepository;
 import org.example.treasury.repository.PreciousMetalRepository;
 import org.example.treasury.service.CollectorCoinPricingService;
 import org.example.treasury.service.EdelmetallService;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -266,6 +269,65 @@ public class EdelmetallController {
     model.addAttribute("latestRunPerSource", latestPerSource);
     model.addAttribute("sources", CollectorCoinPriceSource.values());
     return "collectorScraperHistory";
+  }
+
+  /**
+   * Zeigt das Formular zum manuellen Hinzufügen einer neuen Münze.
+   *
+   * @param model Spring MVC Model
+   * @return Template-Name
+   */
+  @GetMapping("/metals/new")
+  public String newMetalForm(Model model) {
+    model.addAttribute("types", PreciousMetalType.values());
+    model.addAttribute("today", LocalDate.now().toString());
+    return "addPreciousMetal";
+  }
+
+  /**
+   * Speichert eine manuell eingetragene Münze und leitet zum Dashboard zurück.
+   *
+   * @param name                Bezeichnung der Münze
+   * @param type                Metalltyp (GOLD oder SILVER)
+   * @param year                Erscheinungsjahr (optional)
+   * @param weightInGrams       Gewicht in Gramm
+   * @param quantity            Anzahl der Stück
+   * @param purchasePrice       Kaufpreis pro Stück in EUR
+   * @param importedAt          Kaufdatum
+   * @param marketValue         Sammlerwert pro Stück (0 = nicht gesetzt)
+   * @param collectorSearchTerm Optionaler Suchbegriff für den Scraper
+   * @return 303-Redirect zum Dashboard
+   */
+  @PostMapping("/metals")
+  public ResponseEntity<String> addMetal(
+      @RequestParam String name,
+      @RequestParam PreciousMetalType type,
+      @RequestParam(required = false) Integer year,
+      @RequestParam double weightInGrams,
+      @RequestParam int quantity,
+      @RequestParam double purchasePrice,
+      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate importedAt,
+      @RequestParam(defaultValue = "0") double marketValue,
+      @RequestParam(required = false) String collectorSearchTerm) {
+    PreciousMetal metal = PreciousMetal.builder()
+        .name(name.trim())
+        .type(type)
+        .year(year)
+        .weightInGrams(weightInGrams)
+        .quantity(quantity)
+        .purchasePrice(purchasePrice)
+        .importedAt(importedAt)
+        .marketValue(marketValue)
+        .collectorSearchTerm(
+            collectorSearchTerm != null && !collectorSearchTerm.isBlank()
+                ? collectorSearchTerm.trim() : null)
+        .build();
+    metal.setImportKey(EdelmetallService.buildImportKey(metal));
+    preciousMetalRepository.save(metal);
+    edelmetallService.recomputeValuation();
+    return ResponseEntity.status(303)
+        .header("Location", "/api/edelmetall/dashboard/view")
+        .body("Münze gespeichert");
   }
 
   /**

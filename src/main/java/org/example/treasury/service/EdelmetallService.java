@@ -162,7 +162,14 @@ public class EdelmetallService {
     return imported;
   }
 
-  static String buildImportKey(PreciousMetal m) {
+  /**
+   * Baut einen deterministischen Import-Key aus den Münzdaten.
+   * Wird sowohl beim CSV-Import als auch beim manuellen Hinzufügen verwendet.
+   *
+   * @param m Münze
+   * @return Import-Key oder {@code null} wenn m null
+   */
+  public static String buildImportKey(PreciousMetal m) {
     if (m == null) {
       return null;
     }
