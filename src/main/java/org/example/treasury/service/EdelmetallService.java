@@ -282,9 +282,12 @@ public class EdelmetallService {
 
     double currentProfitTotal = valuations.isEmpty() ? 0.0 : valuations.getLast().getTotalProfit();
     double currentMarketValueTotal = valuations.isEmpty() ? 0.0 : valuations.getLast().getTotalCurrentValue();
+    double currentSpotValueTotal = latestItems.stream()
+        .mapToDouble(i -> i.getSpotUnitValue() * i.getQuantity())
+        .sum();
 
     return new MetalDashboardDto(currentPrices, timeline, latestItems, marketValueTimeline, currentProfitTotal,
-        currentMarketValueTotal);
+        currentMarketValueTotal, currentSpotValueTotal);
   }
 
   private void ensureInitialValuationExistsOnce() {

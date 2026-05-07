@@ -10,7 +10,8 @@ public record MetalDashboardDto(
     List<MetalValuationSnapshot.ItemValuation> latestValuations,
     List<MarketValuePointDto> marketValueTimeline,
     double currentProfitTotal,
-    double currentMarketValueTotal
+    double currentMarketValueTotal,
+    double currentSpotValueTotal
 ) {
 
   public record PriceDto(double goldEurPerOunce, double silverEurPerOunce, Instant timestamp) {

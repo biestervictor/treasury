@@ -108,12 +108,17 @@
                             €/oz
                         </span>
                         <span class="badge text-bg-primary">
-                            Gewinn aktuell:
+                            Gewinn:
                             <span th:text="${#numbers.formatDecimal(dashboard.currentProfitTotal(), 1, 2)}">0,00</span>
                             €
                         </span>
+                        <span class="badge text-bg-secondary">
+                            Materialwert:
+                            <span th:text="${#numbers.formatDecimal(dashboard.currentSpotValueTotal(), 1, 2)}">0,00</span>
+                            €
+                        </span>
                         <span class="badge text-bg-success">
-                            Marktwert aktuell:
+                            Sammlerwert:
                             <span th:text="${#numbers.formatDecimal(dashboard.currentMarketValueTotal(), 1, 2)}">0,00</span>
                             €
                         </span>

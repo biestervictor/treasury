@@ -20,7 +20,8 @@ class JacksonJavaTimeConfigTest {
         List.of(),
         List.of(new MetalDashboardDto.MarketValuePointDto(Instant.parse("2026-01-02T00:00:00Z"), 123.45)),
         12.34,
-        123.45
+        123.45,
+        100.00
     );
 
     // Isolierter Test: Wir verifizieren, dass Jackson mit JavaTimeModule Instants serialisieren kann.
