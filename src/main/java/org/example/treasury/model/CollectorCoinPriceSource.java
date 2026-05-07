@@ -23,7 +23,7 @@ public enum CollectorCoinPriceSource {
   /** silber-corner.de – Edelmetallhändler, HTTP-Scraper via dataLayer JSON. */
   SILBER_CORNER("silber-corner.de"),
 
-  /** silberling.de – Edelmetallhändler, Playwright-Scraper (JS-gerendert). */
+  /** silberling.de – Edelmetallhändler, HTTP-Scraper via Kategorie-Seiten (ga4_view_item_list). */
   SILBERLING("silberling.de");
 
   private final String displayName;

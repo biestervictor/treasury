@@ -19,10 +19,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -274,6 +276,7 @@ public class CollectorCoinPricingService {
           price = switch (source) {
             case MA_SHOPS -> scrapeGoldSilberAnlage(http, metal, buildGsaSearchTerm(metal));
             case SILBER_CORNER -> scrapeSilberCorner(http, metal);
+            case SILBERLING -> scrapeSilberlingForMetal(http, metal);
             case COININVEST -> scrapeSingleGoldDe(http, metal);
             default -> null; // eBay/Numista/Playwright sources skipped in single-metal mode
           };
@@ -1663,12 +1666,25 @@ public class CollectorCoinPricingService {
 
   // ─── silber-corner.de – HTTP Scraper ──────────────────────────────────────
 
-  /**
-   * Regex für Produktname und Preis aus dem silber-corner.de dataLayer JSON.
+  /** Regex für Produktname und Preis aus dem silber-corner.de dataLayer JSON.
    * Jedes Produkt: {"name":"...","id":"...","price":"79.2","brand":"..."}
    */
   private static final Pattern SC_PRODUCT = Pattern.compile(
       "\"name\":\"([^\"]+)\",\"id\":\"[^\"]+\",\"price\":\"([0-9.]+)\"");
+
+  /**
+   * Erkennt {@code "items":[...]} Arrays im silberling.de ga4_view_item_list dataLayer-Block.
+   * Die inneren Arrays enthalten flache JSON-Objekte pro Produkt.
+   */
+  private static final Pattern SL_ITEMS_PATTERN = Pattern.compile(
+      "\"items\":\\s*(\\[.*?\\])", Pattern.DOTALL);
+
+  /**
+   * Extrahiert item_name und price aus einem einzelnen Produkt-Objekt im silberling.de JSON.
+   * Format: {"item_name":"Lunar III - Hase 1 oz Silber 2023","item_id":"...","price":"91.7",...}
+   */
+  private static final Pattern SL_ITEM_PATTERN = Pattern.compile(
+      "\"item_name\":\"([^\"]+)\"[^}]*?\"price\":\"([0-9.]+)\"");
 
   /**
    * Scrapt Preise von silber-corner.de für alle Münzen.
@@ -1838,21 +1854,246 @@ public class CollectorCoinPricingService {
     return true;
   }
 
-  // ─── silberling.de – Playwright-Stub ──────────────────────────────────────
+  // ─── silberling.de – HTTP Scraper ──────────────────────────────────────
 
   /**
-   * Playwright-Scraper für silberling.de (noch nicht implementiert).
-   * silberling.de ist ein Shopware-5-Shop hinter Cloudflare und liefert
-   * für alle URLs außer der Startseite 404, weshalb HTTP-Scraping nicht möglich ist.
-   * Gibt eine leere Liste zurück bis ein Playwright-basierter Scraper implementiert wird.
+   * Scrapt silberling.de für alle Münzen.
+   * Da silberling.de keine Suchfunktion per HTTP unterstützt, wird der gesamte
+   * Produktkatalog aus den Kategorie-Seiten geladen und lokal per Token-Matching
+   * gegen die Münz-Suchbegriffe abgeglichen.
    *
-   * @param metals Münzliste (unbenutzt)
-   * @return leere Liste
+   * @param metals Münzliste
+   * @return neu gespeicherte Preis-Einträge
    */
   private List<CollectorCoinPrice> updateFromSilberling(List<PreciousMetal> metals) {
-    log.info("SILBERLING: silberling.de benötigt Playwright (Cloudflare/Shopware-5) –"
-        + " Scraper noch nicht implementiert, Quelle wird übersprungen.");
-    return List.of();
+    HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build();
+
+    Map<String, Double> prevPrices =
+        loadPreviousPrices(metals, CollectorCoinPriceSource.SILBERLING);
+    List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
+    // Katalog einmal pro Metalltyp laden, um HTTP-Requests zu minimieren
+    Map<String, Double> silverCatalog;
+    Map<String, Double> goldCatalog;
+    try {
+      silverCatalog = fetchSilberlingCatalog(http, PreciousMetalType.SILVER);
+      sleepMs(600);
+      goldCatalog = fetchSilberlingCatalog(http, PreciousMetalType.GOLD);
+    } catch (Exception e) {
+      log.warn("SILBERLING: Katalog konnte nicht geladen werden: {}", e.getMessage());
+      saveScraperRun(CollectorCoinPriceSource.SILBERLING, metals.size(), 0, List.of());
+      return List.of();
+    }
+
+    for (PreciousMetal metal : metals) {
+      String term = effectiveSearchTerm(metal);
+      CollectorCoinPrice entry = null;
+      try {
+        Map<String, Double> catalog = (metal.getType() == PreciousMetalType.GOLD)
+            ? goldCatalog : silverCatalog;
+        double price = matchSilberlingCatalog(catalog, metal);
+        if (price > 0) {
+          entry = buildEntry(metal, CollectorCoinPriceSource.SILBERLING, price,
+              "https://www.silberling.de/", null);
+          results.add(collectorCoinPriceRepository.save(entry));
+          log.info("  SILBERLING – {}: {} EUR", metal.getName(),
+              String.format("%.2f", price));
+        }
+      } catch (Exception e) {
+        log.warn("  silberling.de – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
+      }
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(term)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
+    }
+
+    saveScraperRun(CollectorCoinPriceSource.SILBERLING,
+        metals.size(), results.size(), runEntries);
+    log.info("CollectorCoinPricingService: SILBERLING fertig – {} Einträge gespeichert",
+        results.size());
+    return results;
+  }
+
+  /**
+   * Lädt den silberling.de Produktkatalog für einen Metalltyp aus den Kategorie-Seiten.
+   * Fetcht bis zu zwei Kategorie-URLs und parst alle Produkte aus dem
+   * {@code ga4_view_item_list} dataLayer-Block.
+   *
+   * @param http HTTP-Client
+   * @param type Metalltyp (GOLD oder SILVER)
+   * @return Map item_name → Preis (EUR)
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private Map<String, Double> fetchSilberlingCatalog(HttpClient http, PreciousMetalType type)
+      throws IOException, InterruptedException {
+    List<String> urls = (type == PreciousMetalType.GOLD)
+        ? List.of("https://www.silberling.de/Gold/",
+                  "https://www.silberling.de/Muenzen/Goldmuenzen/")
+        : List.of("https://www.silberling.de/Silber/",
+                  "https://www.silberling.de/Muenzen/Silbermuenzen/");
+    Map<String, Double> catalog = new java.util.LinkedHashMap<>();
+    for (String url : urls) {
+      fetchSilberlingPageIntoMap(http, url, catalog);
+      sleepMs(500);
+    }
+    log.debug("silberling.de: {} Produkte im Katalog für {}", catalog.size(), type);
+    return catalog;
+  }
+
+  /**
+   * Fetcht eine silberling.de Kategorieseite und fügt alle enthaltenen Produkte
+   * in die übergebene Katalog-Map ein. Existierende Einträge werden nicht überschrieben.
+   *
+   * @param http    HTTP-Client
+   * @param url     Kategorie-URL
+   * @param catalog Ziel-Map (item_name → Preis)
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private void fetchSilberlingPageIntoMap(HttpClient http, String url,
+                                          Map<String, Double> catalog)
+      throws IOException, InterruptedException {
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(url))
+        .header("User-Agent", USER_AGENT)
+        .header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+        .header("Accept-Language", "de-DE,de;q=0.9,en;q=0.5")
+        .header("Accept-Encoding", "identity")
+        .GET()
+        .timeout(Duration.ofSeconds(25))
+        .build();
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    if (resp.statusCode() != 200) {
+      log.debug("silberling.de HTTP {} für '{}'", resp.statusCode(), url);
+      return;
+    }
+    Matcher arrayMatcher = SL_ITEMS_PATTERN.matcher(resp.body());
+    while (arrayMatcher.find()) {
+      Matcher itemMatcher = SL_ITEM_PATTERN.matcher(arrayMatcher.group(1));
+      while (itemMatcher.find()) {
+        String name = itemMatcher.group(1);
+        try {
+          double price = Double.parseDouble(itemMatcher.group(2));
+          if (price > 0) {
+            catalog.putIfAbsent(name, price);
+          }
+        } catch (NumberFormatException ignored) {
+          // ignorieren
+        }
+      }
+    }
+    log.debug("silberling.de: nach {} hat Katalog {} Einträge", url, catalog.size());
+  }
+
+  /**
+   * Sucht den besten Preisabgleich im silberling.de Katalog für eine Münze.
+   * Versucht alle fuzzy-generierten Suchbegriffe und alle alternativen Suchbegriffe.
+   * Verwendet Token-Intersection-Matching: mindestens zwei gemeinsame Schlüssel-Token
+   * müssen im Produktnamen vorhanden sein, plus Gewichtsfilter.
+   *
+   * @param catalog Map item_name → Preis
+   * @param metal   zu suchende Münze
+   * @return bester passender Preis oder 0.0 wenn kein Treffer
+   */
+  private double matchSilberlingCatalog(Map<String, Double> catalog, PreciousMetal metal) {
+    // Alle Suchbegriffe (primär + alternativ), dann fuzzy-expandiert
+    List<String> allTerms = new ArrayList<>(buildFuzzyTerms(effectiveSearchTerm(metal)));
+    if (metal.getSearchTerms() != null) {
+      for (String alt : metal.getSearchTerms()) {
+        buildFuzzyTerms(alt).forEach(t -> {
+          if (!allTerms.contains(t)) {
+            allTerms.add(t);
+          }
+        });
+      }
+    }
+
+    for (String term : allTerms) {
+      Set<String> queryTokens = silberlingTokenize(term);
+      if (queryTokens.size() < 2) {
+        continue;
+      }
+      Double bestPrice = null;
+      String bestMatch = null;
+      for (Map.Entry<String, Double> e : catalog.entrySet()) {
+        String itemName = e.getKey();
+        double price = e.getValue();
+        if (!scTitleMatchesWeight(itemName.toUpperCase(Locale.ROOT), metal.getWeightInGrams())) {
+          continue;
+        }
+        Set<String> itemTokens = silberlingTokenize(itemName);
+        long common = queryTokens.stream().filter(itemTokens::contains).count();
+        // mindestens 2 gemeinsame Token und mindestens 35 % der Suchtoken müssen treffen
+        if (common >= 2 && common >= Math.ceil(queryTokens.size() * 0.35)) {
+          if (bestPrice == null || price < bestPrice) {
+            bestPrice = price;
+            bestMatch = itemName;
+          }
+        }
+      }
+      if (bestPrice != null) {
+        log.debug("silberling.de match '{}' → '{}' ({} EUR)", term, bestMatch, bestPrice);
+        return bestPrice;
+      }
+    }
+    return 0.0;
+  }
+
+  /**
+   * Tokenisiert einen Text für den silberling.de Katalog-Abgleich.
+   * Splittet an Leerzeichen und Sonderzeichen, wandelt in Kleinbuchstaben um,
+   * filtert Rausch-Tokens (farbig, mint, perth, pp, oz-Einzelzeichen) heraus
+   * und behält Wörter ab 2 Zeichen sowie vierstellige Jahreszahlen.
+   *
+   * @param text Eingabetext
+   * @return Set von Tokens
+   */
+  private Set<String> silberlingTokenize(String text) {
+    Set<String> tokens = new HashSet<>();
+    // Stopwörter, die bei silberling.de nicht in Produktnamen auftauchen
+    Set<String> stopwords = Set.of("farbig", "koloriert", "color", "coloured",
+        "mint", "perth", "pp", "proof", "ms", "bu", "oz");
+    for (String raw : text.toLowerCase(Locale.ROOT).split("[\\s\\-/(),.'\"]+")) {
+      if (raw.length() < 2) {
+        continue;
+      }
+      if (stopwords.contains(raw)) {
+        continue;
+      }
+      tokens.add(raw);
+    }
+    return tokens;
+  }
+
+  /**
+   * Per-Münze silberling.de Scraper für den Einzelmünzen-Scraper-Modus.
+   * Lädt den Katalog für den jeweiligen Metalltyp und sucht den besten Treffer.
+   *
+   * @param http  HTTP-Client
+   * @param metal Münze
+   * @return Preis-Eintrag oder {@code null} wenn kein Treffer
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private CollectorCoinPrice scrapeSilberlingForMetal(HttpClient http, PreciousMetal metal)
+      throws IOException, InterruptedException {
+    Map<String, Double> catalog = fetchSilberlingCatalog(http, metal.getType());
+    double price = matchSilberlingCatalog(catalog, metal);
+    if (price > 0) {
+      return buildEntry(metal, CollectorCoinPriceSource.SILBERLING, price,
+          "https://www.silberling.de/", null);
+    }
+    return null;
   }
 
   // ─── gold.de Einzelmünzen-Scraper ─────────────────────────────────────────

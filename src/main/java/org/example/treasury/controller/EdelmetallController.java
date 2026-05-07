@@ -126,12 +126,81 @@ public class EdelmetallController {
   }
 
   /**
+   * Aktualisiert alle editierbaren Felder einer Münze.
+   *
+   * @param id                  MongoDB-ID der Münze
+   * @param name                Bezeichnung
+   * @param type                Metalltyp (GOLD oder SILVER)
+   * @param year                Erscheinungsjahr (optional)
+   * @param manufacturer        Enum-Name des Herstellers (optional)
+   * @param mintage             Auflage (optional)
+   * @param weightInGrams       Gewicht in Gramm
+   * @param quantity            Anzahl der Stück
+   * @param purchasePrice       Kaufpreis pro Stück in EUR
+   * @param importedAt          Kaufdatum
+   * @param marketValue         Sammlerwert pro Stück (0 = zurücksetzen)
+   * @param collectorSearchTerm Optionaler primärer Suchbegriff
+   * @param searchTerms         Alternative Suchbegriffe (Newline/Semikolon getrennt)
+   * @return 200 OK
+   */
+  @PostMapping("/metals/{id}/update")
+  @ResponseBody
+  public ResponseEntity<String> updateMetal(
+      @PathVariable String id,
+      @RequestParam String name,
+      @RequestParam PreciousMetalType type,
+      @RequestParam(required = false) Integer year,
+      @RequestParam(required = false) String manufacturer,
+      @RequestParam(required = false) Integer mintage,
+      @RequestParam double weightInGrams,
+      @RequestParam int quantity,
+      @RequestParam double purchasePrice,
+      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate importedAt,
+      @RequestParam(defaultValue = "0") double marketValue,
+      @RequestParam(required = false) String collectorSearchTerm,
+      @RequestParam(required = false, defaultValue = "") String searchTerms) {
+    preciousMetalRepository.findById(id).ifPresent(metal -> {
+      metal.setName(name.trim());
+      metal.setType(type);
+      metal.setYear((year != null && year > 0) ? year : null);
+      Manufacturer mfr = null;
+      if (manufacturer != null && !manufacturer.isBlank()) {
+        try {
+          mfr = Manufacturer.valueOf(manufacturer.trim());
+        } catch (IllegalArgumentException ignored) {
+          // unbekannter Enum-Wert → null
+        }
+      }
+      metal.setManufacturer(mfr);
+      metal.setMintage((mintage != null && mintage > 0) ? mintage : null);
+      metal.setWeightInGrams(weightInGrams);
+      metal.setQuantity(quantity);
+      metal.setPurchasePrice(purchasePrice);
+      metal.setImportedAt(importedAt);
+      metal.setMarketValue(marketValue);
+      metal.setCollectorSearchTerm(
+          collectorSearchTerm != null && !collectorSearchTerm.isBlank()
+              ? collectorSearchTerm.trim() : null);
+      java.util.List<String> termList = java.util.Arrays.stream(searchTerms.split("[\\n;]+"))
+          .map(String::trim)
+          .filter(s -> !s.isBlank())
+          .distinct()
+          .collect(java.util.stream.Collectors.toList());
+      metal.setSearchTerms(termList);
+      preciousMetalRepository.save(metal);
+    });
+    edelmetallService.recomputeValuation();
+    return ResponseEntity.ok("Gespeichert");
+  }
+
+  /**
    * Benennt eine Münze um.
    *
    * @param id   MongoDB-ID der Münze
    * @param name neuer Name
    */
   @PostMapping("/metals/{id}/rename")
+  @ResponseBody
   public ResponseEntity<String> renameMetal(
       @PathVariable String id,
       @RequestParam String name) {
@@ -139,9 +208,7 @@ public class EdelmetallController {
       metal.setName(name.trim());
       preciousMetalRepository.save(metal);
     });
-    return ResponseEntity.status(303)
-        .header("Location", "/api/edelmetall/dashboard/view")
-        .body("Name aktualisiert");
+    return ResponseEntity.ok("Name aktualisiert");
   }
 
   /**
@@ -399,6 +466,7 @@ public class EdelmetallController {
 
   /**
    * Scraper-Verlauf-Seite (Thymeleaf): zeigt alle Läufe mit Erfolgsquoten und Preisänderungen.
+   * Zeigt zusätzlich Münzen die noch nie von einem Scraper gefunden wurden.
    *
    * @param model Spring MVC Model
    * @return Template-Name
@@ -408,9 +476,16 @@ public class EdelmetallController {
     List<CollectorScraperRun> runs = collectorCoinPricingService.getScraperHistory();
     Map<CollectorCoinPriceSource, CollectorScraperRun> latestPerSource =
         collectorCoinPricingService.getLatestRunPerSource();
+    // Münzen ohne jeglichen Preis-Eintrag
+    List<PreciousMetal> allMetals = preciousMetalRepository.findAll();
+    List<PreciousMetal> neverFoundMetals = allMetals.stream()
+        .filter(m -> !collectorCoinPriceRepository.existsByPreciousMetalId(m.getId()))
+        .sorted(java.util.Comparator.comparing(PreciousMetal::getName))
+        .collect(java.util.stream.Collectors.toList());
     model.addAttribute("runs", runs);
     model.addAttribute("latestRunPerSource", latestPerSource);
     model.addAttribute("sources", CollectorCoinPriceSource.values());
+    model.addAttribute("neverFoundMetals", neverFoundMetals);
     return "collectorScraperHistory";
   }
 

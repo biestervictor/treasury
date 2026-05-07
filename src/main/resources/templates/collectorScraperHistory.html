@@ -18,6 +18,49 @@
 
     <h1 class="mb-4">Scraper-Verlauf</h1>
 
+    <!-- Münzen die noch nie gefunden wurden -->
+    <div th:if="${neverFoundMetals != null and !#lists.isEmpty(neverFoundMetals)}" class="card mb-4 border-warning">
+        <div class="card-header fw-semibold text-warning-emphasis bg-warning-subtle">
+            Noch nie gefunden
+            <span class="badge text-bg-warning ms-1" th:text="${#lists.size(neverFoundMetals)}">0</span>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="table-warning">
+                    <tr>
+                        <th>Münze</th>
+                        <th>Typ</th>
+                        <th>Primärer Suchbegriff</th>
+                        <th>Alternative Suchbegriffe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="m : ${neverFoundMetals}">
+                        <td>
+                            <a th:href="@{/api/edelmetall/metals/{id}/history(id=${m.id})}"
+                               th:text="${m.name}" class="text-decoration-none"></a>
+                        </td>
+                        <td>
+                            <span th:if="${m.type != null and m.type.name() == 'GOLD'}"
+                                  class="badge fw-bold"
+                                  style="background-color:#D4AF37;color:#3a2a00">Au</span>
+                            <span th:if="${m.type != null and m.type.name() == 'SILVER'}"
+                                  class="badge fw-bold"
+                                  style="background-color:#A0A0A0;color:#fff">Ag</span>
+                        </td>
+                        <td class="small text-muted" th:text="${m.collectorSearchTerm != null ? m.collectorSearchTerm : m.name}"></td>
+                        <td class="small text-muted">
+                            <span th:if="${m.searchTerms != null and !#lists.isEmpty(m.searchTerms)}"
+                                  th:text="${#strings.listJoin(m.searchTerms, ' ; ')}"></span>
+                            <span th:unless="${m.searchTerms != null and !#lists.isEmpty(m.searchTerms)}"
+                                  class="text-muted">—</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- Zusammenfassung: Letzter Lauf pro Quelle -->
     <div class="card mb-4">
         <div class="card-header fw-semibold">Letzter Lauf pro Quelle</div>

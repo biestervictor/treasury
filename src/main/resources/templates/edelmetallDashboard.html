@@ -160,9 +160,21 @@
                                        th:text="${it.name}"
                                        class="text-decoration-none"></a>
                                     <button type="button"
-                                            class="btn btn-link btn-sm p-0 ms-1 rename-metal-btn"
-                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}"
-                                            title="Name bearbeiten">&#9998;</button>
+                                            class="btn btn-link btn-sm p-0 ms-1 edit-all-btn"
+                                            th:data-id="${it.preciousMetalId}"
+                                            th:data-name="${it.name}"
+                                            th:data-type="${it.type}"
+                                            th:data-weight="${it.weightInGrams}"
+                                            th:data-quantity="${it.quantity}"
+                                            th:data-purchase-price="${it.purchasePrice}"
+                                            th:data-market-value="${it.marketValue}"
+                                            th:data-year="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null ? metals[it.preciousMetalId].year : ''}"
+                                            th:data-manufacturer="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null ? metals[it.preciousMetalId].manufacturer.name() : ''}"
+                                            th:data-mintage="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null ? metals[it.preciousMetalId].mintage : ''}"
+                                            th:data-imported-at="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].importedAt != null ? metals[it.preciousMetalId].importedAt : ''}"
+                                            th:data-collector-search-term="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].collectorSearchTerm != null ? metals[it.preciousMetalId].collectorSearchTerm : ''}"
+                                            th:data-search-terms="${metals != null and metals[it.preciousMetalId] != null ? metals[it.preciousMetalId].searchTerms : ''}"
+                                            title="Bearbeiten">&#9998;</button>
                                 </td>
                                 <td class="text-center">
                                     <span th:if="${it.type != null and it.type.name() == 'GOLD'}"
@@ -293,24 +305,101 @@
     </div>
 </div>
 
-<!-- Modal: Name bearbeiten -->
-<div class="modal fade" id="renameMetalModal" tabindex="-1" aria-labelledby="renameMetalModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
+<!-- Modal: Münze vollständig bearbeiten -->
+<div class="modal fade" id="editAllModal" tabindex="-1" aria-labelledby="editAllModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="renameMetalModalLabel">Name bearbeiten</h5>
+                <h5 class="modal-title" id="editAllModalLabel">Bearbeiten</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
             </div>
-            <form id="renameMetalForm" method="post" action="#">
-                <div class="modal-body">
-                    <input type="text" class="form-control" id="renameMetalInput" name="name"
-                           placeholder="Münzname" maxlength="200">
+            <div class="modal-body">
+                <div class="row g-3">
+                    <!-- Linke Spalte -->
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllName">Bezeichnung <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editAllName" required maxlength="200">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllType">Metalltyp <span class="text-danger">*</span></label>
+                            <select class="form-select" id="editAllType" required>
+                                <option th:each="t : ${T(org.example.treasury.model.PreciousMetalType).values()}"
+                                        th:value="${t.name()}" th:text="${t.name()}">GOLD</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllYear">Jahrgang</label>
+                            <input type="number" class="form-control" id="editAllYear" min="1800" max="2100"
+                                   placeholder="optional">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllMintage">Auflage (Mintage)</label>
+                            <input type="number" class="form-control" id="editAllMintage" min="1"
+                                   placeholder="optional, z.B. 15000">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllManufacturer">Hersteller / Prägeanstalt</label>
+                            <select class="form-select" id="editAllManufacturer">
+                                <option value="">— kein Hersteller —</option>
+                                <option th:each="mfr : ${manufacturers}"
+                                        th:value="${mfr.name()}"
+                                        th:text="${mfr.displayName}">Perth Mint</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllWeight">Gewicht (Gramm) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.0001" min="0.0001" class="form-control" id="editAllWeight" required>
+                            <div class="mt-1 d-flex flex-wrap gap-1">
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        onclick="document.getElementById('editAllWeight').value='31.1035'">1 oz</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        onclick="document.getElementById('editAllWeight').value='62.2070'">2 oz</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        onclick="document.getElementById('editAllWeight').value='15.5518'">½ oz</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        onclick="document.getElementById('editAllWeight').value='7.7759'">¼ oz</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        onclick="document.getElementById('editAllWeight').value='3.1103'">1/10 oz</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Rechte Spalte -->
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllQuantity">Anzahl <span class="text-danger">*</span></label>
+                            <input type="number" min="1" class="form-control" id="editAllQuantity" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllPurchasePrice">Kaufpreis pro Stück (EUR) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="editAllPurchasePrice" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllImportedAt">Kaufdatum <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="editAllImportedAt" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllMarketValue">Sammlerwert pro Stück (EUR)</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="editAllMarketValue">
+                            <div class="form-text">0 = automatisch anhand Spotpreis</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllCollectorSearchTerm">Primärer Scraper-Suchbegriff</label>
+                            <input type="text" class="form-control" id="editAllCollectorSearchTerm"
+                                   placeholder="leer = Bezeichnung wird verwendet">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="editAllSearchTerms">Alternative Suchbegriffe</label>
+                            <textarea class="form-control" id="editAllSearchTerms" rows="3"
+                                      placeholder="Einer pro Zeile, werden als Fallback versucht"></textarea>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                    <button type="submit" class="btn btn-primary">Speichern</button>
-                </div>
-            </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="editAllSaveBtn">Speichern</button>
+            </div>
         </div>
     </div>
 </div>
@@ -523,16 +612,57 @@
         });
     });
 
-    // Münze umbenennen
-    document.querySelectorAll('.rename-metal-btn').forEach(btn => {
+    // Vollständig bearbeiten (Edit-All Modal)
+    let editAllMetalId = null;
+    document.querySelectorAll('.edit-all-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-id');
-            const name = btn.getAttribute('data-name');
-            document.getElementById('renameMetalInput').value = name;
-            document.getElementById('renameMetalForm').setAttribute(
-                'action', '/api/edelmetall/metals/' + id + '/rename');
-            new bootstrap.Modal(document.getElementById('renameMetalModal')).show();
+            editAllMetalId = btn.dataset.id;
+            document.getElementById('editAllModalLabel').textContent = 'Bearbeiten: ' + btn.dataset.name;
+            document.getElementById('editAllName').value = btn.dataset.name || '';
+            document.getElementById('editAllType').value = btn.dataset.type || '';
+            document.getElementById('editAllYear').value = btn.dataset.year || '';
+            document.getElementById('editAllManufacturer').value = btn.dataset.manufacturer || '';
+            document.getElementById('editAllMintage').value = btn.dataset.mintage || '';
+            document.getElementById('editAllWeight').value = btn.dataset.weight || '';
+            document.getElementById('editAllQuantity').value = btn.dataset.quantity || '';
+            document.getElementById('editAllPurchasePrice').value = btn.dataset.purchasePrice || '';
+            document.getElementById('editAllImportedAt').value = btn.dataset.importedAt || '';
+            document.getElementById('editAllMarketValue').value = btn.dataset.marketValue || '';
+            document.getElementById('editAllCollectorSearchTerm').value = btn.dataset.collectorSearchTerm || '';
+            // searchTerms: Java List.toString() → "[a, b]" → parse to newline-separated
+            const rawTerms = btn.dataset.searchTerms || '';
+            const terms = rawTerms.replace(/^\[|\]$/g, '').split(', ').filter(Boolean).join('\n');
+            document.getElementById('editAllSearchTerms').value = terms;
+            new bootstrap.Modal(document.getElementById('editAllModal')).show();
         });
+    });
+    document.getElementById('editAllSaveBtn')?.addEventListener('click', async () => {
+        if (!editAllMetalId) return;
+        const params = new URLSearchParams();
+        params.append('name', document.getElementById('editAllName').value.trim());
+        params.append('type', document.getElementById('editAllType').value);
+        params.append('year', document.getElementById('editAllYear').value);
+        params.append('manufacturer', document.getElementById('editAllManufacturer').value);
+        params.append('mintage', document.getElementById('editAllMintage').value);
+        params.append('weightInGrams', document.getElementById('editAllWeight').value);
+        params.append('quantity', document.getElementById('editAllQuantity').value);
+        params.append('purchasePrice', document.getElementById('editAllPurchasePrice').value);
+        params.append('importedAt', document.getElementById('editAllImportedAt').value);
+        params.append('marketValue', document.getElementById('editAllMarketValue').value || '0');
+        params.append('collectorSearchTerm', document.getElementById('editAllCollectorSearchTerm').value);
+        params.append('searchTerms', document.getElementById('editAllSearchTerms').value);
+        try {
+            const resp = await fetch('/api/edelmetall/metals/' + editAllMetalId + '/update', {
+                method: 'POST', body: params
+            });
+            if (resp.ok) {
+                location.reload();
+            } else {
+                alert('Fehler beim Speichern: ' + await resp.text());
+            }
+        } catch (e) {
+            alert('Fehler: ' + e);
+        }
     });
 
     // Jahr bearbeiten (AJAX)

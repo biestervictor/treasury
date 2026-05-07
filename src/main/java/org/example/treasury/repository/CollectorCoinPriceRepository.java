@@ -46,4 +46,12 @@ public interface CollectorCoinPriceRepository extends MongoRepository<CollectorC
    * @param preciousMetalId MongoDB-ID der zu löschenden Münze
    */
   void deleteByPreciousMetalId(String preciousMetalId);
+
+  /**
+   * Prüft ob für eine Münze mindestens ein Preis-Eintrag existiert.
+   *
+   * @param preciousMetalId MongoDB-ID der Münze
+   * @return {@code true} wenn mindestens ein Eintrag vorhanden
+   */
+  boolean existsByPreciousMetalId(String preciousMetalId);
 }
