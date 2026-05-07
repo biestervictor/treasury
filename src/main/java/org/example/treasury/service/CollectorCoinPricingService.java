@@ -871,7 +871,7 @@ public class CollectorCoinPricingService {
                                                      String searchTerm)
       throws IOException, InterruptedException {
     String url = "https://gold-silber-anlage.com/search?q="
-        + encode(searchTerm) + "&sort_by=price-ascending";
+        + encode(searchTerm) + "&options%5Bprefix%5D=last&sort_by=price-ascending";
 
     HttpRequest req = HttpRequest.newBuilder()
         .uri(URI.create(url))
