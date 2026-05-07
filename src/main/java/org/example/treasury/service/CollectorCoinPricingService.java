@@ -920,18 +920,14 @@ public class CollectorCoinPricingService {
 
   /**
    * Baut den Suchbegriff für gold-silber-anlage.com:
-   * Entfernt generische Präfixe, ersetzt „farbig" durch „koloriert".
+   * Ersetzt „farbig" durch „koloriert", behält den restlichen Namen (z.B. „Perth Mint Lunar 2 Hahn koloriert").
    *
    * @param metal Münze
    * @return normalisierter Suchbegriff
    */
   private String buildGsaSearchTerm(PreciousMetal metal) {
-    String base = effectiveSearchTerm(metal).toLowerCase(Locale.ROOT);
-    base = base.replace("farbig", "koloriert")
-               .replace("perth mint ", "")
-               .replace("lunar 2 ", "")
-               .replace("lunar ", "");
-    return base.trim();
+    String base = effectiveSearchTerm(metal);
+    return base.replace("farbig", "koloriert").replace("Farbig", "koloriert").trim();
   }
 
   /**
