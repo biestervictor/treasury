@@ -79,12 +79,17 @@ public class CollectorCoinPricingService {
   private static final double OZ_TOLERANCE_GRAMS = 0.5;
 
   /**
-   * Extrahiert Produktpreis + Titel aus dem Shopify-SSR-JSON von gold-silber-anlage.com.
-   * Format: "price":{"amount":XX.XX,"currencyCode":"EUR"},"product":{"title":"TITEL"
+   * Extrahiert Produktpreis + Titel aus dem Shopify web-pixels-manager-setup Script-Block.
+   * Die Produktdaten sind als JSON innerhalb eines JS-Strings eingebettet, d.h. alle
+   * Anführungszeichen sind als \" escaped. Das Muster erlaubt optionale Backslashes vor
+   * jedem Anführungszeichen, um sowohl die escaped als auch die direkte Form zu unterstützen.
+   * Erwartete HTML-Sequenz (escaped):
+   * \"price\":{\"amount\":XX.XX,\"currencyCode\":\"EUR\"},\"product\":{\"title\":\"TITEL\"
    */
   private static final Pattern GSA_PRODUCT = Pattern.compile(
-      "\"price\":\\{\"amount\":(\\d+(?:\\.\\d+)?),\"currencyCode\":\"EUR\"\\},"
-          + "\"product\":\\{\"title\":\"([^\"]+)\"");
+      "\\\\?\"price\\\\?\":\\{\\\\?\"amount\\\\?\":(\\d+(?:\\.\\d+)?),"
+          + "\\\\?\"currencyCode\\\\?\":\\\\?\"EUR\\\\?\"\\},"
+          + "\\\\?\"product\\\\?\":\\{\\\\?\"title\\\\?\":\\\\?\"([^\"\\\\]+)\\\\?\"");
 
   /** Tracking-State für den Gesamt-Scraper-Lauf (Alle Quellen). */
   private final AtomicBoolean allScraperRunning = new AtomicBoolean(false);
@@ -878,13 +883,14 @@ public class CollectorCoinPricingService {
         .header("User-Agent", USER_AGENT)
         .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
         .header("Accept-Language", "de-DE,de;q=0.9,en;q=0.5")
+        .header("Accept-Encoding", "identity")
         .GET()
         .timeout(Duration.ofSeconds(20))
         .build();
 
     HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
     if (resp.statusCode() != 200) {
-      log.debug("gold-silber-anlage HTTP {} für '{}'", resp.statusCode(), searchTerm);
+      log.warn("gold-silber-anlage HTTP {} für '{}'", resp.statusCode(), searchTerm);
       return null;
     }
 
@@ -910,8 +916,12 @@ public class CollectorCoinPricingService {
     }
 
     if (bestPrice == null) {
-      log.debug("gold-silber-anlage: kein Treffer für '{}' (oz={}, type={})",
-          searchTerm, ozLabel, typeLabel);
+      String contentEncoding = resp.headers().firstValue("content-encoding").orElse("none");
+      String bodySnippet = resp.body().length() > 500
+          ? resp.body().substring(0, 500) : resp.body();
+      log.warn("gold-silber-anlage: kein Treffer für '{}' (oz={}, type={}) "
+              + "| Content-Encoding={} | body[0..500]={}",
+          searchTerm, ozLabel, typeLabel, contentEncoding, bodySnippet);
       return null;
     }
 
