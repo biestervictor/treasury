@@ -251,6 +251,10 @@ public class CollectorCoinPricingService {
       return;
     }
     metalScrapeStatus.put(metalId, "running");
+
+    String preferredShop = metal.getPreferredShop();
+    double currentMarketValue = metal.getMarketValue();
+
     List<Map<String, Object>> sourceResults = new ArrayList<>();
     try {
       HttpClient http = HttpClient.newBuilder()
@@ -261,6 +265,10 @@ public class CollectorCoinPricingService {
       for (CollectorCoinPriceSource source : CollectorCoinPriceSource.values()) {
         Map<String, Object> srcResult = new java.util.LinkedHashMap<>();
         srcResult.put("source", source.getDisplayName());
+        boolean isPreferred = preferredShop != null
+            && preferredShop.equals(source.getDisplayName());
+        srcResult.put("preferred", isPreferred);
+
         CollectorCoinPrice price = null;
         try {
           price = switch (source) {
@@ -275,20 +283,42 @@ public class CollectorCoinPricingService {
         } catch (Exception e) {
           log.warn("Einzelmünzen-Scraper {} – {}: {}", source, metal.getName(), e.getMessage());
         }
+
+        // Auto-Update: bevorzugter Shop + neuer Preis liegt ±10 % des Sammlerwerts
+        boolean autoUpdated = false;
+        if (isPreferred && price != null && currentMarketValue > 0) {
+          double ratio = price.getPriceEur() / currentMarketValue;
+          if (ratio >= 0.9 && ratio <= 1.1) {
+            metal.setMarketValue(price.getPriceEur());
+            preciousMetalRepository.save(metal);
+            autoUpdated = true;
+            log.info("Auto-Update Sammlerwert {} → {} EUR via {} (Ratio {})",
+                String.format("%.2f", currentMarketValue),
+                String.format("%.2f", price.getPriceEur()),
+                source.getDisplayName(),
+                String.format("%.3f", ratio));
+          }
+        }
+
         srcResult.put("found", price != null);
         srcResult.put("price", price != null ? price.getPriceEur() : null);
+        srcResult.put("autoUpdated", autoUpdated);
         sourceResults.add(srcResult);
       }
     } finally {
       // Serialize results to JSON string for status polling
       StringBuilder sb = new StringBuilder("[");
       for (int i = 0; i < sourceResults.size(); i++) {
-        if (i > 0) sb.append(",");
+        if (i > 0) {
+          sb.append(",");
+        }
         Map<String, Object> r = sourceResults.get(i);
         sb.append("{\"source\":\"").append(r.get("source")).append("\"");
         sb.append(",\"found\":").append(r.get("found"));
         Object p = r.get("price");
         sb.append(",\"price\":").append(p != null ? p : "null");
+        sb.append(",\"preferred\":").append(r.getOrDefault("preferred", false));
+        sb.append(",\"autoUpdated\":").append(r.getOrDefault("autoUpdated", false));
         sb.append("}");
       }
       sb.append("]");

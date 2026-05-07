@@ -11,6 +11,7 @@ import org.example.treasury.job.CollectorCoinPriceJob;
 import org.example.treasury.model.CollectorCoinPrice;
 import org.example.treasury.model.CollectorCoinPriceSource;
 import org.example.treasury.model.CollectorScraperRun;
+import org.example.treasury.model.Manufacturer;
 import org.example.treasury.model.PreciousMetal;
 import org.example.treasury.model.PreciousMetalType;
 import org.example.treasury.repository.CollectorCoinPriceRepository;
@@ -147,18 +148,68 @@ public class EdelmetallController {
    * Setzt den Hersteller einer Münze.
    *
    * @param id           MongoDB-ID der Münze
-   * @param manufacturer neuer Hersteller (leer = zurücksetzen)
+   * @param manufacturer Enum-Name des Herstellers (leer = zurücksetzen)
    */
   @PostMapping("/metals/{id}/manufacturer")
   @ResponseBody
   public ResponseEntity<String> setManufacturer(
       @PathVariable String id,
-      @RequestParam String manufacturer) {
+      @RequestParam(required = false) String manufacturer) {
     preciousMetalRepository.findById(id).ifPresent(metal -> {
-      metal.setManufacturer(manufacturer.isBlank() ? null : manufacturer.trim());
+      if (manufacturer == null || manufacturer.isBlank()) {
+        metal.setManufacturer(null);
+      } else {
+        try {
+          metal.setManufacturer(Manufacturer.valueOf(manufacturer.trim()));
+        } catch (IllegalArgumentException e) {
+          metal.setManufacturer(null);
+        }
+      }
       preciousMetalRepository.save(metal);
     });
     return ResponseEntity.ok("Hersteller aktualisiert");
+  }
+
+  /**
+   * Setzt die Auflage (Mintage) einer Münze.
+   *
+   * @param id      MongoDB-ID der Münze
+   * @param mintage Auflage (Stückzahl); null oder 0 = zurücksetzen
+   */
+  @PostMapping("/metals/{id}/mintage")
+  @ResponseBody
+  public ResponseEntity<String> setMintage(
+      @PathVariable String id,
+      @RequestParam(required = false) Integer mintage) {
+    preciousMetalRepository.findById(id).ifPresent(metal -> {
+      metal.setMintage((mintage != null && mintage > 0) ? mintage : null);
+      preciousMetalRepository.save(metal);
+    });
+    return ResponseEntity.ok("Auflage aktualisiert");
+  }
+
+  /**
+   * Übernimmt einen Scraper-Preis als neuen Sammlerwert und merkt sich
+   * den zugehörigen Shop als bevorzugte Quelle für Auto-Updates.
+   *
+   * @param id    MongoDB-ID der Münze
+   * @param shop  Display-Name der Preisquelle (z.B. "silber-corner.de")
+   * @param price übernommener Preis in EUR
+   */
+  @PostMapping("/metals/{id}/accept-scrape-result")
+  @ResponseBody
+  public ResponseEntity<String> acceptScrapeResult(
+      @PathVariable String id,
+      @RequestParam String shop,
+      @RequestParam double price) {
+    preciousMetalRepository.findById(id).ifPresent(metal -> {
+      metal.setPreferredShop(shop);
+      preciousMetalRepository.save(metal);
+    });
+    if (price > 0) {
+      edelmetallService.updateMarketValue(id, price);
+    }
+    return ResponseEntity.ok("Übernommen");
   }
 
   /**
@@ -372,6 +423,7 @@ public class EdelmetallController {
   @GetMapping("/metals/new")
   public String newMetalForm(Model model) {
     model.addAttribute("types", PreciousMetalType.values());
+    model.addAttribute("manufacturers", Manufacturer.values());
     model.addAttribute("today", LocalDate.now().toString());
     return "addPreciousMetal";
   }
@@ -382,7 +434,8 @@ public class EdelmetallController {
    * @param name                Bezeichnung der Münze
    * @param type                Metalltyp (GOLD oder SILVER)
    * @param year                Erscheinungsjahr (optional)
-   * @param manufacturer        Hersteller/Prägeanstalt (optional)
+   * @param manufacturer        Enum-Name des Herstellers (optional)
+   * @param mintage             Auflage/Limitierung (optional)
    * @param weightInGrams       Gewicht in Gramm
    * @param quantity            Anzahl der Stück
    * @param purchasePrice       Kaufpreis pro Stück in EUR
@@ -398,6 +451,7 @@ public class EdelmetallController {
       @RequestParam PreciousMetalType type,
       @RequestParam(required = false) Integer year,
       @RequestParam(required = false) String manufacturer,
+      @RequestParam(required = false) Integer mintage,
       @RequestParam double weightInGrams,
       @RequestParam int quantity,
       @RequestParam double purchasePrice,
@@ -410,12 +464,20 @@ public class EdelmetallController {
         .filter(s -> !s.isBlank())
         .distinct()
         .collect(java.util.stream.Collectors.toList());
+    Manufacturer mfr = null;
+    if (manufacturer != null && !manufacturer.isBlank()) {
+      try {
+        mfr = Manufacturer.valueOf(manufacturer.trim());
+      } catch (IllegalArgumentException ignored) {
+        // unbekannter Enum-Wert → null
+      }
+    }
     PreciousMetal metal = PreciousMetal.builder()
         .name(name.trim())
         .type(type)
         .year(year)
-        .manufacturer(manufacturer != null && !manufacturer.isBlank()
-            ? manufacturer.trim() : null)
+        .manufacturer(mfr)
+        .mintage(mintage != null && mintage > 0 ? mintage : null)
         .weightInGrams(weightInGrams)
         .quantity(quantity)
         .purchasePrice(purchasePrice)
@@ -445,6 +507,7 @@ public class EdelmetallController {
     MetalDashboardDto dto = edelmetallService.getDashboard();
     model.addAttribute("dashboard", dto);
     model.addAttribute("sources", CollectorCoinPriceSource.values());
+    model.addAttribute("manufacturers", Manufacturer.values());
     model.addAttribute("latestCollectorPrices",
         collectorCoinPricingService.getLatestCollectorPricePerMetal(
             dto.currentPrices().goldEurPerOunce(),

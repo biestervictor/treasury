@@ -140,6 +140,7 @@
                                 <th></th>
                                 <th>Jahr</th>
                                 <th>Hersteller</th>
+                                <th>Auflage</th>
                                 <th class="text-end">Gewicht (g)</th>
                                 <th class="text-end">Anzahl</th>
                                 <th class="text-end">Kaufpreis / Stk</th>
@@ -187,14 +188,25 @@
                                 <!-- Hersteller -->
                                 <td class="text-nowrap" style="max-width:160px; overflow:hidden; text-overflow:ellipsis;">
                                     <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null}"
-                                          th:text="${metals[it.preciousMetalId].manufacturer}"
-                                          th:title="${metals[it.preciousMetalId].manufacturer}"></span>
+                                          th:text="${metals[it.preciousMetalId].manufacturer.displayName}"
+                                          th:title="${metals[it.preciousMetalId].manufacturer.displayName}"></span>
                                     <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null}"
                                           class="text-muted small">—</span>
                                     <button type="button"
                                             class="btn btn-link btn-sm p-0 ms-1 edit-manufacturer-btn"
-                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-manufacturer=${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null ? metals[it.preciousMetalId].manufacturer : ''}"
+                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-manufacturer=${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null ? metals[it.preciousMetalId].manufacturer.name() : ''}"
                                             title="Hersteller bearbeiten">&#9998;</button>
+                                </td>
+                                <!-- Auflage (Mintage) -->
+                                <td class="text-nowrap">
+                                    <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null}"
+                                          th:text="${metals[it.preciousMetalId].mintage}"></span>
+                                    <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null}"
+                                          class="text-muted small">—</span>
+                                    <button type="button"
+                                            class="btn btn-link btn-sm p-0 ms-1 edit-mintage-btn"
+                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-mintage=${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null ? metals[it.preciousMetalId].mintage : ''}"
+                                            title="Auflage bearbeiten">&#9998;</button>
                                 </td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.weightInGrams, 1, 4)}"></td>
                                 <td class="text-end" th:text="${it.quantity}"></td>
@@ -332,12 +344,36 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
             </div>
             <div class="modal-body">
-                <input type="text" class="form-control" id="editManufacturerInput"
-                       placeholder="z.B. Münze Österreich, Perth Mint" maxlength="200">
+                <select class="form-select" id="editManufacturerSelect">
+                    <option value="">— kein Hersteller —</option>
+                    <option th:each="mfr : ${manufacturers}"
+                            th:value="${mfr.name()}"
+                            th:text="${mfr.displayName}">Perth Mint</option>
+                </select>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                 <button type="button" class="btn btn-primary" id="editManufacturerSaveBtn">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Auflage bearbeiten -->
+<div class="modal fade" id="editMintageModal" tabindex="-1" aria-labelledby="editMintageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editMintageModalLabel">Auflage bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <div class="modal-body">
+                <input type="number" class="form-control" id="editMintageInput"
+                       min="1" placeholder="z.B. 15000 (leer = keine Angabe)">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="editMintageSaveBtn">Speichern</button>
             </div>
         </div>
     </div>
@@ -532,17 +568,42 @@
             const name = btn.getAttribute('data-name');
             const mfr = btn.getAttribute('data-manufacturer');
             document.getElementById('editManufacturerModalLabel').textContent = 'Hersteller: ' + name;
-            document.getElementById('editManufacturerInput').value = mfr || '';
+            document.getElementById('editManufacturerSelect').value = mfr || '';
             new bootstrap.Modal(document.getElementById('editManufacturerModal')).show();
         });
     });
     document.getElementById('editManufacturerSaveBtn')?.addEventListener('click', async () => {
         if (!editManufacturerMetalId) return;
-        const mfr = document.getElementById('editManufacturerInput').value.trim();
+        const mfr = document.getElementById('editManufacturerSelect').value;
         const params = new URLSearchParams({ manufacturer: mfr });
         try {
             await fetch('/api/edelmetall/metals/' + editManufacturerMetalId + '/manufacturer',
                 { method: 'POST', body: params });
+            location.reload();
+        } catch (e) {
+            alert('Fehler: ' + e);
+        }
+    });
+
+    // Auflage bearbeiten (AJAX)
+    let editMintageMetalId = null;
+    document.querySelectorAll('.edit-mintage-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            editMintageMetalId = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            const mintage = btn.getAttribute('data-mintage');
+            document.getElementById('editMintageModalLabel').textContent = 'Auflage: ' + name;
+            document.getElementById('editMintageInput').value = mintage || '';
+            new bootstrap.Modal(document.getElementById('editMintageModal')).show();
+        });
+    });
+    document.getElementById('editMintageSaveBtn')?.addEventListener('click', async () => {
+        if (!editMintageMetalId) return;
+        const val = document.getElementById('editMintageInput').value.trim();
+        const url = '/api/edelmetall/metals/' + editMintageMetalId + '/mintage'
+            + (val ? '?mintage=' + encodeURIComponent(val) : '');
+        try {
+            await fetch(url, { method: 'POST' });
             location.reload();
         } catch (e) {
             alert('Fehler: ' + e);
@@ -585,7 +646,7 @@
                         clearInterval(poll);
                         btn.disabled = false;
                         btn.innerHTML = '&#10003;';
-                        showScrapeResultModal(name, data.results);
+                        showScrapeResultModal(id, name, data.results);
                     }
                 } catch (e) {
                     // Netzwerkfehler ignorieren, weiter pollen
@@ -594,7 +655,7 @@
         });
     });
 
-    function showScrapeResultModal(name, resultsJson) {
+    function showScrapeResultModal(metalId, name, resultsJson) {
         let results;
         try {
             results = JSON.parse(resultsJson);
@@ -608,13 +669,28 @@
         const noResults = [];
         for (const r of results) {
             if (!r.found) noResults.push(r.source);
-            const badge = r.found
+            const preferredBadge = r.preferred
+                ? '<span class="badge text-bg-warning ms-1" title="Bevorzugter Shop">&#9733;</span>'
+                : '';
+            const autoUpdatedBadge = r.autoUpdated
+                ? '<span class="badge text-bg-info ms-1">Auto-aktualisiert</span>'
+                : '';
+            const priceBadge = r.found
                 ? '<span class="badge text-bg-success">'
                     + (r.price != null ? r.price.toFixed(2) + '\u00a0\u20ac' : '&#10003;')
                     + '</span>'
                 : '<span class="badge text-bg-secondary">kein Treffer</span>';
+            const acceptBtn = (r.found && r.price != null)
+                ? '<button class="btn btn-outline-primary btn-sm ms-2 accept-scrape-btn"'
+                    + ' data-metal-id="' + metalId + '"'
+                    + ' data-shop="' + r.source + '"'
+                    + ' data-price="' + r.price + '">'
+                    + '\u00dcbernehmen</button>'
+                : '';
             html += '<li class="list-group-item d-flex justify-content-between align-items-center">'
-                + '<span>' + r.source + '</span>' + badge + '</li>';
+                + '<span>' + r.source + preferredBadge + autoUpdatedBadge + '</span>'
+                + '<span class="d-flex align-items-center gap-1">' + priceBadge + acceptBtn + '</span>'
+                + '</li>';
         }
         html += '</ul>';
 
@@ -624,6 +700,30 @@
         }
 
         document.getElementById('scrapeResultBody').innerHTML = html;
+
+        // "Übernehmen"-Buttons: preferred shop setzen + Sammlerwert übernehmen
+        document.querySelectorAll('.accept-scrape-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const mId = btn.getAttribute('data-metal-id');
+                const shop = btn.getAttribute('data-shop');
+                const price = btn.getAttribute('data-price');
+                const params = new URLSearchParams({ shop, price });
+                try {
+                    const resp = await fetch(
+                        '/api/edelmetall/metals/' + mId + '/accept-scrape-result',
+                        { method: 'POST', body: params });
+                    if (resp.ok) {
+                        btn.textContent = '\u2713';
+                        btn.disabled = true;
+                        btn.classList.replace('btn-outline-primary', 'btn-success');
+                    } else {
+                        alert('Fehler beim Übernehmen.');
+                    }
+                } catch (e) {
+                    alert('Fehler: ' + e);
+                }
+            });
+        });
 
         const modal = new bootstrap.Modal(document.getElementById('scrapeResultModal'));
         modal.show();

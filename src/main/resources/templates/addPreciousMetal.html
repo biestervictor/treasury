@@ -37,9 +37,20 @@
             </div>
 
             <div class="mb-3">
+              <label class="form-label fw-semibold" for="mintage">Auflage (Mintage)</label>
+              <input class="form-control" id="mintage" name="mintage" type="number"
+                     min="1" placeholder="optional, z.B. 15000">
+              <div class="form-text">Anzahl geprägter Exemplare (optional).</div>
+            </div>
+
+            <div class="mb-3">
               <label class="form-label fw-semibold" for="manufacturer">Hersteller / Prägeanstalt</label>
-              <input class="form-control" id="manufacturer" name="manufacturer" type="text"
-                     placeholder="z.B. Münze Österreich, Perth Mint" maxlength="200">
+              <select class="form-select" id="manufacturer" name="manufacturer">
+                <option value="">— kein Hersteller —</option>
+                <option th:each="mfr : ${manufacturers}"
+                        th:value="${mfr.name()}"
+                        th:text="${mfr.displayName}">Perth Mint</option>
+              </select>
             </div>
 
             <div class="mb-3">
