@@ -32,6 +32,7 @@
                         <th>Typ</th>
                         <th>Primärer Suchbegriff</th>
                         <th>Alternative Suchbegriffe</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -54,6 +55,13 @@
                                   th:text="${#strings.listJoin(m.searchTerms, ' ; ')}"></span>
                             <span th:unless="${m.searchTerms != null and !#lists.isEmpty(m.searchTerms)}"
                                   class="text-muted">—</span>
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-secondary edit-search-terms-btn"
+                                    th:data-id="${m.id}"
+                                    th:data-name="${m.name}"
+                                    th:data-search-terms="${m.searchTerms != null and !#lists.isEmpty(m.searchTerms) ? #strings.listJoin(m.searchTerms, ';') : ''}"
+                                    title="Suchbegriffe bearbeiten">&#9998;</button>
                         </td>
                     </tr>
                 </tbody>
@@ -216,6 +224,67 @@
     </div>
 
 </div>
+
+<!-- Edit Search Terms Modal -->
+<div class="modal fade" id="editSearchTermsModal" tabindex="-1" aria-labelledby="editSearchTermsModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editSearchTermsModalLabel">Suchbegriffe bearbeiten</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-2">
+          Münze: <strong id="editSearchTermsName"></strong>
+        </p>
+        <label for="editSearchTermsInput" class="form-label">Alternative Suchbegriffe <span class="text-muted">(einer pro Zeile)</span></label>
+        <textarea id="editSearchTermsInput" class="form-control font-monospace" rows="6"
+                  placeholder="Suchbegriff 1&#10;Suchbegriff 2&#10;..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="editSearchTermsSaveBtn">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let currentMetalId = null;
+
+  document.querySelectorAll('.edit-search-terms-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      currentMetalId = btn.dataset.id;
+      document.getElementById('editSearchTermsName').textContent = btn.dataset.name;
+      const raw = btn.dataset.searchTerms || '';
+      document.getElementById('editSearchTermsInput').value =
+        raw ? raw.split(';').filter(Boolean).join('\n') : '';
+      new bootstrap.Modal(document.getElementById('editSearchTermsModal')).show();
+    });
+  });
+
+  document.getElementById('editSearchTermsSaveBtn').addEventListener('click', function () {
+    if (!currentMetalId) return;
+    const terms = document.getElementById('editSearchTermsInput').value;
+    const body = new URLSearchParams({ searchTerms: terms });
+    fetch('/api/edelmetall/metals/' + currentMetalId + '/search-terms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    }).then(function (res) {
+      if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('editSearchTermsModal')).hide();
+        location.reload();
+      } else {
+        alert('Fehler beim Speichern (' + res.status + ')');
+      }
+    }).catch(function () {
+      alert('Netzwerkfehler beim Speichern.');
+    });
+  });
+})();
+</script>
 
 <th:block th:replace="fragments/layout :: bootstrapJs"></th:block>
 <th:block th:replace="fragments/scripts :: scripts"></th:block>
