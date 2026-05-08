@@ -379,6 +379,20 @@ public class EdelmetallController {
   }
 
   /**
+   * Setzt das Kaufdatum aller Münzen mit Import-Platzhalter (26. März) oder null
+   * auf den 01. Januar des Prägejahres. Fehlende Prägejahre werden ggf. aus dem
+   * Münznamen extrahiert.
+   *
+   * @return Anzahl aktualisierter Einträge als Text
+   */
+  @PostMapping("/metals/reset-import-dates")
+  @ResponseBody
+  public ResponseEntity<String> resetImportDates() {
+    int count = edelmetallService.resetImportDatesFromYear();
+    return ResponseEntity.ok(count + " Kaufdatum/Kaufdaten aktualisiert");
+  }
+
+  /**
    * Löscht eine Münze (PreciousMetal) sowie alle zugehörigen Preis-Einträge.
    * Löst anschließend eine Neubewertung aus.
    *

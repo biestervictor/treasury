@@ -138,8 +138,15 @@
 
         <div class="col-md-12">
             <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Bestand (pro Münze/Position)</h5>
+                 <div class="card-body">
+                     <div class="d-flex align-items-center justify-content-between mb-2">
+                         <h5 class="card-title mb-0">Bestand (pro Münze/Position)</h5>
+                         <button type="button" class="btn btn-outline-secondary btn-sm"
+                                 id="resetImportDatesBtn"
+                                 title="Setzt Kaufdatum auf 01.01.Prägejahr für alle Münzen mit Import-Platzhalter">
+                             &#128197; Kaufdaten aus Prägejahr setzen
+                         </button>
+                     </div>
 
                     <div th:if="${#lists.isEmpty(dashboard.latestValuations())}" class="text-muted">
                         Noch keine Bewertung vorhanden. Bitte "Preise aktualisieren" oder "Preise manuell setzen".
@@ -1034,6 +1041,67 @@
     })();
 </script>
 <th:block th:replace="fragments/scripts :: scripts"></th:block>
+
+<!-- Modal: Kaufdaten zurücksetzen -->
+<div class="modal fade" id="resetImportDatesModal" tabindex="-1"
+     aria-labelledby="resetImportDatesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetImportDatesModalLabel">Kaufdaten zurücksetzen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <div class="modal-body">
+                <p>Für alle Münzen, bei denen das Kaufdatum noch ein <strong>CSV-Import-Platzhalter</strong>
+                    (26. März eines beliebigen Jahres) oder <strong>nicht gesetzt</strong> ist, wird
+                    automatisch der <strong>01. Januar des Prägejahres</strong> eingetragen.</p>
+                <ul class="mb-2">
+                    <li>Münzen ohne Prägejahr im Feld → Jahr wird aus dem Namen extrahiert (z.B. <em>Panda 2013</em>)</li>
+                    <li>Bestehende Kaufdaten, die kein Import-Platzhalter sind, werden <strong>nicht</strong> verändert</li>
+                    <li>Münzen ohne Prägejahr und ohne Jahreszahl im Namen werden übersprungen</li>
+                </ul>
+                <div class="alert alert-warning mb-0">
+                    Das Kaufdatum bestimmt den <strong>historischen Spotpreis</strong> und damit Spot&nbsp;∆
+                    und Aufpreis&nbsp;∆. Das korrekte Kaufdatum kann anschließend
+                    per Bearbeiten-Button präzise nachgetragen werden.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="resetImportDatesConfirmBtn">
+                    Ja, Kaufdaten setzen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('resetImportDatesBtn')?.addEventListener('click', () => {
+        new bootstrap.Modal(document.getElementById('resetImportDatesModal')).show();
+    });
+    document.getElementById('resetImportDatesConfirmBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('resetImportDatesConfirmBtn');
+        btn.disabled = true;
+        btn.textContent = 'Wird gesetzt…';
+        try {
+            const resp = await fetch('/api/edelmetall/metals/reset-import-dates', {method: 'POST'});
+            const text = await resp.text();
+            if (resp.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('resetImportDatesModal')).hide();
+                location.reload();
+            } else {
+                alert('Fehler: ' + text);
+                btn.disabled = false;
+                btn.textContent = 'Ja, Kaufdaten setzen';
+            }
+        } catch (e) {
+            alert('Fehler: ' + e);
+            btn.disabled = false;
+            btn.textContent = 'Ja, Kaufdaten setzen';
+        }
+    });
+</script>
 
 <!-- Modal: Spot ∆ / Aufpreis ∆ Erklärung -->
 <div class="modal fade" id="deltaInfoModal" tabindex="-1" aria-labelledby="deltaInfoModalLabel" aria-hidden="true">

@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.example.treasury.dto.MetalDashboardDto;
 import org.example.treasury.dto.ManualMetalPricesRequest;
@@ -361,6 +363,60 @@ public class EdelmetallService {
       log.info("migrateImportedAtFromYear: '{}' → importedAt={}", m.getName(), fallback);
     }
     recomputeValuation();
+  }
+
+  private static final Pattern YEAR_IN_NAME_PATTERN =
+      Pattern.compile("\\b(19|20)\\d{2}\\b");
+
+  private boolean isImportPlaceholder(LocalDate date) {
+    return date == null || (date.getMonthValue() == 3 && date.getDayOfMonth() == 26);
+  }
+
+  private Integer extractYearFromName(String name) {
+    if (name == null) {
+      return null;
+    }
+    Matcher matcher = YEAR_IN_NAME_PATTERN.matcher(name);
+    return matcher.find() ? Integer.parseInt(matcher.group()) : null;
+  }
+
+  /**
+   * Setzt das Kaufdatum aller Münzen zurück, bei denen noch ein CSV-Import-Platzhalter
+   * (jedes Datum vom 26. März) oder kein Kaufdatum eingetragen ist.
+   * Als Ersatzdatum wird der 01. Januar des Prägejahres verwendet.
+   * Fehlt das Prägejahr, wird versucht, es aus dem Münznamen zu extrahieren.
+   *
+   * @return Anzahl der aktualisierten Einträge
+   */
+  public int resetImportDatesFromYear() {
+    List<PreciousMetal> all = preciousMetalRepository.findAll();
+    int count = 0;
+    for (PreciousMetal m : all) {
+      boolean changed = false;
+      if (m.getYear() == null) {
+        Integer extracted = extractYearFromName(m.getName());
+        if (extracted != null) {
+          m.setYear(extracted);
+          changed = true;
+          log.info("resetImportDates: '{}' → year={} (aus Name)", m.getName(), extracted);
+        }
+      }
+      if (m.getYear() != null && isImportPlaceholder(m.getImportedAt())) {
+        LocalDate fallback = LocalDate.of(m.getYear(), 1, 1);
+        m.setImportedAt(fallback);
+        changed = true;
+        count++;
+        log.info("resetImportDates: '{}' → importedAt={}", m.getName(), fallback);
+      }
+      if (changed) {
+        preciousMetalRepository.save(m);
+      }
+    }
+    if (count > 0) {
+      recomputeValuation();
+    }
+    log.info("resetImportDates: {} Kaufdatum/Kaufdaten aktualisiert", count);
+    return count;
   }
 
   private MetalValuationSnapshot storeValuationSnapshot(MetalPriceSnapshot priceSnapshot) {
