@@ -12,8 +12,9 @@ import static java.util.Map.entry;
  *
  * <p>Die Werte basieren auf den jährlichen USD/oz-Durchschnitten der LBMA
  * (London Bullion Market Association) und den entsprechenden EUR/USD-Jahresdurchschnittskursen
- * der EZB. Primäre Quelle: World Gold Council / LBMA Preishistorie.
- * Für 2025 wird ein laufender Schätzwert verwendet.</p>
+ * der EZB. Referenzkontrolle gegen boerse.de Jahres-Schlusskurse (XC0009653103 / XC0009655157).
+ * Für laufende Jahre wird ein gleitender Schätzwert auf Basis der bisherigen Monatsdurchschnitte
+ * verwendet.</p>
  *
  * <p>Diese Tabelle ermöglicht die Aufschlüsselung des Gewinns einer Sammelmünze in:
  * <ul>
@@ -29,7 +30,8 @@ public class HistoricalSpotPriceService {
 
   /**
    * Jahresdurchschnitt Gold EUR/oz.
-   * Quellen: LBMA Gold Price (USD) / EZB EUR-USD-Jahresdurchschnitt.
+   * Quellen: LBMA Gold Price (USD) / EZB EUR-USD-Jahresdurchschnitt,
+   * kontrolliert gegen boerse.de Jahres-Schlusskurse (ISIN XC0009655157).
    */
   private static final Map<Integer, Double> GOLD_EUR_PER_OZ = Map.ofEntries(
       entry(2009, 697.0),
@@ -48,12 +50,14 @@ public class HistoricalSpotPriceService {
       entry(2022, 1709.0),
       entry(2023, 1794.0),
       entry(2024, 2203.0),
-      entry(2025, 2818.0)
+      entry(2025, 3000.0),  // Schluss 3.670 EUR; Jahresstart ~2.508 EUR; Durchschnitt ca. 3.000
+      entry(2026, 4100.0)   // Schätzung Jan-Mai 2026: Ø ~4.110 EUR (boerse.de Monatsdaten)
   );
 
   /**
    * Jahresdurchschnitt Silber EUR/oz.
-   * Quellen: LBMA Silver Price (USD) / EZB EUR-USD-Jahresdurchschnitt.
+   * Quellen: LBMA Silver Price (USD) / EZB EUR-USD-Jahresdurchschnitt,
+   * kontrolliert gegen boerse.de Jahres-Schlusskurse (ISIN XC0009653103).
    */
   private static final Map<Integer, Double> SILVER_EUR_PER_OZ = Map.ofEntries(
       entry(2009, 10.5),
@@ -72,7 +76,8 @@ public class HistoricalSpotPriceService {
       entry(2022, 20.7),
       entry(2023, 21.6),
       entry(2024, 26.1),
-      entry(2025, 30.0)
+      entry(2025, 40.0),  // Schluss 61,27 EUR; Jahresstart ~27,76 EUR; Durchschnitt ca. 40
+      entry(2026, 71.0)   // Schätzung Jan-Mai 2026: Ø ~71 EUR (boerse.de Monatsdaten)
   );
 
   /**
@@ -96,7 +101,7 @@ public class HistoricalSpotPriceService {
         ? GOLD_EUR_PER_OZ : SILVER_EUR_PER_OZ;
 
     // Auf verfügbaren Bereich clampen
-    int clampedYear = Math.max(2009, Math.min(2025, year));
+    int clampedYear = Math.max(2009, Math.min(2026, year));
     Double eurPerOz = table.get(clampedYear);
     if (eurPerOz == null) {
       return 0.0;
