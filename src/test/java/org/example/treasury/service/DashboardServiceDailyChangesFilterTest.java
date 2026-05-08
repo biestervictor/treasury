@@ -43,7 +43,7 @@ class DashboardServiceDailyChangesFilterTest {
     when(shoeService.getAllShoes()).thenReturn(List.of());
     when(secretLairService.getAllSecretLairs()).thenReturn(List.of());
     when(edelmetallService.getDashboard()).thenReturn(
-        new MetalDashboardDto(null, List.of(), List.of(), List.of(), 0, 0));
+        new MetalDashboardDto(null, List.of(), List.of(), List.of(), List.of(), 0, 0, 0));
   }
 
   /**

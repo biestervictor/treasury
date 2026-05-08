@@ -18,20 +18,29 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Fetches the lowest Klekt listing price for a specific shoe and US size
- * using the public Klekt API (api.k-v3.com) without authentication.
+ * Fetches the lowest Klekt listing price (Ask) and highest bid for a specific shoe
+ * and US size using the public Klekt API (api.k-v3.com) without authentication.
  *
  * <p>Flow:
  * <ol>
  *   <li>Fetch the Klekt product page HTML and extract the product-variant ID
  *       from the embedded schema.org JSON-LD.</li>
  *   <li>Call the size-chart endpoint to resolve the US size to a {@code sizeItemId}.</li>
- *   <li>Call the listings endpoint filtered by {@code sizeItemId} and return
- *       the minimum {@code sale_price}.</li>
+ *   <li>Call the listings endpoint to get the lowest Ask price.</li>
+ *   <li>Call the bids endpoint to get the highest Bid price.</li>
  * </ol>
  */
 @Service
 public class ShoePriceCollectorService {
+
+  /**
+   * Holds both the lowest Ask and highest Bid from Klekt for a given shoe/size combination.
+   *
+   * @param ask lowest listing price in EUR (0 if unavailable)
+   * @param bid highest buy-order price in EUR (0 if unavailable)
+   */
+  public record KlektPriceData(double ask, double bid) {
+  }
 
   private static final Logger logger =
       LoggerFactory.getLogger(ShoePriceCollectorService.class);
@@ -57,13 +66,14 @@ public class ShoePriceCollectorService {
   }
 
   /**
-   * Returns the lowest Klekt listing price in EUR for the given shoe at its US size,
-   * or an empty Optional if no listing is found or the shoe has no klektSlug.
+   * Fetches both the lowest Ask and highest Bid from Klekt for the given shoe at its US size.
+   * Returns empty if the shoe has no klektSlug or the product cannot be resolved.
+   * If only one side (ask/bid) fails, the other is still returned with 0 for the failed side.
    *
    * @param shoe the shoe to price
-   * @return lowest listing price in EUR, or empty
+   * @return KlektPriceData with ask and bid, or empty if the product cannot be found at all
    */
-  public Optional<Double> fetchLowestPrice(Shoe shoe) {
+  public Optional<KlektPriceData> fetchPrices(Shoe shoe) {
     String slug = shoe.getKlektSlug();
     if (slug == null || slug.isBlank()) {
       logger.debug("Skipping shoe {} – no klektSlug set", shoe.getId());
@@ -89,12 +99,25 @@ public class ShoePriceCollectorService {
         return Optional.empty();
       }
 
-      return fetchMinListingPrice(productVariantId, sizeItemId);
+      double ask = fetchMinListingPrice(productVariantId, sizeItemId).orElse(0.0);
+      double bid = fetchMaxBidPrice(productVariantId, sizeItemId).orElse(0.0);
+      return Optional.of(new KlektPriceData(ask, bid));
 
     } catch (Exception e) {
-      logger.error("Error fetching Klekt price for slug {}: {}", slug, e.getMessage());
+      logger.error("Error fetching Klekt prices for slug {}: {}", slug, e.getMessage());
       return Optional.empty();
     }
+  }
+
+  /**
+   * Returns the lowest Klekt listing price in EUR for the given shoe at its US size,
+   * or an empty Optional if no listing is found or the shoe has no klektSlug.
+   *
+   * @param shoe the shoe to price
+   * @return lowest listing price in EUR, or empty
+   */
+  public Optional<Double> fetchLowestPrice(Shoe shoe) {
+    return fetchPrices(shoe).map(KlektPriceData::ask).filter(p -> p > 0);
   }
 
   /**
@@ -148,7 +171,7 @@ public class ShoePriceCollectorService {
   }
 
   /**
-   * Calls the Klekt listings API filtered by size and returns the lowest sale price.
+   * Calls the Klekt listings API filtered by size and returns the lowest Ask (sale) price.
    *
    * @param productVariantId the product-variant UUID
    * @param sizeItemId       the size-item UUID
@@ -171,6 +194,58 @@ public class ShoePriceCollectorService {
       }
     }
     return found ? Optional.of(min) : Optional.empty();
+  }
+
+  /**
+   * Calls the Klekt buy-orders (Gebote) API filtered by size and returns the highest Bid price.
+   * Tries the {@code buy_orders} endpoint first; falls back to {@code bids} on failure.
+   * Returns empty on any error so callers can degrade gracefully.
+   *
+   * @param productVariantId the product-variant UUID
+   * @param sizeItemId       the size-item UUID
+   * @return highest bid price in EUR, or empty if no bids or endpoint unavailable
+   */
+  private Optional<Double> fetchMaxBidPrice(
+      String productVariantId, String sizeItemId) {
+    // Klekt API: versuche buy_orders-Endpoint (gängiger Name für Gebote)
+    String[] endpoints = {
+        "/api/v1/product_variants/" + productVariantId + "/buy_orders?sizeItemId=" + sizeItemId,
+        "/api/v1/product_variants/" + productVariantId + "/bids?sizeItemId=" + sizeItemId
+    };
+    // Gängige Feldnamen für den Gebotspreise bei Sneaker-Marktplätzen
+    String[] priceFields = {"bid_price", "offer_price", "price", "sale_price"};
+
+    for (String endpoint : endpoints) {
+      try {
+        String json = getApi(API_BASE + endpoint);
+        JsonNode root = objectMapper.readTree(json);
+        JsonNode data = root.path("data");
+        if (!data.isArray() || !data.elements().hasNext()) {
+          continue;
+        }
+        double max = 0;
+        boolean found = false;
+        for (JsonNode entry : data) {
+          JsonNode attrs = entry.path("attributes");
+          for (String field : priceFields) {
+            double price = attrs.path(field).asDouble(-1);
+            if (price > 0 && price > max) {
+              max = price;
+              found = true;
+              break;
+            }
+          }
+        }
+        if (found) {
+          logger.debug("Bid gefunden via {}: {} €", endpoint, max);
+          return Optional.of(max);
+        }
+      } catch (Exception e) {
+        logger.warn("Bid-Abfrage fehlgeschlagen ({}): {}", endpoint, e.getMessage());
+      }
+    }
+    logger.debug("Kein Bid für productVariantId={}", productVariantId);
+    return Optional.empty();
   }
 
   /**

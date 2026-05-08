@@ -63,6 +63,46 @@ public class MetalValuationSnapshot {
 
     /** Gewinn/Gesamtprofit dieser Position (EUR). */
     private double profit;
+
+    /**
+     * Manuell gesetzter Sammlerwert pro Stück (EUR), 0 wenn nicht gesetzt.
+     * Entspricht dem Rohwert aus {@link PreciousMetal#getMarketValue()}.
+     */
+    private double marketValue;
+
+    /**
+     * True wenn für diese Position ein manueller Sammlerwert gesetzt ist
+     * (d.h. {@link #marketValue} > 0) und dieser statt des Spot-Wertes
+     * für {@link #currentUnitValue} verwendet wurde.
+     */
+    private boolean usesMarketValue;
+
+    /**
+     * Immer der rein Spot-basierte Wert pro Stück (EUR), unabhängig davon ob
+     * ein Sammlerwert gesetzt ist. Dient zur Vergleichsanzeige im Dashboard.
+     */
+    private double spotUnitValue;
+
+    /**
+     * Geschätzter Spot-Wert pro Stück (EUR) zum Kaufzeitpunkt,
+     * anhand des historischen Jahresdurchschnitts (HistoricalSpotPriceService).
+     * 0.0 wenn kein Kaufdatum bekannt oder Jahr außerhalb der Tabelle.
+     */
+    private double purchaseSpotUnitValue;
+
+    /**
+     * Gewinnanteil durch gestiegene Metallpreise:
+     * (aktueller Spot/Stk − Kaufzeitpunkt-Spot/Stk) × Anzahl.
+     * 0.0 wenn purchaseSpotUnitValue nicht verfügbar.
+     */
+    private double spotGain;
+
+    /**
+     * Gewinnanteil durch verändertes Sammlerpremium (Limitierung, Box, Druck):
+     * Gesamtgewinn − spotGain.
+     * 0.0 wenn purchaseSpotUnitValue nicht verfügbar.
+     */
+    private double premiumGain;
   }
 }
 

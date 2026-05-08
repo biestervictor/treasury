@@ -26,6 +26,8 @@ public abstract class CardMarketModel {
   protected String name;
   protected boolean isSold;
   protected double soldPrice;
+  /** Datum, an dem das Item verkauft wurde. Wird automatisch gesetzt, wenn isSold=true. */
+  protected LocalDate soldDate;
   protected String location="";
   protected String language="EN";
   protected boolean isSelling=false;

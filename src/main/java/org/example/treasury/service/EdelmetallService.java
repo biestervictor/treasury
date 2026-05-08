@@ -5,9 +5,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.example.treasury.dto.MetalDashboardDto;
 import org.example.treasury.dto.ManualMetalPricesRequest;
@@ -65,27 +68,41 @@ public class EdelmetallService {
   private final MetalPriceSnapshotRepository metalPriceSnapshotRepository;
   private final MetalValuationSnapshotRepository metalValuationSnapshotRepository;
   private final MetalPriceClient metalPriceClient;
+  private final HistoricalSpotPriceService historicalSpotPriceService;
   private final Clock clock;
 
   @Autowired
   public EdelmetallService(PreciousMetalRepository preciousMetalRepository,
                            MetalPriceSnapshotRepository metalPriceSnapshotRepository,
                            MetalValuationSnapshotRepository metalValuationSnapshotRepository,
-                           MetalPriceClient metalPriceClient) {
-    this(preciousMetalRepository, metalPriceSnapshotRepository, metalValuationSnapshotRepository, metalPriceClient,
-        Clock.systemUTC());
+                           MetalPriceClient metalPriceClient,
+                           HistoricalSpotPriceService historicalSpotPriceService) {
+    this(preciousMetalRepository, metalPriceSnapshotRepository, metalValuationSnapshotRepository,
+        metalPriceClient, historicalSpotPriceService, Clock.systemUTC());
   }
 
   EdelmetallService(PreciousMetalRepository preciousMetalRepository,
                     MetalPriceSnapshotRepository metalPriceSnapshotRepository,
                     MetalValuationSnapshotRepository metalValuationSnapshotRepository,
                     MetalPriceClient metalPriceClient,
+                    HistoricalSpotPriceService historicalSpotPriceService,
                     Clock clock) {
     this.preciousMetalRepository = preciousMetalRepository;
     this.metalPriceSnapshotRepository = metalPriceSnapshotRepository;
     this.metalValuationSnapshotRepository = metalValuationSnapshotRepository;
     this.metalPriceClient = metalPriceClient;
+    this.historicalSpotPriceService = historicalSpotPriceService;
     this.clock = clock;
+  }
+
+  /** Test-Konstruktor ohne HistoricalSpotPriceService (verwendet neue Standard-Instanz). */
+  EdelmetallService(PreciousMetalRepository preciousMetalRepository,
+                    MetalPriceSnapshotRepository metalPriceSnapshotRepository,
+                    MetalValuationSnapshotRepository metalValuationSnapshotRepository,
+                    MetalPriceClient metalPriceClient,
+                    Clock clock) {
+    this(preciousMetalRepository, metalPriceSnapshotRepository, metalValuationSnapshotRepository,
+        metalPriceClient, new HistoricalSpotPriceService(), clock);
   }
 
   /**
@@ -162,7 +179,14 @@ public class EdelmetallService {
     return imported;
   }
 
-  static String buildImportKey(PreciousMetal m) {
+  /**
+   * Baut einen deterministischen Import-Key aus den Münzdaten.
+   * Wird sowohl beim CSV-Import als auch beim manuellen Hinzufügen verwendet.
+   *
+   * @param m Münze
+   * @return Import-Key oder {@code null} wenn m null
+   */
+  public static String buildImportKey(PreciousMetal m) {
     if (m == null) {
       return null;
     }
@@ -269,31 +293,130 @@ public class EdelmetallService {
         .map(v -> new MetalDashboardDto.MarketValuePointDto(v.getTimestamp(), v.getTotalCurrentValue()))
         .collect(Collectors.toList());
 
+    var spotValueTimeline = valuations.stream()
+        .map(v -> {
+          double spotTotal = v.getItems() == null ? 0.0
+              : v.getItems().stream()
+                  .mapToDouble(i -> i.getSpotUnitValue() * i.getQuantity())
+                  .sum();
+          return new MetalDashboardDto.SpotValuePointDto(v.getTimestamp(), spotTotal);
+        })
+        .collect(Collectors.toList());
+
     List<MetalValuationSnapshot.ItemValuation> latestItems = valuations.isEmpty() || valuations.getLast().getItems() == null
         ? List.of()
         : valuations.getLast().getItems();
 
     double currentProfitTotal = valuations.isEmpty() ? 0.0 : valuations.getLast().getTotalProfit();
     double currentMarketValueTotal = valuations.isEmpty() ? 0.0 : valuations.getLast().getTotalCurrentValue();
+    double currentSpotValueTotal = latestItems.stream()
+        .mapToDouble(i -> i.getSpotUnitValue() * i.getQuantity())
+        .sum();
 
-    return new MetalDashboardDto(currentPrices, timeline, latestItems, marketValueTimeline, currentProfitTotal,
-        currentMarketValueTotal);
+    return new MetalDashboardDto(currentPrices, timeline, latestItems, marketValueTimeline, spotValueTimeline,
+        currentProfitTotal, currentMarketValueTotal, currentSpotValueTotal);
   }
 
   private void ensureInitialValuationExistsOnce() {
-    if (metalValuationSnapshotRepository.findTopByOrderByTimestampDesc().isPresent()) {
+    // Migration: Münzen ohne Kaufdatum aber mit Erscheinungsjahr → 01.01.Jahr setzen
+    migrateImportedAtFromYear();
+
+    Optional<MetalValuationSnapshot> latestOpt =
+        metalValuationSnapshotRepository.findTopByOrderByTimestampDesc();
+
+    if (latestOpt.isEmpty()) {
+      // Einmalig: initiale Bewertung (Defaultpreise) anlegen, damit Diagramm auch ohne Preisermittlung startet.
+      Instant now = Instant.now(clock);
+      MetalPriceSnapshot defaultSnap = MetalPriceSnapshot.builder()
+          .timestamp(now)
+          .goldPriceEurPerOunce(DEFAULT_GOLD_PRICE_PER_OUNCE)
+          .silverPriceEurPerOunce(DEFAULT_SILVER_PRICE_PER_OUNCE)
+          .build();
+      metalValuationSnapshotRepository.save(buildValuationSnapshot(now, defaultSnap));
       return;
     }
 
-    // Einmalig: initiale Bewertung (Defaultpreise) anlegen, damit Diagramm auch ohne Preisermittlung startet.
-    Instant now = Instant.now(clock);
-    MetalPriceSnapshot defaultSnap = MetalPriceSnapshot.builder()
-        .timestamp(now)
-        .goldPriceEurPerOunce(DEFAULT_GOLD_PRICE_PER_OUNCE)
-        .silverPriceEurPerOunce(DEFAULT_SILVER_PRICE_PER_OUNCE)
-        .build();
+    // Auto-Migration: wenn der neueste Snapshot Items hat, aber purchaseSpotUnitValue überall 0.0 ist,
+    // wurde das Feld noch nicht befüllt (Deployment vor Feature-Einführung). Einmalig neu berechnen.
+    MetalValuationSnapshot latest = latestOpt.get();
+    boolean needsMigration = latest.getItems() != null
+        && !latest.getItems().isEmpty()
+        && latest.getItems().stream().allMatch(i -> i.getPurchaseSpotUnitValue() == 0.0);
+    if (needsMigration) {
+      log.info("Auto-migration: purchaseSpotUnitValue missing in latest snapshot, triggering recompute.");
+      recomputeValuation();
+    }
+  }
 
-    metalValuationSnapshotRepository.save(buildValuationSnapshot(now, defaultSnap));
+  private void migrateImportedAtFromYear() {
+    List<PreciousMetal> missing =
+        preciousMetalRepository.findAllByImportedAtIsNullAndYearIsNotNull();
+    if (missing.isEmpty()) {
+      return;
+    }
+    log.info("migrateImportedAtFromYear: {} Münze(n) ohne Kaufdatum gefunden, setze 01.01.Jahr",
+        missing.size());
+    for (PreciousMetal m : missing) {
+      LocalDate fallback = LocalDate.of(m.getYear(), 1, 1);
+      m.setImportedAt(fallback);
+      preciousMetalRepository.save(m);
+      log.info("migrateImportedAtFromYear: '{}' → importedAt={}", m.getName(), fallback);
+    }
+    recomputeValuation();
+  }
+
+  private static final Pattern YEAR_IN_NAME_PATTERN =
+      Pattern.compile("\\b(19|20)\\d{2}\\b");
+
+  private boolean isImportPlaceholder(LocalDate date) {
+    return date == null || (date.getMonthValue() == 3 && date.getDayOfMonth() == 26);
+  }
+
+  private Integer extractYearFromName(String name) {
+    if (name == null) {
+      return null;
+    }
+    Matcher matcher = YEAR_IN_NAME_PATTERN.matcher(name);
+    return matcher.find() ? Integer.parseInt(matcher.group()) : null;
+  }
+
+  /**
+   * Setzt das Kaufdatum aller Münzen zurück, bei denen noch ein CSV-Import-Platzhalter
+   * (jedes Datum vom 26. März) oder kein Kaufdatum eingetragen ist.
+   * Als Ersatzdatum wird der 01. Januar des Prägejahres verwendet.
+   * Fehlt das Prägejahr, wird versucht, es aus dem Münznamen zu extrahieren.
+   *
+   * @return Anzahl der aktualisierten Einträge
+   */
+  public int resetImportDatesFromYear() {
+    List<PreciousMetal> all = preciousMetalRepository.findAll();
+    int count = 0;
+    for (PreciousMetal m : all) {
+      boolean changed = false;
+      if (m.getYear() == null) {
+        Integer extracted = extractYearFromName(m.getName());
+        if (extracted != null) {
+          m.setYear(extracted);
+          changed = true;
+          log.info("resetImportDates: '{}' → year={} (aus Name)", m.getName(), extracted);
+        }
+      }
+      if (m.getYear() != null && isImportPlaceholder(m.getImportedAt())) {
+        LocalDate fallback = LocalDate.of(m.getYear(), 1, 1);
+        m.setImportedAt(fallback);
+        changed = true;
+        count++;
+        log.info("resetImportDates: '{}' → importedAt={}", m.getName(), fallback);
+      }
+      if (changed) {
+        preciousMetalRepository.save(m);
+      }
+    }
+    if (count > 0) {
+      recomputeValuation();
+    }
+    log.info("resetImportDates: {} Kaufdatum/Kaufdaten aktualisiert", count);
+    return count;
   }
 
   private MetalValuationSnapshot storeValuationSnapshot(MetalPriceSnapshot priceSnapshot) {
@@ -314,9 +437,21 @@ public class EdelmetallService {
               ? priceSnapshot.getGoldPriceEurPerOunce()
               : priceSnapshot.getSilverPriceEurPerOunce();
           double ounces = m.getWeightInGrams() / GRAMS_PER_TROY_OUNCE;
-          double currentUnitValue = ounces * pricePerOunce;
+          double spotUnitValue = ounces * pricePerOunce;
+          boolean usesMarketValue = m.getMarketValue() > 0;
+          double currentUnitValue = usesMarketValue ? m.getMarketValue() : spotUnitValue;
           double currentTotalValue = currentUnitValue * m.getQuantity();
           double profit = m.getQuantity() * (currentUnitValue - m.getPurchasePrice());
+
+          // Historische Aufschlüsselung: Spot-Anteil vs. Aufpreis-Anteil am Gewinn
+          double purchaseSpotUnitValue = historicalSpotPriceService.getPurchaseSpotUnitValue(
+              m.getType(), m.getImportedAt(), m.getWeightInGrams());
+          double spotGain = purchaseSpotUnitValue > 0
+              ? (spotUnitValue - purchaseSpotUnitValue) * m.getQuantity()
+              : 0.0;
+          double premiumGain = purchaseSpotUnitValue > 0
+              ? profit - spotGain
+              : 0.0;
 
           return MetalValuationSnapshot.ItemValuation.builder()
               .preciousMetalId(m.getId())
@@ -329,6 +464,12 @@ public class EdelmetallService {
               .currentTotalValue(currentTotalValue)
               .purchasePrice(m.getPurchasePrice())
               .profit(profit)
+              .marketValue(m.getMarketValue())
+              .usesMarketValue(usesMarketValue)
+              .spotUnitValue(spotUnitValue)
+              .purchaseSpotUnitValue(purchaseSpotUnitValue)
+              .spotGain(spotGain)
+              .premiumGain(premiumGain)
               .build();
         })
         .toList();
@@ -342,6 +483,45 @@ public class EdelmetallService {
         .totalCurrentValue(totalCurrentValue)
         .totalProfit(totalProfit)
         .build();
+  }
+
+  /**
+   * Recomputes the valuation snapshot using the current latest price snapshot.
+   * Triggered after structural changes such as deleting a metal entry.
+   *
+   * @return the newly stored valuation snapshot
+   */
+  public MetalValuationSnapshot recomputeValuation() {
+    MetalPriceSnapshot latestPrice = metalPriceSnapshotRepository.findTopByOrderByTimestampDesc()
+        .orElseGet(() -> MetalPriceSnapshot.builder()
+            .timestamp(Instant.now(clock))
+            .goldPriceEurPerOunce(DEFAULT_GOLD_PRICE_PER_OUNCE)
+            .silverPriceEurPerOunce(DEFAULT_SILVER_PRICE_PER_OUNCE)
+            .build());
+    return storeValuationSnapshot(latestPrice);
+  }
+
+  /**
+   * Setzt den Sammlerwert (EUR/Stk) für eine Münze und speichert sofort einen neuen Valuation-Snapshot.
+   *
+   * @param id          MongoDB-ID der Münze (PreciousMetal.id)
+   * @param marketValue Sammlerwert pro Stück in EUR; 0.0 setzt den Wert zurück (Fallback auf Spot-Preis)
+   * @return der neu erstellte Valuation-Snapshot
+   */
+  public MetalValuationSnapshot updateMarketValue(String id, double marketValue) {
+    PreciousMetal metal = preciousMetalRepository.findById(id)
+        .orElseThrow(() -> new IllegalArgumentException("Münze nicht gefunden: " + id));
+    metal.setMarketValue(marketValue);
+    preciousMetalRepository.save(metal);
+
+    MetalPriceSnapshot latestPrice = metalPriceSnapshotRepository.findTopByOrderByTimestampDesc()
+        .orElseGet(() -> MetalPriceSnapshot.builder()
+            .timestamp(Instant.now(clock))
+            .goldPriceEurPerOunce(DEFAULT_GOLD_PRICE_PER_OUNCE)
+            .silverPriceEurPerOunce(DEFAULT_SILVER_PRICE_PER_OUNCE)
+            .build());
+
+    return storeValuationSnapshot(latestPrice);
   }
 
 }

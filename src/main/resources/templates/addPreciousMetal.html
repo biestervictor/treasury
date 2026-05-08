@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Münze hinzufügen')}"></head>
+<body class="bg-light">
+
+<th:block th:replace="~{navbarEdelmetall.html :: nav}"></th:block>
+
+<div class="container mt-4" style="max-width: 720px;">
+  <h1 class="mb-4">Münze hinzufügen</h1>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post" th:action="@{/api/edelmetall/metals}">
+
+        <div class="row g-3">
+
+          <!-- Linke Spalte -->
+          <div class="col-md-6">
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="name">Bezeichnung <span class="text-danger">*</span></label>
+              <input class="form-control" id="name" name="name" required type="text"
+                     placeholder="z.B. Wiener Philharmoniker">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="type">Metalltyp <span class="text-danger">*</span></label>
+              <select class="form-select" id="type" name="type" required>
+                <option th:each="t : ${types}" th:text="${t.name()}" th:value="${t.name()}">GOLD</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="year">Jahrgang</label>
+              <input class="form-control" id="year" name="year" type="number"
+                     min="1800" max="2100" placeholder="optional, z.B. 2024">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="mintage">Auflage (Mintage)</label>
+              <input class="form-control" id="mintage" name="mintage" type="number"
+                     min="1" placeholder="optional, z.B. 15000">
+              <div class="form-text">Anzahl geprägter Exemplare (optional).</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="manufacturer">Hersteller / Prägeanstalt</label>
+              <select class="form-select" id="manufacturer" name="manufacturer">
+                <option value="">— kein Hersteller —</option>
+                <option th:each="mfr : ${manufacturers}"
+                        th:value="${mfr.name()}"
+                        th:text="${mfr.displayName}">Perth Mint</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="weightInGrams">
+                Gewicht (Gramm) <span class="text-danger">*</span>
+              </label>
+              <input class="form-control" id="weightInGrams" name="weightInGrams" required
+                     type="number" step="0.0001" min="0.0001" placeholder="z.B. 31.1035">
+              <div class="mt-1 d-flex flex-wrap gap-1">
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="document.getElementById('weightInGrams').value='31.1035'">1 oz</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="document.getElementById('weightInGrams').value='15.5518'">½ oz</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="document.getElementById('weightInGrams').value='7.7759'">¼ oz</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="document.getElementById('weightInGrams').value='3.1103'">1/10 oz</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="document.getElementById('weightInGrams').value='1.5552'">1/20 oz</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Rechte Spalte -->
+          <div class="col-md-6">
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="quantity">Anzahl <span class="text-danger">*</span></label>
+              <input class="form-control" id="quantity" name="quantity" required
+                     type="number" min="1" value="1">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="purchasePrice">
+                Kaufpreis pro Stück (EUR) <span class="text-danger">*</span>
+              </label>
+              <input class="form-control" id="purchasePrice" name="purchasePrice" required
+                     type="number" step="0.01" min="0" placeholder="z.B. 35.50">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="importedAt">
+                Kaufdatum <span class="text-danger">*</span>
+              </label>
+              <input class="form-control" id="importedAt" name="importedAt" required
+                     type="date" th:value="${today}">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="marketValue">Sammlerwert pro Stück (EUR)</label>
+              <input class="form-control" id="marketValue" name="marketValue"
+                     type="number" step="0.01" min="0" value="0"
+                     placeholder="0 = Spotpreis wird verwendet">
+              <div class="form-text">0 = automatisch anhand Spotpreis berechnet</div>
+            </div>
+
+          </div>
+
+          <!-- Volle Breite -->
+          <div class="col-12">
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="collectorSearchTerm">Primärer Scraper-Suchbegriff</label>
+              <input class="form-control" id="collectorSearchTerm" name="collectorSearchTerm"
+                     type="text" placeholder="optional – überschreibt Bezeichnung für Preissuche">
+              <div class="form-text">
+                Leer lassen = Bezeichnung wird als Suchbegriff verwendet.
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="searchTerms">Alternative Suchbegriffe</label>
+              <textarea class="form-control" id="searchTerms" name="searchTerms"
+                        rows="3" placeholder="Optional: ein Begriff pro Zeile, werden als Fallback versucht"></textarea>
+              <div class="form-text">
+                Mehrere alternative Suchbegriffe – einer pro Zeile. Werden nacheinander versucht bis ein Treffer gefunden wird.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <hr>
+
+        <div class="d-flex gap-2 justify-content-end">
+          <a class="btn btn-outline-secondary" th:href="@{/api/edelmetall/dashboard/view}">Abbrechen</a>
+          <button class="btn btn-primary" type="submit">Münze speichern</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<th:block th:replace="~{fragments/layout :: bootstrapJs}"></th:block>
+<th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
+</body>
+</html>

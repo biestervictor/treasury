@@ -1,6 +1,7 @@
 package org.example.treasury.model;
 
 import java.time.LocalDate;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,8 +34,17 @@ public class PreciousMetal {
   /** Bezeichnung/Name (CSV: Bezeichnung). */
   private String name;
 
+  /** Hersteller/Prägeanstalt (Enum). */
+  private Manufacturer manufacturer;
+
   /** Erscheinungsjahr, optional. */
   private Integer year;
+
+  /**
+   * Limitierung / Auflage (Mintage), optional.
+   * Gibt an wie viele Exemplare geprägt wurden.
+   */
+  private Integer mintage;
 
   /** Gewicht in Gramm (CSV: Gewicht in Gramm). */
   private double weightInGrams;
@@ -51,5 +61,31 @@ public class PreciousMetal {
   /** Datum des Imports (für Gewinnverlauf/Timeline). */
   private LocalDate importedAt;
 
+  /**
+   * Manuell gesetzter Sammlerwert pro Stück (EUR).
+   * 0.0 bedeutet „nicht gesetzt" → Fallback auf Spot-basierten Wert.
+   */
+  private double marketValue;
+
+  /**
+   * Optionaler primärer Suchbegriff für den Scraper.
+   * Wird er nicht gesetzt, verwendet der Scraper {@link #name} als Fallback.
+   */
+  private String collectorSearchTerm;
+
+  /**
+   * Optionale Liste alternativer Suchbegriffe für den Scraper.
+   * Werden nacheinander versucht bis ein Treffer gefunden wird.
+   * Wenn leer, greift Fuzzy-Fallback (progressive Wortkürzung).
+   */
+  @Builder.Default
+  private List<String> searchTerms = new java.util.ArrayList<>();
+
+  /**
+   * Bevorzugter Shop (Display-Name einer {@link CollectorCoinPriceSource}),
+   * dessen Preis beim nächsten Scrape-Durchlauf automatisch als
+   * Sammlerwert übernommen wird, sofern er ±10 % des aktuellen Wertes entspricht.
+   */
+  private String preferredShop;
 
 }

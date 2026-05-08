@@ -206,18 +206,38 @@ public class DisplayService {
 
   public record AggregatedTotals(double totalExpenses, double currentValue) {
   }
+  /**
+   * Aktualisiert ein Display anhand der ID mit den editierbaren Feldern.
+   * Setzt soldDate automatisch auf heute, wenn isSold erstmals true wird.
+   *
+   * @param id              die MongoDB-ID des Displays
+   * @param updatedDisplay  das Display mit den neuen Feldwerten
+   * @return das gespeicherte Display, oder null wenn nicht gefunden
+   */
   public Display updateDisplayById(String id, Display updatedDisplay) {
     Display existingDisplay = displayRepository.findById(id).orElse(null);
     if (existingDisplay == null) {
       return null;
     }
-    // Beispiel: Felder aktualisieren
     existingDisplay.setLocation(updatedDisplay.getLocation());
     existingDisplay.setSold(updatedDisplay.isSold());
     existingDisplay.setSoldPrice(updatedDisplay.getSoldPrice());
     existingDisplay.setSelling(updatedDisplay.isSelling());
     existingDisplay.setLanguage(updatedDisplay.getLanguage());
-    // Weitere Felder nach Bedarf ergänzen
+    existingDisplay.setValueBought(updatedDisplay.getValueBought());
+    existingDisplay.setVendor(updatedDisplay.getVendor());
+    existingDisplay.setDateBought(updatedDisplay.getDateBought());
+    existingDisplay.setUrl(updatedDisplay.getUrl());
+    // soldDate: übernehmen wenn explizit gesetzt, sonst auto-setzen beim ersten Markieren als verkauft
+    if (updatedDisplay.isSold()) {
+      if (updatedDisplay.getSoldDate() != null) {
+        existingDisplay.setSoldDate(updatedDisplay.getSoldDate());
+      } else if (existingDisplay.getSoldDate() == null) {
+        existingDisplay.setSoldDate(LocalDate.now());
+      }
+    } else {
+      existingDisplay.setSoldDate(null);
+    }
     return displayRepository.save(existingDisplay);
   }
   private Double getRelevantPreis(Display display) {

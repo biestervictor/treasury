@@ -27,17 +27,29 @@ public class ShoeService {
   }
 
   /**
+   * Updates the Klekt Ask price (lowest listing) and Bid price (highest buy-order) for a shoe.
+   *
+   * @param shoeId   the shoe ID
+   * @param ask      the lowest Ask price from Klekt in EUR
+   * @param bid      the highest Bid price from Klekt in EUR (0 if unavailable)
+   */
+  public void updateKlektPrices(String shoeId, double ask, double bid) {
+    Shoe shoe = shoeRepository.findById(shoeId)
+        .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
+    shoe.setValueStockX(ask);
+    shoe.setWinStockX(ask - shoe.getValueBought());
+    shoe.setKlektBid(bid);
+    shoeRepository.save(shoe);
+  }
+
+  /**
    * Updates the Klekt market value of a shoe.
    *
    * @param shoeId     the shoe ID
    * @param klektPrice the new price from Klekt in EUR
    */
   public void updateKlektPrice(String shoeId, Double klektPrice) {
-    Shoe shoe = shoeRepository.findById(shoeId)
-        .orElseThrow(() -> new IllegalArgumentException("Schuh nicht gefunden: " + shoeId));
-    shoe.setValueStockX(klektPrice);
-    shoe.setWinStockX(klektPrice - shoe.getValueBought());
-    shoeRepository.save(shoe);
+    updateKlektPrices(shoeId, klektPrice, 0.0);
   }
 
   /**
