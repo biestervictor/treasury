@@ -165,19 +165,23 @@
 
     const rawHistory = /*[[${history}]]*/ [];
 
-    // Gruppiere nach Quelle
+    // Gruppiere nach Quelle, dann nach Tag (kein HH:mm → gleiche Quelle, gleicher Tag = Durchschnitt)
     const bySource = {};
     rawHistory.forEach(e => {
-        if (!bySource[e.source]) bySource[e.source] = [];
+        if (!bySource[e.source]) bySource[e.source] = {};
         const d = new Date(e.timestamp);
-        const label = d.toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit', year: 'numeric'})
-            + ' ' + d.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
-        bySource[e.source].push({x: label, y: e.priceEur});
+        const dayLabel = d.toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit', year: 'numeric'});
+        if (!bySource[e.source][dayLabel]) bySource[e.source][dayLabel] = [];
+        bySource[e.source][dayLabel].push(e.priceEur);
     });
 
-    const datasets = Object.entries(bySource).map(([src, points]) => {
+    const datasets = Object.entries(bySource).map(([src, dayMap]) => {
         const col = SOURCE_COLORS[src] || {border: 'rgb(108,117,125)', bg: 'rgba(108,117,125,0.08)'};
         const label = SOURCE_LABELS[src] || src;
+        const points = Object.entries(dayMap).map(([dayLabel, prices]) => ({
+            x: dayLabel,
+            y: prices.reduce((a, b) => a + b, 0) / prices.length
+        }));
         return {
             label,
             data: points,
@@ -197,10 +201,21 @@
             responsive: true,
             parsing: { xAxisKey: 'x', yAxisKey: 'y' },
             scales: {
-                x: { type: 'category', title: { display: true, text: 'Zeitpunkt' } },
+                x: { type: 'category', title: { display: true, text: 'Datum' } },
                 y: { beginAtZero: false, title: { display: true, text: 'EUR / Stk' } }
             },
-            plugins: { legend: { display: true } }
+            plugins: {
+                legend: { display: true },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.parsed.y;
+                            return context.dataset.label + ': '
+                                + val.toLocaleString('de-DE', {style: 'currency', currency: 'EUR'});
+                        }
+                    }
+                }
+            }
         }
     });
 </script>
