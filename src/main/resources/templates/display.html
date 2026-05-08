@@ -33,6 +33,7 @@
                  data-sold=${display.sold},
                  data-selling=${display.selling},
                  data-soldprice=${display.soldPrice},
+                 data-solddate=${display.soldDate != null ? #temporals.format(display.soldDate, 'yyyy-MM-dd') : ''},
                  data-language=${display.language},
                  data-vendor=${display.vendor},
                  data-datebought=${#temporals.format(display.dateBought, 'yyyy-MM-dd')},
@@ -45,6 +46,12 @@
         </td>
         <td th:text="${display.type}"></td>
         <td th:text="${display.name}"></td>
+        <td>
+            <button class="btn btn-outline-secondary btn-sm open-edit-btn"
+                    th:attr="data-id=${display.id}"
+                    title="Bearbeiten"
+                    onclick="event.stopPropagation()">&#9998;</button>
+        </td>
         <td>
             <button class="btn btn-outline-info btn-sm"
                     th:attr="data-id=${display.id}, data-name=${display.setCode + ' ' + display.type}"
@@ -87,11 +94,11 @@
 
 <!-- Edit-Modal -->
 <div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <form action="/api/display/update" method="post" id="editForm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Display bearbeiten</h5>
+                    <h5 class="modal-title" id="editModalTitle">Display bearbeiten</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -99,33 +106,54 @@
                     <input type="hidden" name="setCode" id="modalSetCode" />
                     <input type="hidden" name="type" id="modalType" />
                     <input type="hidden" name="name" id="modalName" />
-                    <input type="hidden" name="valueBought" id="modalValueBought" />
                     <input type="hidden" name="currentValue" id="modalCurrentValue" />
-                    <input type="hidden" name="vendor" id="modalVendor" />
-                    <input type="hidden" name="dateBought" id="modalDateBought" />
-                    <input type="hidden" name="url" id="modalUrl" />
-                    <div class="mb-3">
-                        <label for="modalLocation" class="form-label">Lagerort</label>
-                        <input type="text" class="form-control" name="location" id="modalLocation" />
-                    </div>
-                    <div class="mb-3">
-                        <label for="modalSold" class="form-label">Verkauft</label>
-                        <input type="checkbox" name="sold" id="modalSold" />
-                    </div>
-                    <div class="mb-3">
-                        <label for="modalSelling" class="form-label">Verkaufen</label>
-                        <input type="checkbox" name="selling" id="modalSelling" />
-                    </div>
-                    <div class="mb-3">
-                        <label for="modalSoldPrice" class="form-label">Verkaufspreis</label>
-                        <input type="number" class="form-control" name="soldPrice" id="modalSoldPrice" step="0.01" min="0" />
-                    </div>
-                    <div class="mb-3">
-                        <label for="modalLanguage" class="form-label">Sprache</label>
-                        <input type="text" class="form-control" name="language" id="modalLanguage" />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="modalLocation" class="form-label">Lagerort</label>
+                            <input type="text" class="form-control" name="location" id="modalLocation" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modalLanguage" class="form-label">Sprache</label>
+                            <input type="text" class="form-control" name="language" id="modalLanguage" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modalValueBought" class="form-label">Einkaufspreis (€)</label>
+                            <input type="number" class="form-control" name="valueBought" id="modalValueBought" step="0.01" min="0" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modalVendor" class="form-label">Händler</label>
+                            <input type="text" class="form-control" name="vendor" id="modalVendor" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modalDateBought" class="form-label">Kaufdatum</label>
+                            <input type="date" class="form-control" name="dateBought" id="modalDateBought" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modalUrl" class="form-label">Cardmarket URL</label>
+                            <input type="text" class="form-control" name="url" id="modalUrl" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label d-block">Status</label>
+                            <div class="form-check form-check-inline">
+                                <input type="checkbox" class="form-check-input" name="sold" id="modalSold" />
+                                <label class="form-check-label" for="modalSold">Verkauft</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input type="checkbox" class="form-check-input" name="selling" id="modalSelling" />
+                                <label class="form-check-label" for="modalSelling">Zum Verkauf</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="soldFieldsGroup">
+                            <label for="modalSoldPrice" class="form-label">Verkaufspreis (€)</label>
+                            <input type="number" class="form-control mb-2" name="soldPrice" id="modalSoldPrice" step="0.01" min="0" />
+                            <label for="modalSoldDate" class="form-label">Verkaufsdatum</label>
+                            <input type="date" class="form-control" name="soldDate" id="modalSoldDate" />
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                     <button type="submit" class="btn btn-success">Speichern</button>
                 </div>
             </div>
@@ -184,24 +212,40 @@
         _renderPage('displayTable');
     }
 
+    function openEditModal(row) {
+        document.getElementById('editModalTitle').textContent =
+            'Display bearbeiten: ' + row.getAttribute('data-setcode') + ' ' + row.getAttribute('data-type');
+        document.getElementById('modalId').value = row.getAttribute('data-id');
+        document.getElementById('modalSetCode').value = row.getAttribute('data-setcode');
+        document.getElementById('modalType').value = row.getAttribute('data-type');
+        document.getElementById('modalName').value = row.getAttribute('data-name');
+        document.getElementById('modalCurrentValue').value = row.getAttribute('data-currentvalue');
+        document.getElementById('modalLocation').value = row.getAttribute('data-location');
+        document.getElementById('modalLanguage').value = row.getAttribute('data-language');
+        document.getElementById('modalValueBought').value = row.getAttribute('data-valuebought') || '';
+        document.getElementById('modalVendor').value = row.getAttribute('data-vendor') || '';
+        document.getElementById('modalDateBought').value = row.getAttribute('data-datebought') || '';
+        document.getElementById('modalUrl').value = row.getAttribute('data-url') || '';
+        document.getElementById('modalSold').checked = row.getAttribute('data-sold') === 'true';
+        document.getElementById('modalSelling').checked = row.getAttribute('data-selling') === 'true';
+        document.getElementById('modalSoldPrice').value = row.getAttribute('data-soldprice') || '';
+        document.getElementById('modalSoldDate').value = row.getAttribute('data-solddate') || '';
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
+        // Explicit edit button
+        document.querySelectorAll('.open-edit-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const row = btn.closest('tr');
+                openEditModal(row);
+            });
+        });
+        // Keep row-click behaviour for convenience
         document.querySelectorAll('.clickable-row').forEach(function(row) {
             row.addEventListener('click', function() {
-                document.getElementById('modalId').value = row.getAttribute('data-id');
-                document.getElementById('modalSetCode').value = row.getAttribute('data-setcode');
-                document.getElementById('modalType').value = row.getAttribute('data-type');
-                document.getElementById('modalName').value = row.getAttribute('data-name');
-                document.getElementById('modalValueBought').value = row.getAttribute('data-valuebought');
-                document.getElementById('modalCurrentValue').value = row.getAttribute('data-currentvalue');
-                document.getElementById('modalLocation').value = row.getAttribute('data-location');
-                document.getElementById('modalSold').checked = row.getAttribute('data-sold') === 'true';
-                document.getElementById('modalSelling').checked = row.getAttribute('data-selling') === 'true';
-                document.getElementById('modalSoldPrice').value = row.getAttribute('data-soldprice') || '';
-                document.getElementById('modalVendor').value = row.getAttribute('data-vendor');
-                document.getElementById('modalDateBought').value = row.getAttribute('data-datebought');
-                document.getElementById('modalUrl').value = row.getAttribute('data-url');
-                document.getElementById('modalLanguage').value = row.getAttribute('data-language');
-                new bootstrap.Modal(document.getElementById('editModal')).show();
+                openEditModal(row);
             });
         });
         initPagination('displayTable');
