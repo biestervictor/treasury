@@ -47,12 +47,6 @@
         <td th:text="${display.type}"></td>
         <td th:text="${display.name}"></td>
         <td>
-            <button class="btn btn-outline-secondary btn-sm open-edit-btn"
-                    th:attr="data-id=${display.id}"
-                    title="Bearbeiten"
-                    onclick="event.stopPropagation()">&#9998;</button>
-        </td>
-        <td>
             <button class="btn btn-outline-info btn-sm"
                     th:attr="data-id=${display.id}, data-name=${display.setCode + ' ' + display.type}"
                     onclick="showPriceChart(this, event)">Verlauf</button>
@@ -86,6 +80,11 @@
                     th:if="${iterStat.index} < 3"
                     th:text="${angebot.name + ' - ' + angebot.preis + ' €'}"></li>
             </ul>
+        </td>
+        <td class="text-end">
+            <button class="btn btn-outline-secondary btn-sm open-edit-btn"
+                    title="Bearbeiten"
+                    onclick="event.stopPropagation()">&#9998;</button>
         </td>
     </tr>
     </tbody>
