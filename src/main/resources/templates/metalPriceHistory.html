@@ -141,10 +141,26 @@
 
 <script th:inline="javascript" th:if="${!#lists.isEmpty(history)}">
     const SOURCE_COLORS = {
-        'MA_SHOPS':   {border: 'rgb(13,110,253)',  bg: 'rgba(13,110,253,0.08)'},
-        'EBAY':       {border: 'rgb(255,193,7)',    bg: 'rgba(255,193,7,0.08)'},
-        'COININVEST': {border: 'rgb(25,135,84)',    bg: 'rgba(25,135,84,0.08)'},
-        'NUMISTA':    {border: 'rgb(111,66,193)',   bg: 'rgba(111,66,193,0.08)'}
+        'MA_SHOPS':     {border: 'rgb(13,110,253)',   bg: 'rgba(13,110,253,0.08)'},
+        'EBAY':         {border: 'rgb(255,193,7)',     bg: 'rgba(255,193,7,0.08)'},
+        'EBAY_SOLD':    {border: 'rgb(255,140,0)',     bg: 'rgba(255,140,0,0.08)'},
+        'COININVEST':   {border: 'rgb(25,135,84)',     bg: 'rgba(25,135,84,0.08)'},
+        'NUMISTA':      {border: 'rgb(111,66,193)',    bg: 'rgba(111,66,193,0.08)'},
+        'SILBER_CORNER':{border: 'rgb(220,53,69)',     bg: 'rgba(220,53,69,0.08)'},
+        'SILBERLING':   {border: 'rgb(13,202,240)',    bg: 'rgba(13,202,240,0.08)'},
+        'AURAGENTUM':   {border: 'rgb(255,87,34)',     bg: 'rgba(255,87,34,0.08)'},
+        'EMK':          {border: 'rgb(0,128,128)',     bg: 'rgba(0,128,128,0.08)'}
+    };
+    const SOURCE_LABELS = {
+        'MA_SHOPS':      'gold-silber-anlage.com',
+        'EBAY':          'eBay',
+        'EBAY_SOLD':     'eBay Verkauft',
+        'COININVEST':    'gold.de',
+        'NUMISTA':       'Numista',
+        'SILBER_CORNER': 'silber-corner.de',
+        'SILBERLING':    'silberling.de',
+        'AURAGENTUM':    'auragentum.de',
+        'EMK':           'emk.com'
     };
 
     const rawHistory = /*[[${history}]]*/ [];
@@ -160,11 +176,8 @@
     });
 
     const datasets = Object.entries(bySource).map(([src, points]) => {
-        const col = SOURCE_COLORS[src] || {border: 'gray', bg: 'rgba(128,128,128,0.1)'};
-        const label = src === 'MA_SHOPS' ? 'MA-Shops'
-                    : src === 'EBAY' ? 'eBay'
-                    : src === 'COININVEST' ? 'Coininvest'
-                    : 'Numista';
+        const col = SOURCE_COLORS[src] || {border: 'rgb(108,117,125)', bg: 'rgba(108,117,125,0.08)'};
+        const label = SOURCE_LABELS[src] || src;
         return {
             label,
             data: points,
