@@ -162,10 +162,22 @@
                                 <th class="text-end">Spot / Stk</th>
                                  <th class="text-end">Gesamt (EUR)</th>
                                  <th class="text-end">Gewinn (EUR)</th>
-                                 <th class="text-end"
-                                     title="Wertänderung durch Metall-Kursanstieg seit Kauf (Spot-Anteil)">Spot ∆</th>
-                                 <th class="text-end"
-                                     title="Wertänderung durch Sammlerpremium (Limitierung/Box/Druck)">Aufpreis ∆</th>
+                                 <th class="text-end">
+                                     Spot ∆
+                                     <button type="button"
+                                             class="btn btn-link btn-sm p-0 ms-1 text-white-50 border-0 delta-info-btn"
+                                             data-info="spot"
+                                             title="Anstieg Materialwert — Klicken für Beispielrechnung"
+                                             style="font-size:0.8rem;vertical-align:baseline;line-height:1;">ⓘ</button>
+                                 </th>
+                                 <th class="text-end">
+                                     Aufpreis ∆
+                                     <button type="button"
+                                             class="btn btn-link btn-sm p-0 ms-1 text-white-50 border-0 delta-info-btn"
+                                             data-info="aufpreis"
+                                             title="Anstieg Limitierung — Klicken für Beispielrechnung"
+                                             style="font-size:0.8rem;vertical-align:baseline;line-height:1;">ⓘ</button>
+                                 </th>
                                  <th></th>
                             </tr>
                             </thead>
@@ -1022,5 +1034,160 @@
     })();
 </script>
 <th:block th:replace="fragments/scripts :: scripts"></th:block>
+
+<!-- Modal: Spot ∆ / Aufpreis ∆ Erklärung -->
+<div class="modal fade" id="deltaInfoModal" tabindex="-1" aria-labelledby="deltaInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deltaInfoModalLabel">Spot ∆ &amp; Aufpreis ∆ — Erklärung</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-4">
+                    Der Gesamtgewinn einer Münze setzt sich aus zwei Anteilen zusammen:
+                    dem <strong>Spot ∆</strong> (wie viel der gestiegene Metallpreis gebracht hat)
+                    und dem <strong>Aufpreis ∆</strong> (wie viel die Münze darüber hinaus durch
+                    Sammlernachfrage, Limitierung oder Prägung gewonnen/verloren hat).
+                </p>
+
+                <h6 class="fw-bold mb-3">Beispielrechnung — Perth Mint Lunar 2 Pferde farbig (1 oz Silber)</h6>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="card bg-light h-100">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Ausgangsdaten</h6>
+                                <table class="table table-sm table-borderless mb-0">
+                                    <tbody>
+                                        <tr><td>Gewicht</td><td class="text-end fw-semibold">31,10 g = 1 oz</td></tr>
+                                        <tr><td>Kaufpreis</td><td class="text-end fw-semibold">28,00 €</td></tr>
+                                        <tr><td>Menge</td><td class="text-end fw-semibold">1 Stück</td></tr>
+                                        <tr><td>Kaufjahr</td><td class="text-end fw-semibold">2014</td></tr>
+                                        <tr><td>Spot 2014 (Ø)</td><td class="text-end fw-semibold">14,40 €/oz</td></tr>
+                                        <tr><td>Spot heute</td><td class="text-end fw-semibold">68,05 €/oz</td></tr>
+                                        <tr><td>Sammlerwert</td><td class="text-end fw-semibold">86,47 €</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light h-100">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Ergebnis</h6>
+                                <table class="table table-sm table-borderless mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td>Gesamtgewinn</td>
+                                            <td class="text-end fw-semibold text-success">+58,47 €</td>
+                                        </tr>
+                                        <tr>
+                                            <td><span class="badge text-bg-primary me-1">Spot ∆</span>Materialpreis</td>
+                                            <td class="text-end fw-semibold text-success">+53,65 €</td>
+                                        </tr>
+                                        <tr>
+                                            <td><span class="badge text-bg-secondary me-1">Aufpreis ∆</span>Limitierung</td>
+                                            <td class="text-end fw-semibold text-success">+4,82 €</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold mb-2">Schritt für Schritt</h6>
+
+                <div class="mb-3 p-3 rounded" id="deltaInfoSpotSection" style="background:#e8f4fd;border-left:4px solid #0d6efd;">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge text-bg-primary me-2">Spot ∆</span>
+                        <strong>Anstieg Materialwert</strong>
+                    </div>
+                    <p class="mb-2 small text-muted">Was hat der gestiegene Metallpreis allein gebracht?</p>
+                    <code class="d-block p-2 rounded bg-white small">
+                        Spot ∆ = (Spot heute − Spot Kaufjahr) × Menge<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = (68,05 − 14,40) × 1<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = <strong>53,65 €</strong>
+                    </code>
+                    <p class="mt-2 mb-0 small">
+                        Der Silberpreis ist von 14,40 auf 68,05 €/oz gestiegen —
+                        das allein erklärt <strong>53,65 €</strong> des Gewinns.
+                    </p>
+                </div>
+
+                <div class="mb-3 p-3 rounded" id="deltaInfoAufpreisSection" style="background:#f0fdf4;border-left:4px solid #198754;">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge text-bg-success me-2">Aufpreis ∆</span>
+                        <strong>Anstieg Limitierung</strong>
+                    </div>
+                    <p class="mb-2 small text-muted">Was hat die Münze über den reinen Metallwert hinaus gewonnen oder verloren?</p>
+                    <code class="d-block p-2 rounded bg-white small">
+                        Gesamtgewinn = (Sammlerwert − Kaufpreis) × Menge<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = (86,47 − 28,00) × 1 = 58,47 €<br><br>
+                        Aufpreis ∆ = Gesamtgewinn − Spot ∆<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 58,47 − 53,65<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = <strong>+4,82 €</strong>
+                    </code>
+                    <p class="mt-2 mb-0 small">
+                        Die Münze hat durch Sammlernachfrage <strong>+4,82 €</strong> über den reinen
+                        Metallpreisanstieg hinaus gewonnen.
+                        <span class="text-muted d-block mt-1">
+                            Hinweis: Ohne Sammlerwert (nur Spot 68,05 €) wäre der Aufpreis ∆ = −13,60 €,
+                            da beim Kauf 13,60 € Aufpreis bezahlt wurden, der Spotpreis aber stärker
+                            gestiegen ist als das Premium.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="alert alert-secondary small mb-0">
+                    <strong>Formel zusammengefasst:</strong><br>
+                    Gesamtgewinn = <span class="badge text-bg-primary">Spot ∆</span> +
+                    <span class="badge text-bg-success">Aufpreis ∆</span><br>
+                    <span class="text-muted">58,47 € = 53,65 € + 4,82 €</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schliessen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Tooltips und Modal für Spot ∆ / Aufpreis ∆ Info-Buttons
+    document.querySelectorAll('.delta-info-btn').forEach(btn => {
+        // Bootstrap Tooltip beim Hovern
+        new bootstrap.Tooltip(btn, {trigger: 'hover'});
+
+        // Modal beim Klicken
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.info;
+            const spotSection = document.getElementById('deltaInfoSpotSection');
+            const aufpreisSection = document.getElementById('deltaInfoAufpreisSection');
+
+            // Beide zurücksetzen
+            spotSection.style.opacity = '1';
+            aufpreisSection.style.opacity = '1';
+            spotSection.style.outline = 'none';
+            aufpreisSection.style.outline = 'none';
+
+            // Angeklickten Abschnitt hervorheben
+            if (type === 'spot') {
+                aufpreisSection.style.opacity = '0.45';
+            } else if (type === 'aufpreis') {
+                spotSection.style.opacity = '0.45';
+            }
+
+            new bootstrap.Modal(document.getElementById('deltaInfoModal')).show();
+
+            // Nach Modal-Öffnung zum relevanten Abschnitt scrollen
+            document.getElementById('deltaInfoModal').addEventListener('shown.bs.modal', () => {
+                const target = type === 'spot' ? spotSection : aufpreisSection;
+                target.scrollIntoView({behavior: 'smooth', block: 'center'});
+            }, {once: true});
+        });
+    });
+</script>
 </body>
 </html>
