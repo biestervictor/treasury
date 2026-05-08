@@ -5,9 +5,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.example.treasury.dto.MetalDashboardDto;
 import org.example.treasury.dto.ManualMetalPricesRequest;
@@ -315,19 +316,31 @@ public class EdelmetallService {
   }
 
   private void ensureInitialValuationExistsOnce() {
-    if (metalValuationSnapshotRepository.findTopByOrderByTimestampDesc().isPresent()) {
+    Optional<MetalValuationSnapshot> latestOpt =
+        metalValuationSnapshotRepository.findTopByOrderByTimestampDesc();
+
+    if (latestOpt.isEmpty()) {
+      // Einmalig: initiale Bewertung (Defaultpreise) anlegen, damit Diagramm auch ohne Preisermittlung startet.
+      Instant now = Instant.now(clock);
+      MetalPriceSnapshot defaultSnap = MetalPriceSnapshot.builder()
+          .timestamp(now)
+          .goldPriceEurPerOunce(DEFAULT_GOLD_PRICE_PER_OUNCE)
+          .silverPriceEurPerOunce(DEFAULT_SILVER_PRICE_PER_OUNCE)
+          .build();
+      metalValuationSnapshotRepository.save(buildValuationSnapshot(now, defaultSnap));
       return;
     }
 
-    // Einmalig: initiale Bewertung (Defaultpreise) anlegen, damit Diagramm auch ohne Preisermittlung startet.
-    Instant now = Instant.now(clock);
-    MetalPriceSnapshot defaultSnap = MetalPriceSnapshot.builder()
-        .timestamp(now)
-        .goldPriceEurPerOunce(DEFAULT_GOLD_PRICE_PER_OUNCE)
-        .silverPriceEurPerOunce(DEFAULT_SILVER_PRICE_PER_OUNCE)
-        .build();
-
-    metalValuationSnapshotRepository.save(buildValuationSnapshot(now, defaultSnap));
+    // Auto-Migration: wenn der neueste Snapshot Items hat, aber purchaseSpotUnitValue überall 0.0 ist,
+    // wurde das Feld noch nicht befüllt (Deployment vor Feature-Einführung). Einmalig neu berechnen.
+    MetalValuationSnapshot latest = latestOpt.get();
+    boolean needsMigration = latest.getItems() != null
+        && !latest.getItems().isEmpty()
+        && latest.getItems().stream().allMatch(i -> i.getPurchaseSpotUnitValue() == 0.0);
+    if (needsMigration) {
+      log.info("Auto-migration: purchaseSpotUnitValue missing in latest snapshot, triggering recompute.");
+      recomputeValuation();
+    }
   }
 
   private MetalValuationSnapshot storeValuationSnapshot(MetalPriceSnapshot priceSnapshot) {
