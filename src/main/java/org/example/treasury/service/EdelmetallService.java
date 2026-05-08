@@ -316,6 +316,9 @@ public class EdelmetallService {
   }
 
   private void ensureInitialValuationExistsOnce() {
+    // Migration: Münzen ohne Kaufdatum aber mit Erscheinungsjahr → 01.01.Jahr setzen
+    migrateImportedAtFromYear();
+
     Optional<MetalValuationSnapshot> latestOpt =
         metalValuationSnapshotRepository.findTopByOrderByTimestampDesc();
 
@@ -341,6 +344,23 @@ public class EdelmetallService {
       log.info("Auto-migration: purchaseSpotUnitValue missing in latest snapshot, triggering recompute.");
       recomputeValuation();
     }
+  }
+
+  private void migrateImportedAtFromYear() {
+    List<PreciousMetal> missing =
+        preciousMetalRepository.findAllByImportedAtIsNullAndYearIsNotNull();
+    if (missing.isEmpty()) {
+      return;
+    }
+    log.info("migrateImportedAtFromYear: {} Münze(n) ohne Kaufdatum gefunden, setze 01.01.Jahr",
+        missing.size());
+    for (PreciousMetal m : missing) {
+      LocalDate fallback = LocalDate.of(m.getYear(), 1, 1);
+      m.setImportedAt(fallback);
+      preciousMetalRepository.save(m);
+      log.info("migrateImportedAtFromYear: '{}' → importedAt={}", m.getName(), fallback);
+    }
+    recomputeValuation();
   }
 
   private MetalValuationSnapshot storeValuationSnapshot(MetalPriceSnapshot priceSnapshot) {

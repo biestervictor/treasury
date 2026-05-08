@@ -20,6 +20,8 @@ public interface PreciousMetalRepository extends MongoRepository<PreciousMetal, 
 
   List<PreciousMetal> findAllByImportedAtIsNotNull();
 
+  List<PreciousMetal> findAllByImportedAtIsNullAndYearIsNotNull();
+
   Optional<PreciousMetal> findByImportKey(String importKey);
 
   boolean existsByImportKey(String importKey);
