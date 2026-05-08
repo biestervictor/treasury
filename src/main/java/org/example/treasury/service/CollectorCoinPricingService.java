@@ -2375,13 +2375,13 @@ public class CollectorCoinPricingService {
   private CollectorCoinPrice scrapeEmkForMetal(BrowserContext context,
                                                 PreciousMetal metal,
                                                 String term) {
-    String url = "https://www.emk.com/de-de/search?text=" + encode(term);
+    String url = "https://www.emk.com/de-de/search?q=" + encode(term);
     Page page = context.newPage();
     try {
       page.navigate(url, new Page.NavigateOptions().setTimeout(30000));
-      // Auf React-Rendering warten: networkidle oder Produkt-Element
+      // Auf React-Rendering warten: EMK nutzt Klasse .PLP_item für Produktkacheln
       try {
-        page.waitForSelector("[class*='product'], [class*='Product'], article",
+        page.waitForSelector(".PLP_item, .PLP_product-title",
             new Page.WaitForSelectorOptions().setTimeout(15000));
       } catch (Exception e) {
         log.debug("EMK: Timeout beim Warten auf Produktliste für '{}'", term);
@@ -2389,27 +2389,18 @@ public class CollectorCoinPricingService {
       }
       page.waitForTimeout(2000);
 
-      // DOM-Evaluation: extrahiert Name|||Preis Paare aus Produkt-Karten
+      // DOM-Evaluation: extrahiert Name|||Preis Paare aus EMK-Produktkacheln (.PLP_item)
       Object raw = page.evaluate(
           "() => {"
               + "const results = [];"
-              + "const selectors = ["
-              + "  '.b-product-card', '[class*=\"product-card\"]', '[class*=\"ProductCard\"]',"
-              + "  '[class*=\"product-item\"]', 'article', 'li[class*=\"product\"]'"
-              + "];"
-              + "let cards = [];"
-              + "for (const sel of selectors) {"
-              + "  const found = document.querySelectorAll(sel);"
-              + "  if (found.length > 0 && found.length < 50) { cards = Array.from(found); break; }"
-              + "}"
+              + "const cards = Array.from(document.querySelectorAll('.PLP_item'));"
               + "for (const card of cards) {"
-              + "  const text = (card.innerText || card.textContent || '').trim();"
-              + "  if (!text) continue;"
-              + "  const priceMatch = text.match(/(\\d{1,4}[.,]\\d{2})\\s*[€EUR]/);"
-              + "  const lines = text.split(/\\n/).map(l => l.trim()).filter(l => l.length > 3);"
-              + "  const name = lines[0] || '';"
-              + "  const price = priceMatch ? priceMatch[1] : null;"
-              + "  if (name && price && name.length > 3) results.push(name + '|||' + price);"
+              + "  const titleEl = card.querySelector('.PLP_product-title h2, a.PLP_product-title, .PLP_product-title');"
+              + "  const priceEl = card.querySelector('.PLP_actual-price, .actual-price, [class*=\"actual-price\"]');"
+              + "  if (!titleEl || !priceEl) continue;"
+              + "  const name = (titleEl.innerText || titleEl.textContent || '').trim();"
+              + "  const priceText = (priceEl.innerText || priceEl.textContent || '').trim();"
+              + "  if (name && priceText && name.length > 3) results.push(name + '|||' + priceText);"
               + "}"
               + "return results.join('\\n');"
               + "}");
