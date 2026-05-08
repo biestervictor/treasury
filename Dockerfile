@@ -5,6 +5,7 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     wget \
+    unzip \
     gnupg \
     ca-certificates \
     libglib2.0-0 \
@@ -33,6 +34,14 @@ RUN apt-get update && \
 
 # JAR is built by CI (mvn clean install) before docker build
 COPY target/*.jar app.jar
+
+# Install Playwright Chromium browser binary.
+# The Playwright library is bundled in the Spring Boot fat JAR under BOOT-INF/lib/.
+# We extract those JARs and run the Playwright CLI installer.
+RUN mkdir /tmp/pw && \
+    unzip -q app.jar "BOOT-INF/lib/*" -d /tmp/pw && \
+    java -cp "/tmp/pw/BOOT-INF/lib/*" com.microsoft.playwright.CLI install chromium && \
+    rm -rf /tmp/pw
 
 ENV SPRING_PROFILES_ACTIVE=docker
 EXPOSE 30800
