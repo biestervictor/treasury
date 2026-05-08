@@ -18,6 +18,8 @@ import org.example.treasury.repository.CollectorCoinPriceRepository;
 import org.example.treasury.repository.PreciousMetalRepository;
 import org.example.treasury.service.CollectorCoinPricingService;
 import org.example.treasury.service.EdelmetallService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -37,6 +39,8 @@ import org.springframework.web.util.UriUtils;
 @Controller
 @RequestMapping("/api/edelmetall")
 public class EdelmetallController {
+
+  private static final Logger log = LoggerFactory.getLogger(EdelmetallController.class);
 
   private final EdelmetallService edelmetallService;
   private final CollectorCoinPricingService collectorCoinPricingService;
@@ -159,36 +163,42 @@ public class EdelmetallController {
       @RequestParam(defaultValue = "0") double marketValue,
       @RequestParam(required = false) String collectorSearchTerm,
       @RequestParam(required = false, defaultValue = "") String searchTerms) {
-    preciousMetalRepository.findById(id).ifPresent(metal -> {
-      metal.setName(name.trim());
-      metal.setType(type);
-      metal.setYear((year != null && year > 0) ? year : null);
-      Manufacturer mfr = null;
-      if (manufacturer != null && !manufacturer.isBlank()) {
-        try {
-          mfr = Manufacturer.valueOf(manufacturer.trim());
-        } catch (IllegalArgumentException ignored) {
-          // unbekannter Enum-Wert → null
-        }
+    log.info("updateMetal id={} importedAt={} purchasePrice={}", id, importedAt, purchasePrice);
+    PreciousMetal metal = preciousMetalRepository.findById(id).orElse(null);
+    if (metal == null) {
+      log.warn("updateMetal: Münze nicht gefunden id={}", id);
+      return ResponseEntity.notFound().build();
+    }
+    log.info("updateMetal: vorheriges importedAt={}", metal.getImportedAt());
+    metal.setName(name.trim());
+    metal.setType(type);
+    metal.setYear((year != null && year > 0) ? year : null);
+    Manufacturer mfr = null;
+    if (manufacturer != null && !manufacturer.isBlank()) {
+      try {
+        mfr = Manufacturer.valueOf(manufacturer.trim());
+      } catch (IllegalArgumentException ignored) {
+        // unbekannter Enum-Wert → null
       }
-      metal.setManufacturer(mfr);
-      metal.setMintage((mintage != null && mintage > 0) ? mintage : null);
-      metal.setWeightInGrams(weightInGrams);
-      metal.setQuantity(quantity);
-      metal.setPurchasePrice(purchasePrice);
-      metal.setImportedAt(importedAt);
-      metal.setMarketValue(marketValue);
-      metal.setCollectorSearchTerm(
-          collectorSearchTerm != null && !collectorSearchTerm.isBlank()
-              ? collectorSearchTerm.trim() : null);
-      java.util.List<String> termList = java.util.Arrays.stream(searchTerms.split("[\\n;]+"))
-          .map(String::trim)
-          .filter(s -> !s.isBlank())
-          .distinct()
-          .collect(java.util.stream.Collectors.toList());
-      metal.setSearchTerms(termList);
-      preciousMetalRepository.save(metal);
-    });
+    }
+    metal.setManufacturer(mfr);
+    metal.setMintage((mintage != null && mintage > 0) ? mintage : null);
+    metal.setWeightInGrams(weightInGrams);
+    metal.setQuantity(quantity);
+    metal.setPurchasePrice(purchasePrice);
+    metal.setImportedAt(importedAt);
+    metal.setMarketValue(marketValue);
+    metal.setCollectorSearchTerm(
+        collectorSearchTerm != null && !collectorSearchTerm.isBlank()
+            ? collectorSearchTerm.trim() : null);
+    java.util.List<String> termList = java.util.Arrays.stream(searchTerms.split("[\\n;]+"))
+        .map(String::trim)
+        .filter(s -> !s.isBlank())
+        .distinct()
+        .collect(java.util.stream.Collectors.toList());
+    metal.setSearchTerms(termList);
+    preciousMetalRepository.save(metal);
+    log.info("updateMetal: gespeichert id={} neues importedAt={}", id, importedAt);
     edelmetallService.recomputeValuation();
     return ResponseEntity.ok("Gespeichert");
   }

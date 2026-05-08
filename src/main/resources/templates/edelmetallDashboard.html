@@ -347,11 +347,12 @@
                                         th:value="${t.name()}" th:text="${t.name()}">GOLD</option>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold" for="editAllYear">Jahrgang</label>
-                            <input type="number" class="form-control" id="editAllYear" min="1800" max="2100"
-                                   placeholder="optional">
-                        </div>
+                         <div class="mb-3">
+                             <label class="form-label fw-semibold" for="editAllYear">Prägejahr (Jahrgang)</label>
+                             <input type="number" class="form-control" id="editAllYear" min="1800" max="2100"
+                                    placeholder="optional">
+                             <div class="form-text">Erscheinungsjahr der Münze (z.B. 2014) — <strong>nicht</strong> das Kaufdatum.</div>
+                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold" for="editAllMintage">Auflage (Mintage)</label>
                             <input type="number" class="form-control" id="editAllMintage" min="1"
@@ -393,10 +394,11 @@
                             <label class="form-label fw-semibold" for="editAllPurchasePrice">Kaufpreis pro Stück (EUR) <span class="text-danger">*</span></label>
                             <input type="number" step="0.01" min="0" class="form-control" id="editAllPurchasePrice" required>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold" for="editAllImportedAt">Kaufdatum <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control" id="editAllImportedAt" required>
-                        </div>
+                         <div class="mb-3">
+                             <label class="form-label fw-semibold" for="editAllImportedAt">Kaufdatum <span class="text-danger">*</span></label>
+                             <input type="date" class="form-control" id="editAllImportedAt" required>
+                             <div class="form-text">Datum des tatsächlichen Kaufs — bestimmt den historischen Spotpreis (Spot&nbsp;&#916;).</div>
+                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold" for="editAllMarketValue">Sammlerwert pro Stück (EUR)</label>
                             <input type="number" step="0.01" min="0" class="form-control" id="editAllMarketValue">
