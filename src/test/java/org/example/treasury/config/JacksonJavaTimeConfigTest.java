@@ -19,6 +19,7 @@ class JacksonJavaTimeConfigTest {
         List.of(new MetalDashboardDto.ProfitPointDto(Instant.parse("2026-01-02T00:00:00Z"), 12.34)),
         List.of(),
         List.of(new MetalDashboardDto.MarketValuePointDto(Instant.parse("2026-01-02T00:00:00Z"), 123.45)),
+        List.of(),
         12.34,
         123.45,
         100.00

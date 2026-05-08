@@ -122,13 +122,13 @@
                     <div class="mt-2">
                         <ul class="nav nav-tabs" id="chartTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="chart-tab-both" type="button">Beide</button>
+                                <button class="nav-link active" id="chart-tab-all" type="button">Alle</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="chart-tab-profit" type="button">Gewinn</button>
+                                <button class="nav-link" id="chart-tab-gains" type="button">Gewinne</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="chart-tab-market" type="button">Sammlerwert</button>
+                                <button class="nav-link" id="chart-tab-values" type="button">Werte</button>
                             </li>
                         </ul>
                     </div>
@@ -548,6 +548,8 @@
     const labels = /*[[${dashboard.profitTimeline().![timestamp().toString()]}]]*/ [];
     const values = /*[[${dashboard.profitTimeline().![profitTotal()]}]]*/ [];
     const marketValues = /*[[${dashboard.marketValueTimeline().![marketValueTotal()]}]]*/ [];
+    const spotValues = /*[[${dashboard.spotValueTimeline().![spotValueTotal()]}]]*/ [];
+    const spotGainValues = spotValues.map((sv, i) => sv - ((marketValues[i] || 0) - (values[i] || 0)));
 
     const ctx = document.getElementById('profitChart');
     const profitChart = new Chart(ctx, {
@@ -569,6 +571,26 @@
                 data: marketValues,
                 borderColor: 'rgb(25,135,84)',
                 backgroundColor: 'rgba(25,135,84,0.08)',
+                borderWidth: 2,
+                tension: 0.2,
+                fill: true,
+                pointRadius: 2,
+            },
+            {
+                label: 'Materialwert (EUR)',
+                data: spotValues,
+                borderColor: 'rgb(255,153,0)',
+                backgroundColor: 'rgba(255,153,0,0.08)',
+                borderWidth: 2,
+                tension: 0.2,
+                fill: true,
+                pointRadius: 2,
+            },
+            {
+                label: 'Spot-Gewinn (EUR)',
+                data: spotGainValues,
+                borderColor: 'rgb(13,202,240)',
+                backgroundColor: 'rgba(13,202,240,0.08)',
                 borderWidth: 2,
                 tension: 0.2,
                 fill: true,
@@ -605,8 +627,11 @@
             document.querySelectorAll('#chartTabs .nav-link').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             const tab = this.id.replace('chart-tab-', '');
-            profitChart.data.datasets[0].hidden = (tab === 'market');
-            profitChart.data.datasets[1].hidden = (tab === 'profit');
+            // "all" → alle sichtbar; "gains" → Gewinn(0)+Spot-Gewinn(3); "values" → Sammlerwert(1)+Materialwert(2)
+            profitChart.data.datasets[0].hidden = (tab === 'values');
+            profitChart.data.datasets[1].hidden = (tab === 'gains');
+            profitChart.data.datasets[2].hidden = (tab === 'gains');
+            profitChart.data.datasets[3].hidden = (tab === 'values');
             profitChart.update();
         });
     });

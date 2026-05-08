@@ -290,6 +290,16 @@ public class EdelmetallService {
         .map(v -> new MetalDashboardDto.MarketValuePointDto(v.getTimestamp(), v.getTotalCurrentValue()))
         .collect(Collectors.toList());
 
+    var spotValueTimeline = valuations.stream()
+        .map(v -> {
+          double spotTotal = v.getItems() == null ? 0.0
+              : v.getItems().stream()
+                  .mapToDouble(i -> i.getSpotUnitValue() * i.getQuantity())
+                  .sum();
+          return new MetalDashboardDto.SpotValuePointDto(v.getTimestamp(), spotTotal);
+        })
+        .collect(Collectors.toList());
+
     List<MetalValuationSnapshot.ItemValuation> latestItems = valuations.isEmpty() || valuations.getLast().getItems() == null
         ? List.of()
         : valuations.getLast().getItems();
@@ -300,8 +310,8 @@ public class EdelmetallService {
         .mapToDouble(i -> i.getSpotUnitValue() * i.getQuantity())
         .sum();
 
-    return new MetalDashboardDto(currentPrices, timeline, latestItems, marketValueTimeline, currentProfitTotal,
-        currentMarketValueTotal, currentSpotValueTotal);
+    return new MetalDashboardDto(currentPrices, timeline, latestItems, marketValueTimeline, spotValueTimeline,
+        currentProfitTotal, currentMarketValueTotal, currentSpotValueTotal);
   }
 
   private void ensureInitialValuationExistsOnce() {

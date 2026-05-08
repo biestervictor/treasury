@@ -9,6 +9,7 @@ public record MetalDashboardDto(
     List<ProfitPointDto> profitTimeline,
     List<MetalValuationSnapshot.ItemValuation> latestValuations,
     List<MarketValuePointDto> marketValueTimeline,
+    List<SpotValuePointDto> spotValueTimeline,
     double currentProfitTotal,
     double currentMarketValueTotal,
     double currentSpotValueTotal
@@ -21,6 +22,9 @@ public record MetalDashboardDto(
   }
 
   public record MarketValuePointDto(Instant timestamp, double marketValueTotal) {
+  }
+
+  public record SpotValuePointDto(Instant timestamp, double spotValueTotal) {
   }
 }
 
