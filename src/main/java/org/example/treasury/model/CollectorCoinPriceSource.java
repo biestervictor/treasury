@@ -24,7 +24,13 @@ public enum CollectorCoinPriceSource {
   SILBER_CORNER("silber-corner.de"),
 
   /** silberling.de – Edelmetallhändler, HTTP-Scraper via Kategorie-Seiten (ga4_view_item_list). */
-  SILBERLING("silberling.de");
+  SILBERLING("silberling.de"),
+
+  /** auragentum.de – Edelmetallhändler (Shopware), HTTP-Scraper via Such-URL (sSearch). */
+  AURAGENTUM("auragentum.de"),
+
+  /** emk.com – Edelmetallhändler (Sana Commerce React SPA), Playwright-Scraper. */
+  EMK("emk.com");
 
   private final String displayName;
 

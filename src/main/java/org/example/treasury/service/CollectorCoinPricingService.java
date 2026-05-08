@@ -278,7 +278,8 @@ public class CollectorCoinPricingService {
             case SILBER_CORNER -> scrapeSilberCorner(http, metal);
             case SILBERLING -> scrapeSilberlingForMetal(http, metal);
             case COININVEST -> scrapeSingleGoldDe(http, metal);
-            default -> null; // eBay/Numista/Playwright sources skipped in single-metal mode
+            case AURAGENTUM -> scrapeAuragentumForMetal(http, metal);
+            default -> null; // eBay/Numista/EMK (Playwright) skipped in single-metal mode
           };
           if (price != null) {
             collectorCoinPriceRepository.save(price);
@@ -359,6 +360,12 @@ public class CollectorCoinPricingService {
     }
     if (source == CollectorCoinPriceSource.SILBERLING) {
       return updateFromSilberling(metals);
+    }
+    if (source == CollectorCoinPriceSource.AURAGENTUM) {
+      return updateFromAuragentum(metals);
+    }
+    if (source == CollectorCoinPriceSource.EMK) {
+      return updateFromEmk(metals);
     }
 
     // Playwright-basierte Quellen (Fallback, kein aktiver Source-Typ)
@@ -2097,7 +2104,6 @@ public class CollectorCoinPricingService {
   }
 
   // ─── gold.de Einzelmünzen-Scraper ─────────────────────────────────────────
-
   /**
    * Scrapt gold.de für eine einzelne Münze (per-Metal-Variante).
    * Versucht den primären Suchbegriff, dann Fuzzy-Fallbacks.
@@ -2152,5 +2158,288 @@ public class CollectorCoinPricingService {
       current = shorter;
     }
     return terms;
+  }
+
+  // ─── auragentum.de – HTTP Scraper (Shopware sSearch) ──────────────────────
+
+  /**
+   * Extrahiert Produktname + Preis aus dem auragentum.de Shopware-Inline-JSON.
+   * Format: {@code "name":"Produktname",...,"price":219.00}
+   */
+  private static final Pattern AURA_PRODUCT = Pattern.compile(
+      "\"name\":\\s*\"([^\"]+)\"[^}]{0,500}?\"price\":\\s*([0-9]+(?:\\.[0-9]+)?)");
+
+  /**
+   * Scrapt auragentum.de für alle Münzen via HTTP-Suchseite.
+   *
+   * @param metals Münzliste
+   * @return neu gespeicherte Preis-Einträge
+   */
+  private List<CollectorCoinPrice> updateFromAuragentum(List<PreciousMetal> metals) {
+    HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build();
+
+    Map<String, Double> prevPrices =
+        loadPreviousPrices(metals, CollectorCoinPriceSource.AURAGENTUM);
+    List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
+    for (PreciousMetal metal : metals) {
+      String term = effectiveSearchTerm(metal);
+      CollectorCoinPrice entry = null;
+      try {
+        entry = scrapeAuragentumForMetal(http, metal);
+        if (entry != null) {
+          results.add(collectorCoinPriceRepository.save(entry));
+          log.info("  AURAGENTUM – {}: {} EUR", metal.getName(),
+              String.format("%.2f", entry.getPriceEur()));
+        }
+        sleepMs(1200);
+      } catch (Exception e) {
+        log.warn("  auragentum.de – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
+      }
+      runEntries.add(CollectorScraperRun.Entry.builder()
+          .metalId(metal.getId())
+          .metalName(metal.getName())
+          .searchTerm(term)
+          .success(entry != null)
+          .priceEur(entry != null ? entry.getPriceEur() : null)
+          .previousPriceEur(prevPrices.get(metal.getId()))
+          .build());
+    }
+
+    saveScraperRun(CollectorCoinPriceSource.AURAGENTUM,
+        metals.size(), results.size(), runEntries);
+    log.info("CollectorCoinPricingService: AURAGENTUM fertig – {} Einträge gespeichert",
+        results.size());
+    return results;
+  }
+
+  /**
+   * Per-Münze auragentum.de Scraper: fetcht Suchergebnisse und matcht via Token-Intersection.
+   *
+   * @param http  HTTP-Client
+   * @param metal Münze
+   * @return günstigster passender Preis oder {@code null}
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private CollectorCoinPrice scrapeAuragentumForMetal(HttpClient http, PreciousMetal metal)
+      throws IOException, InterruptedException {
+    List<String> terms = buildFuzzyTerms(effectiveSearchTerm(metal));
+    if (metal.getSearchTerms() != null) {
+      for (String alt : metal.getSearchTerms()) {
+        buildFuzzyTerms(alt).forEach(t -> {
+          if (!terms.contains(t)) {
+            terms.add(t);
+          }
+        });
+      }
+    }
+    for (int i = 0; i < terms.size(); i++) {
+      String term = terms.get(i);
+      Map<String, Double> catalog = fetchAuragentumSearch(http, term);
+      if (!catalog.isEmpty()) {
+        double price = matchSilberlingCatalog(catalog, metal);
+        if (price > 0) {
+          String url = "https://auragentum.de/search?sSearch=" + encode(term);
+          return buildEntry(metal, CollectorCoinPriceSource.AURAGENTUM, price, url, null);
+        }
+      }
+      if (i < terms.size() - 1) {
+        sleepMs(400);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Fetcht die auragentum.de Shopware-Suchseite und parst alle Produkt-Name/Preis-Paare
+   * aus dem eingebetteten Tracking-JSON.
+   *
+   * @param http HTTP-Client
+   * @param term Suchbegriff
+   * @return Map item_name → Preis (EUR), leer bei Fehler oder keinem Treffer
+   * @throws IOException          bei Netzwerkfehler
+   * @throws InterruptedException bei Unterbrechung
+   */
+  private Map<String, Double> fetchAuragentumSearch(HttpClient http, String term)
+      throws IOException, InterruptedException {
+    String url = "https://auragentum.de/search?sSearch=" + encode(term);
+    HttpRequest req = HttpRequest.newBuilder()
+        .uri(URI.create(url))
+        .header("User-Agent", USER_AGENT)
+        .header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+        .header("Accept-Language", "de-DE,de;q=0.9,en;q=0.5")
+        .header("Accept-Encoding", "identity")
+        .GET()
+        .timeout(Duration.ofSeconds(20))
+        .build();
+
+    HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+    Map<String, Double> catalog = new java.util.LinkedHashMap<>();
+    if (resp.statusCode() != 200) {
+      log.debug("auragentum.de HTTP {} für '{}'", resp.statusCode(), term);
+      return catalog;
+    }
+
+    Matcher m = AURA_PRODUCT.matcher(resp.body());
+    while (m.find()) {
+      String name = m.group(1);
+      try {
+        double price = Double.parseDouble(m.group(2));
+        if (price > 0) {
+          catalog.putIfAbsent(name, price);
+        }
+      } catch (NumberFormatException ignored) {
+        // ignorieren
+      }
+    }
+    log.debug("auragentum.de: {} Produkte für '{}'", catalog.size(), term);
+    return catalog;
+  }
+
+  // ─── emk.com – Playwright Scraper (Sana Commerce React SPA) ──────────────
+
+  /**
+   * Scrapt emk.com für alle Münzen via Playwright (React SPA benötigt JS-Rendering).
+   * Navigiert pro Münze zur Such-URL und extrahiert Produkt-Name/Preis-Paare aus dem DOM.
+   *
+   * @param metals Münzliste
+   * @return neu gespeicherte Preis-Einträge
+   */
+  private List<CollectorCoinPrice> updateFromEmk(List<PreciousMetal> metals) {
+    Map<String, Double> prevPrices = loadPreviousPrices(metals, CollectorCoinPriceSource.EMK);
+    List<CollectorCoinPrice> results = new ArrayList<>();
+    List<CollectorScraperRun.Entry> runEntries = new ArrayList<>();
+
+    try (Playwright playwright = Playwright.create()) {
+      Browser browser = playwright.chromium().launch(
+          new BrowserType.LaunchOptions()
+              .setHeadless(true)
+              .setArgs(java.util.List.of(
+                  "--disable-dev-shm-usage",
+                  "--no-sandbox",
+                  "--disable-gpu"
+              )));
+      BrowserContext context = browser.newContext(
+          new Browser.NewContextOptions()
+              .setUserAgent(USER_AGENT)
+              .setIgnoreHTTPSErrors(true));
+      try {
+        for (PreciousMetal metal : metals) {
+          String term = effectiveSearchTerm(metal);
+          CollectorCoinPrice entry = null;
+          try {
+            entry = scrapeEmkForMetal(context, metal, term);
+            if (entry != null) {
+              results.add(collectorCoinPriceRepository.save(entry));
+              log.info("  EMK – {}: {} EUR", metal.getName(),
+                  String.format("%.2f", entry.getPriceEur()));
+            }
+          } catch (Exception e) {
+            log.warn("  EMK – {} fehlgeschlagen: {}", metal.getName(), e.getMessage());
+          }
+          runEntries.add(CollectorScraperRun.Entry.builder()
+              .metalId(metal.getId())
+              .metalName(metal.getName())
+              .searchTerm(term)
+              .success(entry != null)
+              .priceEur(entry != null ? entry.getPriceEur() : null)
+              .previousPriceEur(prevPrices.get(metal.getId()))
+              .build());
+          sleepMs(2000);
+        }
+      } finally {
+        browser.close();
+      }
+    }
+
+    saveScraperRun(CollectorCoinPriceSource.EMK, metals.size(), results.size(), runEntries);
+    log.info("CollectorCoinPricingService: EMK fertig – {} Einträge gespeichert", results.size());
+    return results;
+  }
+
+  /**
+   * Per-Münze EMK Playwright-Scraper: navigiert zur Such-URL, wartet auf JS-Rendering
+   * und extrahiert Produkt-Name/Preis-Paare via DOM-Evaluation.
+   *
+   * @param context Playwright BrowserContext
+   * @param metal   Münze
+   * @param term    Suchbegriff
+   * @return günstigster passender Preis oder {@code null}
+   */
+  @SuppressWarnings("unchecked")
+  private CollectorCoinPrice scrapeEmkForMetal(BrowserContext context,
+                                                PreciousMetal metal,
+                                                String term) {
+    String url = "https://www.emk.com/de-de/search?text=" + encode(term);
+    Page page = context.newPage();
+    try {
+      page.navigate(url, new Page.NavigateOptions().setTimeout(30000));
+      // Auf React-Rendering warten: networkidle oder Produkt-Element
+      try {
+        page.waitForSelector("[class*='product'], [class*='Product'], article",
+            new Page.WaitForSelectorOptions().setTimeout(15000));
+      } catch (Exception e) {
+        log.debug("EMK: Timeout beim Warten auf Produktliste für '{}'", term);
+        return null;
+      }
+      page.waitForTimeout(2000);
+
+      // DOM-Evaluation: extrahiert Name|||Preis Paare aus Produkt-Karten
+      Object raw = page.evaluate(
+          "() => {"
+              + "const results = [];"
+              + "const selectors = ["
+              + "  '.b-product-card', '[class*=\"product-card\"]', '[class*=\"ProductCard\"]',"
+              + "  '[class*=\"product-item\"]', 'article', 'li[class*=\"product\"]'"
+              + "];"
+              + "let cards = [];"
+              + "for (const sel of selectors) {"
+              + "  const found = document.querySelectorAll(sel);"
+              + "  if (found.length > 0 && found.length < 50) { cards = Array.from(found); break; }"
+              + "}"
+              + "for (const card of cards) {"
+              + "  const text = (card.innerText || card.textContent || '').trim();"
+              + "  if (!text) continue;"
+              + "  const priceMatch = text.match(/(\\d{1,4}[.,]\\d{2})\\s*[€EUR]/);"
+              + "  const lines = text.split(/\\n/).map(l => l.trim()).filter(l => l.length > 3);"
+              + "  const name = lines[0] || '';"
+              + "  const price = priceMatch ? priceMatch[1] : null;"
+              + "  if (name && price && name.length > 3) results.push(name + '|||' + price);"
+              + "}"
+              + "return results.join('\\n');"
+              + "}");
+
+      if (raw == null || raw.toString().isBlank()) {
+        log.debug("EMK: keine Produkte für '{}'", term);
+        return null;
+      }
+
+      Map<String, Double> catalog = new java.util.LinkedHashMap<>();
+      for (String line : raw.toString().split("\n")) {
+        String[] parts = line.split("\\|\\|\\|", 2);
+        if (parts.length != 2) {
+          continue;
+        }
+        String name = parts[0].trim();
+        OptionalDouble price = parseEurValue(parts[1].trim());
+        if (price.isPresent() && price.getAsDouble() > 0) {
+          catalog.putIfAbsent(name, price.getAsDouble());
+        }
+      }
+
+      log.debug("EMK: {} Produkte für '{}'", catalog.size(), term);
+      double price = matchSilberlingCatalog(catalog, metal);
+      if (price > 0) {
+        return buildEntry(metal, CollectorCoinPriceSource.EMK, price, url, null);
+      }
+      return null;
+    } finally {
+      closePage(page);
+    }
   }
 }

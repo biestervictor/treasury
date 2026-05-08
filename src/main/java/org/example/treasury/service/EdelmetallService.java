@@ -65,27 +65,41 @@ public class EdelmetallService {
   private final MetalPriceSnapshotRepository metalPriceSnapshotRepository;
   private final MetalValuationSnapshotRepository metalValuationSnapshotRepository;
   private final MetalPriceClient metalPriceClient;
+  private final HistoricalSpotPriceService historicalSpotPriceService;
   private final Clock clock;
 
   @Autowired
   public EdelmetallService(PreciousMetalRepository preciousMetalRepository,
                            MetalPriceSnapshotRepository metalPriceSnapshotRepository,
                            MetalValuationSnapshotRepository metalValuationSnapshotRepository,
-                           MetalPriceClient metalPriceClient) {
-    this(preciousMetalRepository, metalPriceSnapshotRepository, metalValuationSnapshotRepository, metalPriceClient,
-        Clock.systemUTC());
+                           MetalPriceClient metalPriceClient,
+                           HistoricalSpotPriceService historicalSpotPriceService) {
+    this(preciousMetalRepository, metalPriceSnapshotRepository, metalValuationSnapshotRepository,
+        metalPriceClient, historicalSpotPriceService, Clock.systemUTC());
   }
 
   EdelmetallService(PreciousMetalRepository preciousMetalRepository,
                     MetalPriceSnapshotRepository metalPriceSnapshotRepository,
                     MetalValuationSnapshotRepository metalValuationSnapshotRepository,
                     MetalPriceClient metalPriceClient,
+                    HistoricalSpotPriceService historicalSpotPriceService,
                     Clock clock) {
     this.preciousMetalRepository = preciousMetalRepository;
     this.metalPriceSnapshotRepository = metalPriceSnapshotRepository;
     this.metalValuationSnapshotRepository = metalValuationSnapshotRepository;
     this.metalPriceClient = metalPriceClient;
+    this.historicalSpotPriceService = historicalSpotPriceService;
     this.clock = clock;
+  }
+
+  /** Test-Konstruktor ohne HistoricalSpotPriceService (verwendet neue Standard-Instanz). */
+  EdelmetallService(PreciousMetalRepository preciousMetalRepository,
+                    MetalPriceSnapshotRepository metalPriceSnapshotRepository,
+                    MetalValuationSnapshotRepository metalValuationSnapshotRepository,
+                    MetalPriceClient metalPriceClient,
+                    Clock clock) {
+    this(preciousMetalRepository, metalPriceSnapshotRepository, metalValuationSnapshotRepository,
+        metalPriceClient, new HistoricalSpotPriceService(), clock);
   }
 
   /**
@@ -330,6 +344,16 @@ public class EdelmetallService {
           double currentTotalValue = currentUnitValue * m.getQuantity();
           double profit = m.getQuantity() * (currentUnitValue - m.getPurchasePrice());
 
+          // Historische Aufschlüsselung: Spot-Anteil vs. Aufpreis-Anteil am Gewinn
+          double purchaseSpotUnitValue = historicalSpotPriceService.getPurchaseSpotUnitValue(
+              m.getType(), m.getImportedAt(), m.getWeightInGrams());
+          double spotGain = purchaseSpotUnitValue > 0
+              ? (spotUnitValue - purchaseSpotUnitValue) * m.getQuantity()
+              : 0.0;
+          double premiumGain = purchaseSpotUnitValue > 0
+              ? profit - spotGain
+              : 0.0;
+
           return MetalValuationSnapshot.ItemValuation.builder()
               .preciousMetalId(m.getId())
               .name(m.getName())
@@ -344,6 +368,9 @@ public class EdelmetallService {
               .marketValue(m.getMarketValue())
               .usesMarketValue(usesMarketValue)
               .spotUnitValue(spotUnitValue)
+              .purchaseSpotUnitValue(purchaseSpotUnitValue)
+              .spotGain(spotGain)
+              .premiumGain(premiumGain)
               .build();
         })
         .toList();

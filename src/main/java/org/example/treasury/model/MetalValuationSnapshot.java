@@ -82,6 +82,27 @@ public class MetalValuationSnapshot {
      * ein Sammlerwert gesetzt ist. Dient zur Vergleichsanzeige im Dashboard.
      */
     private double spotUnitValue;
+
+    /**
+     * Geschätzter Spot-Wert pro Stück (EUR) zum Kaufzeitpunkt,
+     * anhand des historischen Jahresdurchschnitts (HistoricalSpotPriceService).
+     * 0.0 wenn kein Kaufdatum bekannt oder Jahr außerhalb der Tabelle.
+     */
+    private double purchaseSpotUnitValue;
+
+    /**
+     * Gewinnanteil durch gestiegene Metallpreise:
+     * (aktueller Spot/Stk − Kaufzeitpunkt-Spot/Stk) × Anzahl.
+     * 0.0 wenn purchaseSpotUnitValue nicht verfügbar.
+     */
+    private double spotGain;
+
+    /**
+     * Gewinnanteil durch verändertes Sammlerpremium (Limitierung, Box, Druck):
+     * Gesamtgewinn − spotGain.
+     * 0.0 wenn purchaseSpotUnitValue nicht verfügbar.
+     */
+    private double premiumGain;
   }
 }
 

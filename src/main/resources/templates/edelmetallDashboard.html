@@ -93,15 +93,9 @@
                 <div class="card-body">
                     <h5 class="card-title d-flex flex-wrap align-items-center gap-3">
                         <span>Gewinn-Verlauf</span>
-                        <span class="badge text-bg-dark" th:if="${dashboard.currentPrices.timestamp() != null}">
-                            Stand:
-                            <span th:text="${#temporals.format(dashboard.currentPrices.timestamp().atZone(T(java.time.ZoneId).of('Europe/Berlin')), 'yyyy-MM-dd')}">-</span>
-                        </span>
-                        <span class="badge text-bg-warning">
-                            Gold:
+                        <span class="badge text-bg-warning">Gold:
                             <span th:text="${#numbers.formatDecimal(dashboard.currentPrices.goldEurPerOunce(), 1, 2)}">0,00</span>
-                            €/oz
-                        </span>
+                            €/oz</span>
                         <span class="badge text-bg-secondary">
                             Silber:
                             <span th:text="${#numbers.formatDecimal(dashboard.currentPrices.silverEurPerOunce(), 1, 2)}">0,00</span>
@@ -124,6 +118,20 @@
                         </span>
                     </h5>
                     <canvas id="profitChart" height="90"></canvas>
+                    <!-- Chart-Tabs -->
+                    <div class="mt-2">
+                        <ul class="nav nav-tabs" id="chartTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="chart-tab-both" type="button">Beide</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="chart-tab-profit" type="button">Gewinn</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="chart-tab-market" type="button">Sammlerwert</button>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -152,9 +160,13 @@
                                 <th class="text-end">Sammlerwert / Stk</th>
                                 <th class="text-end">Scraper-SW</th>
                                 <th class="text-end">Spot / Stk</th>
-                                <th class="text-end">Gesamt (EUR)</th>
-                                <th class="text-end">Gewinn (EUR)</th>
-                                <th></th>
+                                 <th class="text-end">Gesamt (EUR)</th>
+                                 <th class="text-end">Gewinn (EUR)</th>
+                                 <th class="text-end"
+                                     title="Wertänderung durch Metall-Kursanstieg seit Kauf (Spot-Anteil)">Spot ∆</th>
+                                 <th class="text-end"
+                                     title="Wertänderung durch Sammlerpremium (Limitierung/Box/Druck)">Aufpreis ∆</th>
+                                 <th></th>
                             </tr>
                             </thead>
                             <tbody>
@@ -260,9 +272,29 @@
                                           class="d-block small text-muted"
                                           th:text="${'Spot: ' + #numbers.formatDecimal(it.spotUnitValue, 1, 2)}"></span>
                                 </td>
-                                <td class="text-end" th:text="${#numbers.formatDecimal(it.currentTotalValue, 1, 2)}"></td>
-                                <td class="text-end" th:text="${#numbers.formatDecimal(it.profit, 1, 2)}"></td>
-                                <td class="text-end text-nowrap">
+                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.currentTotalValue, 1, 2)}"></td>
+                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.profit, 1, 2)}"></td>
+                                 <!-- Spot-Delta -->
+                                 <td class="text-end">
+                                     <th:block th:if="${it.purchaseSpotUnitValue > 0}">
+                                         <span th:class="${it.spotGain >= 0 ? 'text-success' : 'text-danger'}"
+                                               th:text="${#numbers.formatDecimal(it.spotGain, 1, 2)}"
+                                               th:title="${'Kaufzeitpunkt-Spot/Stk: ' + #numbers.formatDecimal(it.purchaseSpotUnitValue, 1, 2) + ' € → aktuell: ' + #numbers.formatDecimal(it.spotUnitValue, 1, 2) + ' €'}">
+                                         </span>
+                                     </th:block>
+                                     <span th:unless="${it.purchaseSpotUnitValue > 0}" class="text-muted small">—</span>
+                                 </td>
+                                 <!-- Aufpreis-Delta -->
+                                 <td class="text-end">
+                                     <th:block th:if="${it.purchaseSpotUnitValue > 0}">
+                                         <span th:class="${it.premiumGain >= 0 ? 'text-success' : 'text-danger'}"
+                                               th:text="${#numbers.formatDecimal(it.premiumGain, 1, 2)}"
+                                               th:title="${'Aufpreis bei Kauf: ' + #numbers.formatDecimal(it.purchasePrice - it.purchaseSpotUnitValue, 1, 2) + ' € → aktuell: ' + #numbers.formatDecimal(it.currentUnitValue - it.spotUnitValue, 1, 2) + ' €'}">
+                                         </span>
+                                     </th:block>
+                                     <span th:unless="${it.purchaseSpotUnitValue > 0}" class="text-muted small">—</span>
+                                 </td>
+                                 <td class="text-end text-nowrap">
                                     <!-- Per-Münze Scraper-Button -->
                                     <button type="button"
                                             class="btn btn-outline-info btn-sm scrape-single-btn me-1"
@@ -533,7 +565,7 @@
                 pointRadius: 2,
             },
             {
-                label: 'Marktwert (EUR)',
+                label: 'Sammlerwert (EUR)',
                 data: marketValues,
                 borderColor: 'rgb(25,135,84)',
                 backgroundColor: 'rgba(25,135,84,0.08)',
@@ -546,9 +578,37 @@
         options: {
             responsive: true,
             scales: {
-                y: { beginAtZero: true }
+                y: { beginAtZero: true },
+                x: {
+                    ticks: {
+                        maxTicksLimit: 12,
+                        callback: function(value, index) {
+                            const raw = labels[index];
+                            if (!raw) return '';
+                            const d = new Date(raw);
+                            if (isNaN(d.getTime())) return raw;
+                            const dd = String(d.getDate()).padStart(2, '0');
+                            const mm = String(d.getMonth() + 1).padStart(2, '0');
+                            const yy = String(d.getFullYear()).slice(2);
+                            const hh = String(d.getHours()).padStart(2, '0');
+                            return dd + '-' + mm + '-' + yy + ':' + hh;
+                        }
+                    }
+                }
             }
         }
+    });
+
+    // Chart-Tabs
+    document.querySelectorAll('#chartTabs .nav-link').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('#chartTabs .nav-link').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const tab = this.id.replace('chart-tab-', '');
+            profitChart.data.datasets[0].hidden = (tab === 'market');
+            profitChart.data.datasets[1].hidden = (tab === 'profit');
+            profitChart.update();
+        });
     });
 
     document.getElementById('manualPricesBtn')?.addEventListener('click', async () => {
