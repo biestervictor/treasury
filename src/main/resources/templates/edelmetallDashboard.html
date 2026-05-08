@@ -172,27 +172,11 @@
                             <tbody>
                             <tr th:each="it : ${dashboard.latestValuations()}"
                                 th:attr="data-metal-type=${it.type}, data-metal-id=${it.preciousMetalId}">
-                                <td>
-                                    <a th:href="@{/api/edelmetall/metals/{id}/history(id=${it.preciousMetalId})}"
-                                       th:text="${it.name}"
-                                       class="text-decoration-none"></a>
-                                    <button type="button"
-                                            class="btn btn-link btn-sm p-0 ms-1 edit-all-btn"
-                                            th:data-id="${it.preciousMetalId}"
-                                            th:data-name="${it.name}"
-                                            th:data-type="${it.type}"
-                                            th:data-weight="${it.weightInGrams}"
-                                            th:data-quantity="${it.quantity}"
-                                            th:data-purchase-price="${it.purchasePrice}"
-                                            th:data-market-value="${it.marketValue}"
-                                            th:data-year="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null ? metals[it.preciousMetalId].year : ''}"
-                                            th:data-manufacturer="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null ? metals[it.preciousMetalId].manufacturer.name() : ''}"
-                                            th:data-mintage="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null ? metals[it.preciousMetalId].mintage : ''}"
-                                            th:data-imported-at="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].importedAt != null ? metals[it.preciousMetalId].importedAt : ''}"
-                                            th:data-collector-search-term="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].collectorSearchTerm != null ? metals[it.preciousMetalId].collectorSearchTerm : ''}"
-                                            th:data-search-terms="${metals != null and metals[it.preciousMetalId] != null ? metals[it.preciousMetalId].searchTerms : ''}"
-                                            title="Bearbeiten">&#9998;</button>
-                                </td>
+                                 <td>
+                                     <a th:href="@{/api/edelmetall/metals/{id}/history(id=${it.preciousMetalId})}"
+                                        th:text="${it.name}"
+                                        class="text-decoration-none"></a>
+                                 </td>
                                 <td class="text-center">
                                     <span th:if="${it.type != null and it.type.name() == 'GOLD'}"
                                           class="badge fw-bold"
@@ -203,54 +187,36 @@
                                           style="background-color:#A0A0A0;color:#fff;font-size:0.72rem;letter-spacing:.03em"
                                           title="Silber">Ag</span>
                                 </td>
-                                <!-- Jahr -->
-                                <td class="text-nowrap">
-                                    <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null}"
-                                          th:text="${metals[it.preciousMetalId].year}"></span>
-                                    <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null}"
-                                          class="text-muted small">—</span>
-                                    <button type="button"
-                                            class="btn btn-link btn-sm p-0 ms-1 edit-year-btn"
-                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-year=${metals != null and metals[it.preciousMetalId] != null ? metals[it.preciousMetalId].year : ''}"
-                                            title="Jahr bearbeiten">&#9998;</button>
-                                </td>
-                                <!-- Hersteller -->
-                                <td class="text-nowrap" style="max-width:160px; overflow:hidden; text-overflow:ellipsis;">
-                                    <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null}"
-                                          th:text="${metals[it.preciousMetalId].manufacturer.displayName}"
-                                          th:title="${metals[it.preciousMetalId].manufacturer.displayName}"></span>
-                                    <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null}"
-                                          class="text-muted small">—</span>
-                                    <button type="button"
-                                            class="btn btn-link btn-sm p-0 ms-1 edit-manufacturer-btn"
-                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-manufacturer=${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null ? metals[it.preciousMetalId].manufacturer.name() : ''}"
-                                            title="Hersteller bearbeiten">&#9998;</button>
-                                </td>
-                                <!-- Auflage (Mintage) -->
-                                <td class="text-nowrap">
-                                    <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null}"
-                                          th:text="${metals[it.preciousMetalId].mintage}"></span>
-                                    <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null}"
-                                          class="text-muted small">—</span>
-                                    <button type="button"
-                                            class="btn btn-link btn-sm p-0 ms-1 edit-mintage-btn"
-                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-mintage=${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null ? metals[it.preciousMetalId].mintage : ''}"
-                                            title="Auflage bearbeiten">&#9998;</button>
-                                </td>
+                                 <!-- Jahr -->
+                                 <td class="text-nowrap">
+                                     <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null}"
+                                           th:text="${metals[it.preciousMetalId].year}"></span>
+                                     <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null}"
+                                           class="text-muted small">—</span>
+                                 </td>
+                                 <!-- Hersteller -->
+                                 <td class="text-nowrap" style="max-width:160px; overflow:hidden; text-overflow:ellipsis;">
+                                     <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null}"
+                                           th:text="${metals[it.preciousMetalId].manufacturer.displayName}"
+                                           th:title="${metals[it.preciousMetalId].manufacturer.displayName}"></span>
+                                     <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null}"
+                                           class="text-muted small">—</span>
+                                 </td>
+                                 <!-- Auflage (Mintage) -->
+                                 <td class="text-nowrap">
+                                     <span th:if="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null}"
+                                           th:text="${metals[it.preciousMetalId].mintage}"></span>
+                                     <span th:unless="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null}"
+                                           class="text-muted small">—</span>
+                                 </td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.weightInGrams, 1, 4)}"></td>
                                 <td class="text-end" th:text="${it.quantity}"></td>
                                 <td class="text-end" th:text="${#numbers.formatDecimal(it.purchasePrice, 1, 2)}"></td>
-                                <td class="text-end">
-                                    <span th:if="${it.marketValue > 0}"
-                                          th:text="${#numbers.formatDecimal(it.marketValue, 1, 2)}"></span>
-                                    <span th:if="${it.marketValue <= 0}" class="text-muted">—</span>
-                                    <button type="button"
-                                            class="btn btn-link btn-sm p-0 ms-1 edit-market-value-btn"
-                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}, data-current=${it.marketValue}"
-                                            title="Sammlerwert bearbeiten">
-                                        &#9998;
-                                    </button>
-                                </td>
+                                 <td class="text-end">
+                                     <span th:if="${it.marketValue > 0}"
+                                           th:text="${#numbers.formatDecimal(it.marketValue, 1, 2)}"></span>
+                                     <span th:if="${it.marketValue <= 0}" class="text-muted">—</span>
+                                 </td>
                                 <!-- Scraper-Sammlerwert mit Highlighting: grün wenn ≤ 3× Spot, gelb wenn darüber -->
                                 <td class="text-end">
                                     <th:block th:if="${latestCollectorPrices != null and latestCollectorPrices.containsKey(it.preciousMetalId)}">
@@ -294,17 +260,33 @@
                                      </th:block>
                                      <span th:unless="${it.purchaseSpotUnitValue > 0}" class="text-muted small">—</span>
                                  </td>
-                                 <td class="text-end text-nowrap">
-                                    <!-- Per-Münze Scraper-Button -->
-                                    <button type="button"
-                                            class="btn btn-outline-info btn-sm scrape-single-btn me-1"
-                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}"
-                                            title="Scraper für diese Münze starten">&#128269;</button>
-                                    <button type="button"
-                                            class="btn btn-outline-danger btn-sm delete-metal-btn"
-                                            th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}"
-                                            title="Eintrag löschen">&#x2715;</button>
-                                </td>
+                                  <td class="text-end text-nowrap">
+                                     <!-- Per-Münze Scraper-Button -->
+                                     <button type="button"
+                                             class="btn btn-outline-info btn-sm scrape-single-btn me-1"
+                                             th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}"
+                                             title="Scraper für diese Münze starten">&#128269;</button>
+                                     <button type="button"
+                                             class="btn btn-outline-secondary btn-sm edit-all-btn me-1"
+                                             th:data-id="${it.preciousMetalId}"
+                                             th:data-name="${it.name}"
+                                             th:data-type="${it.type}"
+                                             th:data-weight="${it.weightInGrams}"
+                                             th:data-quantity="${it.quantity}"
+                                             th:data-purchase-price="${it.purchasePrice}"
+                                             th:data-market-value="${it.marketValue}"
+                                             th:data-year="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].year != null ? metals[it.preciousMetalId].year : ''}"
+                                             th:data-manufacturer="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].manufacturer != null ? metals[it.preciousMetalId].manufacturer.name() : ''}"
+                                             th:data-mintage="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].mintage != null ? metals[it.preciousMetalId].mintage : ''}"
+                                             th:data-imported-at="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].importedAt != null ? metals[it.preciousMetalId].importedAt : ''}"
+                                             th:data-collector-search-term="${metals != null and metals[it.preciousMetalId] != null and metals[it.preciousMetalId].collectorSearchTerm != null ? metals[it.preciousMetalId].collectorSearchTerm : ''}"
+                                             th:data-search-terms="${metals != null and metals[it.preciousMetalId] != null ? metals[it.preciousMetalId].searchTerms : ''}"
+                                             title="Bearbeiten">&#9998;</button>
+                                     <button type="button"
+                                             class="btn btn-outline-danger btn-sm delete-metal-btn"
+                                             th:attr="data-id=${it.preciousMetalId}, data-name=${it.name}"
+                                             title="Eintrag löschen">&#x2715;</button>
+                                 </td>
                             </tr>
                             </tbody>
                         </table>
