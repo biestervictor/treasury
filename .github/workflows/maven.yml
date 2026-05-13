@@ -122,7 +122,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
-          BUILD_TIME="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          BUILD_TIME="$(TZ=Europe/Berlin date '+%d.%m.%Y %H:%M')"
           echo "Updating image tag to ${{ github.sha }} and appVersion to ${VERSION}"
           sed -i "/^treasury:/,/^[^[:space:]]/{s|^    tag: .*|    tag: \"${{ github.sha }}\"|}" helmcharts/values.yaml
           # build.version und build.time aktualisieren
